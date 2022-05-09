@@ -34,6 +34,10 @@ workflows:
           filters:
             branches:
               only: main
+          context:
+            - CLI_CTC
+            - AWS
+            - release
       - release-management/test-nut:
           matrix:
             parameters:

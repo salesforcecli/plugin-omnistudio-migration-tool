@@ -38,38 +38,38 @@ workflows:
             - CLI_CTC
             - AWS
             - release
-      - release-management/test-nut:
-          matrix:
-            parameters:
-              os:
-                - linux
-                - windows
-              sfdx_version:
-                - latest
-              node_version:
-                - latest
-          requires:
-            - release-management/test-package
+      # - release-management/test-nut:
+      #     matrix:
+      #       parameters:
+      #         os:
+      #           - linux
+      #           - windows
+      #         sfdx_version:
+      #           - latest
+      #         node_version:
+      #           - latest
+      #     requires:
+      #       - release-management/test-package
   test-ts-update:
     when:
       equal: [test-ts-update, << pipeline.parameters.workflow >>]
     jobs:
       - release-management/test-ts-update
-  just-nuts:
-    when:
-      equal: [just-nuts, << pipeline.parameters.workflow >>]
-    jobs:
-      - release-management/test-nut:
-          name: just-nuts-<< matrix.os >>
-          sfdx_version: << pipeline.parameters.sfdx_version >>
-          sfdx_executable_path: sfdx
-          repo_tag: << pipeline.parameters.repo_tag >>
-          matrix:
-            parameters:
-              os:
-                - linux
-                - windows
-          npm_module_name: << pipeline.parameters.npm_module_name >>
+  # just-nuts:
+  #   when:
+  #     equal: [just-nuts, << pipeline.parameters.workflow >>]
+  #   jobs:
+  #     - release-management/test-nut:
+  #         name: just-nuts-<< matrix.os >>
+  #         sfdx_version: << pipeline.parameters.sfdx_version >>
+  #         sfdx_executable_path: sfdx
+  #         repo_tag: << pipeline.parameters.repo_tag >>
+  #         matrix:
+  #           parameters:
+  #             os:
+  #               - linux
+  #               - windows
+  #         npm_module_name: << pipeline.parameters.npm_module_name >>
   dependabot-automerge:
     when:
       equal: [dependabot-automerge, << pipeline.parameters.workflow >>]

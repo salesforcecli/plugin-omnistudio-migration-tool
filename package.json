@@ -1,5 +1,5 @@
 {
-  "name": "@salesforce/plugin-template",
+  "name": "@salesforce/plugin-omnistudio-migration-tool",
   "description": "A template repository for sfdx plugins",
   "version": "1.0.0",
   "author": "Salesforce",
@@ -56,7 +56,7 @@
     "/messages",
     "/oclif.manifest.json"
   ],
-  "homepage": "https://github.com/salesforcecli/plugin-template",
+  "homepage": "https://github.com/salesforcecli/plugin-omnistudio-migration-tool",
   "keywords": [
     "force",
     "salesforce",
@@ -79,7 +79,7 @@
       }
     }
   },
-  "repository": "salesforcecli/plugin-template",
+  "repository": "salesforcecli/plugin-omnistudio-migration-tool",
   "scripts": {
     "build": "sf-build",
     "clean": "sf-clean",

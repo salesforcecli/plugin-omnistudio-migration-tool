@@ -1,117 +1,28 @@
-### Use the [lerna template](https://github.com/salesforcecli/lerna-template) if you need a library and plugin
+OmniStudio Migration Tool
+=========================
 
-### This template is useful if the library is already in another repository or the plugin is a wrapper around an API.
+This repository contains the code required to enable the OmniStudio Migration Tool SFDX plugin.
 
-# plugin-&lt;REPLACE ME&gt;
+## Running SFDX plugin in developer mode
 
-[![NPM](https://img.shields.io/npm/v/@salesforce/plugin-omnistudio-migration-tool.svg?label=@salesforce/plugin-omnistudio-migration-tool)](https://www.npmjs.com/package/@salesforce/plugin-omnistudio-migration-tool) [![CircleCI](https://circleci.com/gh/salesforcecli/plugin-omnistudio-migration-tool/tree/main.svg?style=shield)](https://circleci.com/gh/salesforcecli/plugin-omnistudio-migration-tool/tree/main) [![Downloads/week](https://img.shields.io/npm/dw/@salesforce/plugin-omnistudio-migration-tool.svg)](https://npmjs.org/package/@salesforce/plugin-omnistudio-migration-tool) [![License](https://img.shields.io/badge/License-BSD%203--Clause-brightgreen.svg)](https://raw.githubusercontent.com/salesforcecli/plugin-omnistudio-migration-tool/main/LICENSE.txt)
-
-Change above to <REPLACE_ME> before finalizing
-
-&lt;REPLACE ME DESCRIPTION START&gt;
-
-This repository provides a template for creating a plugin for the Salesforce CLI. To convert this template to a working plugin:
-
-1. Clone this repo
-2. Delete the .git folder
-3. Replace filler values
-   a) Every instance of `<REPLACE_ME>` can be directly substitued for the name of the new plugin. However beware, things like github paths are for the salesforcecli Github organization
-   b) Search for case-matching `REPLACE` to find other filler values, such as for the plugin description
-4. Use `git init` to set up the desired git information
-5. Follow the getting started steps below until the `sfdx hello:org` commmand is functioning
-
-&lt;REPLACE ME DESCRIPTION END&gt;
-
-## Learn about the plugin-omnistudio-migration-tool
-
-Salesforce CLI plugins are based on the [oclif plugin framework](<(https://oclif.io/docs/introduction.html)>). Read the [plugin developer guide](https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_plugins.meta/sfdx_cli_plugins/cli_plugins_architecture_sf_cli.htm) to learn about Salesforce CLI plugin development.
-
-This repository contains a lot of additional scripts and tools to help with general Salesforce node development and enforce coding standards. You should familiarize yourself with some of the [node developer packages](https://github.com/forcedotcom/sfdx-dev-packages/) used by Salesforce. There is also a default circleci config using the [release management orb](https://github.com/forcedotcom/npm-release-management-orb) standards.
-
-Additionally, there are some additional tests that the Salesforce CLI will enforce if this plugin is ever bundled with the CLI. These test are included by default under the `posttest` script and it is recommended to keep these tests active in your plugin, regardless if you plan to have it bundled.
-
-# Everything past here is only a suggestion as to what should be in your specific plugin's description
-
-This plugin is bundled with the [Salesforce CLI](https://developer.salesforce.com/tools/sfdxcli). For more information on the CLI, read the [getting started guide](https://developer.salesforce.com/docs/atlas.en-us.sfdx_setup.meta/sfdx_setup/sfdx_setup_intro.htm).
-
-We always recommend using the latest version of these commands bundled with the CLI, however, you can install a specific version or tag if needed.
-
-## Install
-
-```bash
-sfdx plugins:install <REPLACE_ME>@x.y.z
+1. Install SFDX cli using the official documentation located [here](https://developer.salesforce.com/docs/atlas.en-us.sfdx_setup.meta/sfdx_setup/sfdx_setup_install_cli.htm).
+2. Authenticate your SFDX cli into the org you are going to use for development. You can follow authentication steps [here](https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_auth_web.htm).
+3. Clone this repository into your local machine.
+4. Open the migration tool code folder in VSCode or your prefered editor.
+5. In a new command line tool, run the following command: 
+```
+bin/run omnistudio:migration:migrate -u agarcia-vertical238@na46.salesforce.com --namespace=agarciana46_238 --json
 ```
 
-## Issues
-
-Please report any issues at https://github.com/forcedotcom/cli/issues
-
-## Contributing
-
-1. Please read our [Code of Conduct](CODE_OF_CONDUCT.md)
-2. Create a new issue before starting your project so that we can keep track of
-   what you are trying to add/fix. That way, we can also offer suggestions or
-   let you know if there is already an effort in progress.
-3. Fork this repository.
-4. [Build the plugin locally](#build)
-5. Create a _topic_ branch in your fork. Note, this step is recommended but technically not required if contributing using a fork.
-6. Edit the code in your fork.
-7. Write appropriate tests for your changes. Try to achieve at least 95% code coverage on any new code. No pull request will be accepted without unit tests.
-8. Sign CLA (see [CLA](#cla) below).
-9. Send us a pull request when you are done. We'll review your code, suggest any needed changes, and merge it in.
-
-### CLA
-
-External contributors will be required to sign a Contributor's License
-Agreement. You can do so by going to https://cla.salesforce.com/sign-cla.
-
-### Build
-
-To build the plugin locally, make sure to have yarn installed and run the following commands:
-
-```bash
-# Clone the repository
-git clone git@github.com:salesforcecli/plugin-<REPLACE_ME>
-
-# Install the dependencies and compile
-yarn install
-yarn build
-```
-
-To use your plugin, run using the local `./bin/run` or `./bin/run.cmd` file.
-
-```bash
-# Run using local run file.
-./bin/run <REPLACE_ME>
-```
-
-There should be no differences when running via the Salesforce CLI or using the local run file. However, it can be useful to link the plugin to do some additional testing or run your commands from anywhere on your machine.
-
-```bash
-# Link your plugin to the sfdx cli
-sfdx plugins:link .
-# To verify
-sfdx plugins
-```
-
-## Commands
-
-<!-- commands -->
-
-- [`sfdx hello:org [-n <string>] [-f] [-v <string>] [-u <string>] [--apiversion <string>] [--json] [--loglevel trace|debug|info|warn|error|fatal|TRACE|DEBUG|INFO|WARN|ERROR|FATAL]`](#sfdx-helloorg--n-string--f--v-string--u-string---apiversion-string---json---loglevel-tracedebuginfowarnerrorfataltracedebuginfowarnerrorfatal)
-
-## `sfdx hello:org [-n <string>] [-f] [-v <string>] [-u <string>] [--apiversion <string>] [--json] [--loglevel trace|debug|info|warn|error|fatal|TRACE|DEBUG|INFO|WARN|ERROR|FATAL]`
-
-print a greeting and your org IDs
+### Usage & parameters
 
 ```
 USAGE
-  $ sfdx hello:org [-n <string>] [-f] [-v <string>] [-u <string>] [--apiversion <string>] [--json] [--loglevel
+  $ sfdx omnistudio:migration:migrate [-n <string>] [-f] [-v <string>] [-u <string>] [--apiversion <string>] [--json] [--loglevel 
   trace|debug|info|warn|error|fatal|TRACE|DEBUG|INFO|WARN|ERROR|FATAL]
 
 OPTIONS
-  -f, --force                                                                       example boolean flag
-  -n, --name=name                                                                   name to print
+  -n, --namespace=namespace                                                         the namespace of the vertical package
 
   -u, --targetusername=targetusername                                               username or alias for the target
                                                                                     org; overrides default target org
@@ -127,13 +38,46 @@ OPTIONS
   --loglevel=(trace|debug|info|warn|error|fatal|TRACE|DEBUG|INFO|WARN|ERROR|FATAL)  [default: warn] logging level for
                                                                                     this command invocation
 
-EXAMPLES
-  $ sfdx hello:org --targetusername myOrg@example.com --targetdevhubusername devhub@org.com
-     Hello world! This is org: MyOrg and I will be around until Tue Mar 20 2018!
-     My hub org id is: 00Dxx000000001234
-
-  $ sfdx hello:org --name myname --targetusername myOrg@example.com
-     Hello myname! This is org: MyOrg and I will be around until Tue Mar 20 2018!
 ```
 
+### Folder structure
+```
+- 
+  - .vscode                                             VSCode configuration folder
+  - bin                                                 Tools required to run in developer mode
+  - messages                                            JSON files with user messages used in the plugin
+  - src
+    - commands                                          SFDX plugin commands
+    - mappings                                          A list of mappings between vertical and standard objects
+    - migration                                         OmniStudio Migration Tool code
+    - utils                                             Utilities (network, debugging, logging, etc.)
+```
+
+
+
+_See code: [src/commands/hello/org.ts](https://github.com/agarcia-sf/omnistudio-migration-tool/blob/v0.0.0/src/commands/hello/org.ts)_
 <!-- commandsstop -->
+<!-- debugging-your-plugin -->
+# Debugging your plugin
+We recommend using the Visual Studio Code (VS Code) IDE for your plugin development. Included in the `.vscode` directory of this plugin is a `launch.json` config file, which allows you to attach a debugger to the node process when running your commands.
+
+To debug the `hello:org` command: 
+1. Start the inspector
+  
+If you linked your plugin to the sfdx cli, call your command with the `dev-suspend` switch: 
+```sh-session
+$ sfdx hello:org -u myOrg@example.com --dev-suspend
+```
+  
+Alternatively, to call your command using the `bin/run` script, set the `NODE_OPTIONS` environment variable to `--inspect-brk` when starting the debugger:
+```sh-session
+$ NODE_OPTIONS=--inspect-brk bin/run hello:org -u myOrg@example.com
+```
+
+2. Set some breakpoints in your command code
+3. Click on the Debug icon in the Activity Bar on the side of VS Code to open up the Debug view.
+4. In the upper left hand corner of VS Code, verify that the "Attach to Remote" launch configuration has been chosen.
+5. Hit the green play button to the left of the "Attach to Remote" launch configuration window. The debugger should now be suspended on the first line of the program. 
+6. Hit the green play button at the top middle of VS Code (this play button will be to the right of the play button that you clicked in step #5).
+<br><img src=".images/vscodeScreenshot.png" width="480" height="278"><br>
+Congrats, you are debugging!

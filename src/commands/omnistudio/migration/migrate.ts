@@ -35,7 +35,6 @@ export default class Migrate extends OmniStudioBaseCommand {
   public static args = [{ name: 'file' }];
 
   protected static flagsConfig = {
-    // flag with a value (-n, --name=VALUE)
     namespace: flags.string({
       char: 'n',
       description: messages.getMessage('namespaceFlagDescription'),

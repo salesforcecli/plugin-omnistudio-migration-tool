@@ -1,18 +1,12 @@
-/*
- * Copyright (c) 2021, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
- */
 import { expect, test } from '@salesforce/command/lib/test';
 import { ensureJsonMap, ensureString } from '@salesforce/ts-types';
 
-describe('hello:org', () => {
+describe('omnistudio:migration:info', () => {
   test
     .withOrg({ username: 'test@org.com' }, true)
     .withConnectionRequest((request) => {
       const requestMap = ensureJsonMap(request);
-      if (ensureString(requestMap.url).includes('Organization')) {
+      if (/Organization/.exec(ensureString(requestMap.url))) {
         return Promise.resolve({
           records: [
             {
@@ -25,8 +19,8 @@ describe('hello:org', () => {
       return Promise.resolve({ records: [] });
     })
     .stdout()
-    .command(['hello:org', '--targetusername', 'test@org.com'])
-    .it('runs hello:org --targetusername test@org.com', (ctx) => {
+    .command(['omnistudio:migration:info', '--targetusername', 'test@org.com'])
+    .it('runs omnistudio:migration:info --targetusername test@org.com', (ctx) => {
       expect(ctx.stdout).to.contain(
         'Hello world! This is org: Super Awesome Org and I will be around until Tue Mar 20 2018!'
       );

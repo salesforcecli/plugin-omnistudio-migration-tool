@@ -1,10 +1,9 @@
 /*
- * Copyright (c) 2021, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-
 import * as os from 'os';
 import { flags, SfdxCommand } from '@salesforce/command';
 import { Messages, SfdxError } from '@salesforce/core';
@@ -15,8 +14,7 @@ Messages.importMessagesDirectory(__dirname);
 
 // Load the specific messages for this file. Messages from @salesforce/command, @salesforce/core,
 // or any library that is using the messages framework can also be loaded this way.
-// TODO: replace the package name with your new package's name
-const messages = Messages.loadMessages('@salesforce/plugin-omnistudio-migration-tool', 'org');
+const messages = Messages.loadMessages('@salesforce/plugin-omnistudio-migration-tool', 'info');
 
 export default class Org extends SfdxCommand {
   public static description = messages.getMessage('commandDescription');
@@ -29,11 +27,7 @@ export default class Org extends SfdxCommand {
     // flag with a value (-n, --name=VALUE)
     name: flags.string({
       char: 'n',
-      description: messages.getMessage('flags.name'),
-    }),
-    force: flags.boolean({
-      char: 'f',
-      description: messages.getMessage('flags.force'),
+      description: messages.getMessage('nameFlagDescription'),
     }),
   };
 
@@ -47,7 +41,7 @@ export default class Org extends SfdxCommand {
   protected static requiresProject = false;
 
   public async run(): Promise<AnyJson> {
-    const name = (this.flags.name as string) || 'world';
+    const name = (this.flags.name || 'world') as string;
 
     // this.org is guaranteed because requiresUsername=true, as opposed to supportsUsername
     const conn = this.org.getConnection();
@@ -69,7 +63,7 @@ export default class Org extends SfdxCommand {
     }
 
     // Organization always only returns one result
-    const orgName: string = result.records[0].Name;
+    const orgName = result.records[0].Name;
     const trialExpirationDate = result.records[0].TrialExpirationDate;
 
     let outputString = `Hello ${name}! This is org: ${orgName}`;
@@ -85,11 +79,7 @@ export default class Org extends SfdxCommand {
       this.ux.log(`My hub org id is: ${hubOrgId}`);
     }
 
-    if (this.flags.force && this.args.file) {
-      this.ux.log(`You input --force and a file: ${this.args.file as string}`);
-    }
-
     // Return an object to be displayed with --json
-    return { orgId: this.org?.getOrgId(), outputString };
+    return { orgId: this.org.getOrgId(), outputString };
   }
 }

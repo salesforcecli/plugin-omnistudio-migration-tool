@@ -71,7 +71,7 @@
       "omnistudio": {
         "subtopics": {
           "migration": {
-            "description": "test"
+            "description": "Migration commands for OmniStudio"
           }
         },
         "description": "Useful commands for OmniStudio."

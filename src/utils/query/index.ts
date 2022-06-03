@@ -82,9 +82,49 @@ export class QueryTools {
         return allrecords;
     }
 
+    public static async query(connection: Connection, objectName: string, fields: string[], filters?: Map<string, any>, orderBy?: Array<SortField>) {
+        let query = 'SELECT ' + fields.join(', ') + ' FROM ' + objectName;
+
+        const andFilters = [];
+        if (filters && filters.size > 0) {
+            for (let filter of filters.keys()) {
+                andFilters.push(`${filter} = ${QueryTools.getFilterValue(filters.get(filter))}`);
+            }
+
+            query += ' WHERE ' + andFilters.join(' AND ');
+        }
+
+        if (orderBy && orderBy.length > 0) {
+            const sortings = [];
+            for (let ob of orderBy) {
+                sortings.push(ob.field + ' ' + ob.direction);
+            }
+            query += ' ORDER BY ' + sortings.join(', ');
+        }
+
+        // Execute the query
+        let results = await connection.query<AnyJson>(query);
+
+        let allrecords = [];
+        if (results && results.totalSize > 0) {
+            allrecords = results.records;
+
+            // Load more pages
+            while (results.nextRecordsUrl) {
+                results = await connection.queryMore<AnyJson>(results.nextRecordsUrl);
+                results.records.forEach(row => {
+                    allrecords.push(row);
+                });
+            }
+        }
+
+        return allrecords;
+    }
+
     public static async queryIds(connection: Connection, objectName: string, filters?: Map<string, any>): Promise<string[]> {
         let allrecords = [];
         const andFilters = [];
+        const sorts = [];
 
         let query = `SELECT ID FROM ${objectName}`;
 
@@ -130,4 +170,13 @@ export class QueryTools {
                 return `'${val}'`;
         }
     }
+}
+
+export enum SortDirection {
+    ASC = 'asc',
+    DESC = 'desc'
+}
+export interface SortField {
+    field: string;
+    direction: SortDirection
 }

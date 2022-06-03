@@ -25,6 +25,24 @@ class NetUtils {
         return results;
     }
 
+    public static async createOne(connection: Connection, objectName: string, referenceId: string, data: any): Promise<UploadRecordResult> {
+
+        try {
+            const url = 'sobjects/' + objectName;
+
+            const response = await this.request<UploadRecordResult>(connection, url, data, RequestMethod.POST, false);
+            return { ...response, referenceId, hasErrors: response.errors.length > 0 };
+
+        } catch (err) {
+            return {
+                referenceId,
+                hasErrors: true,
+                success: false,
+                errors: err
+            };
+        }
+    }
+
     public static async update(connection: Connection, data: any[]): Promise<Map<string, UploadRecordResult>> {
         // Metadata API only accepts 200 records per request
         const chunks = chunk(data, NetUtils.CHUNK_SIZE),
@@ -59,16 +77,15 @@ class NetUtils {
         return true;
     }
 
-    public static async request<TResultType>(connection: Connection, url: string, data: any, method: RequestMethod): Promise<TResultType> {
+    public static async request<TResultType>(connection: Connection, url: string, data: any, method: RequestMethod, isComposite = true): Promise<TResultType> {
 
+        const body = isComposite ? { records: data } : data;
         const apiVersion = connection.getApiVersion();
         const metadataApiUrl = `/services/data/v${apiVersion}/${url}`;
         const request = {
             method: method,
             url: metadataApiUrl,
-            body: JSON.stringify({
-                records: data
-            })
+            body: JSON.stringify(body)
         }
 
         const response = await connection.request<TResultType>(request);

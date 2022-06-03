@@ -70,9 +70,9 @@ export default class Migrate extends OmniStudioBaseCommand {
       await namecheck.checkName('OmniScript__c');
 
       migrationObjects = [
-        new DataRaptorMigrationTool(namespace, conn, this.logger, messages),
         new CardMigrationTool(namespace, conn, this.logger, messages),
-        new OmniScriptMigrationTool(OmniScriptExportType.All, namespace, conn, this.logger, messages)]
+        new OmniScriptMigrationTool(OmniScriptExportType.All, namespace, conn, this.logger, messages),
+        new DataRaptorMigrationTool(namespace, conn, this.logger, messages)]
     } else {
       switch (migrateOnly) {
         case 'os':
@@ -99,25 +99,41 @@ export default class Migrate extends OmniStudioBaseCommand {
     // Migrate individual objects
     const debugTimer = DebugTimer.getInstance();
     let objectMigrationResults: MigratedObject[] = [];
+
+    // We need to truncate the standard objects first
+    let allTruncateComplete = true;
     for (let cls of migrationObjects) {
       try {
-
+        debugTimer.lap('Truncating: ' + cls.getName());
         await cls.truncate();
-
-        debugTimer.lap('Migrating: ' + cls.getName());
-        const results = await cls.migrate();
-
-        objectMigrationResults = objectMigrationResults.concat(results.map(r => {
-          return {
-            name: r.name,
-            data: this.mergeRecordAndUploadResults(r, cls),
-          }
-        }));
       } catch (ex: any) {
+        allTruncateComplete = false;
         objectMigrationResults.push({
           name: cls.getName(),
           errors: [ex.message]
         });
+      }
+    }
+
+    if (allTruncateComplete) {
+      for (let cls of migrationObjects) {
+        try {
+          debugTimer.lap('Migrating: ' + cls.getName());
+          const results = await cls.migrate();
+
+          objectMigrationResults = objectMigrationResults.concat(results.map(r => {
+            return {
+              name: r.name,
+              data: this.mergeRecordAndUploadResults(r, cls),
+            }
+          }));
+        } catch (ex: any) {
+          console.log(JSON.stringify(ex));
+          objectMigrationResults.push({
+            name: cls.getName(),
+            errors: [ex.message]
+          });
+        }
       }
     }
 
@@ -130,7 +146,7 @@ export default class Migrate extends OmniStudioBaseCommand {
     this.logger.debug(timer);
 
     // Return results needed for --json flag
-    return { objectMigrationResults };
+    return { objectMigrationResults, timer };
   }
 
   private mergeRecordAndUploadResults(migrationResults: MigrationResult, migrationTool: MigrationTool): MigratedRecordInfo[] {

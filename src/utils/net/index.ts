@@ -13,7 +13,7 @@ class NetUtils {
             results = new Map<string, UploadRecordResult>();
 
         for (let curr of chunks) {
-            const response = await this.request<TreeResult>(connection, `composite/tree/${objectName}`, curr, RequestMethod.POST);
+            const response = await this.request<TreeResult>(connection, `composite/tree/${objectName}`, { records: curr }, RequestMethod.POST);
             response.results.forEach(result => {
                 results.set(result.referenceId, {
                     ...result,
@@ -30,7 +30,7 @@ class NetUtils {
         try {
             const url = 'sobjects/' + objectName;
 
-            const response = await this.request<UploadRecordResult>(connection, url, data, RequestMethod.POST, false);
+            const response = await this.request<UploadRecordResult>(connection, url, data, RequestMethod.POST);
             return { ...response, referenceId, hasErrors: response.errors.length > 0 };
 
         } catch (err) {
@@ -49,7 +49,7 @@ class NetUtils {
             results = new Map<string, UploadRecordResult>();
 
         for (let curr of chunks) {
-            const response = await this.request<UploadRecordResult[]>(connection, 'composite/sobjects', curr, RequestMethod.PATCH);
+            const response = await this.request<UploadRecordResult[]>(connection, 'composite/sobjects', { records: curr }, RequestMethod.PATCH);
 
             response.forEach(result => {
                 results.set(result.referenceId || result.id, {
@@ -77,15 +77,14 @@ class NetUtils {
         return true;
     }
 
-    public static async request<TResultType>(connection: Connection, url: string, data: any, method: RequestMethod, isComposite = true): Promise<TResultType> {
+    public static async request<TResultType>(connection: Connection, url: string, data: any, method: RequestMethod): Promise<TResultType> {
 
-        const body = isComposite ? { records: data } : data;
         const apiVersion = connection.getApiVersion();
         const metadataApiUrl = `/services/data/v${apiVersion}/${url}`;
         const request = {
             method: method,
             url: metadataApiUrl,
-            body: JSON.stringify(body)
+            body: JSON.stringify(data)
         }
 
         const response = await connection.request<TResultType>(request);

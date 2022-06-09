@@ -102,7 +102,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
 			await NetUtils.request(this.connection, `sobjects/${OmniScriptMigrationTool.OMNIPROCESS_NAME}/${id}`, {
 				IsActive: false
-			}, RequestMethod.PATCH, false);
+			}, RequestMethod.PATCH);
 		}
 
 		// Sleep 5 seconds, let's wait for all row locks to be released. While this takes less than a second, there has been

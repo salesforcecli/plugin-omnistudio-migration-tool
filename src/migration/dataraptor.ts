@@ -45,6 +45,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 	private async MigrateDataRaptorData(): Promise<MigrationResult> {
 		let originalDrRecords = new Map<string, any>();
 		let drUploadInfo = new Map<string, UploadRecordResult>();
+		const duplicatedNames = new Set<string>();
 
 		// Query all dataraptors and the respective items
 		DebugTimer.getInstance().lap('Query data raptors');
@@ -60,11 +61,6 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 			const recordId = dr['Id'];
 			const name = dr['Name'];
 
-			if (!this.validMetaDataName(name)) {
-				this.setRecordErrors(dr, this.messages.getMessage('invalidDataRaptorName'));
-				originalDrRecords.set(recordId, dr);
-				continue;
-			}
 			const typeKey = dr[this.namespacePrefix + 'Type__c'];
 			const outputTypeKey = dr[this.namespacePrefix + 'OutputType__c'];
 			const targetOutputDocumentIdentifier = dr[this.namespacePrefix + 'TargetOutDocuSignTemplateId__c'];
@@ -108,6 +104,14 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 
 			// Transform the data raptor
 			const transformedDataRaptor = this.mapDataRaptorRecord(dr);
+
+			// Verify duplicated names before trying to submitt
+			if (duplicatedNames.has(transformedDataRaptor['Name'])) {
+				this.setRecordErrors(dr, this.messages.getMessage('duplicatedDrName'));
+				originalDrRecords.set(recordId, dr);
+				continue;
+			}
+			duplicatedNames.add(transformedDataRaptor['Name']);
 
 			// Create a map of the original records
 			originalDrRecords.set(recordId, dr);
@@ -154,8 +158,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 		//Query all Elements
 		const mappedRecords = [],
 			originalRecords = new Map<string, AnyJson>();
-		// Start transforming each dataRaptor
-		DebugTimer.getInstance().lap('Transform items');
+
 		dataRaptorItems.forEach(drItem => {
 
 			const recordId = drItem['Id'];
@@ -192,6 +195,8 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 				mappedObject[DRBundleMappings[cleanFieldName]] = dataRaptorRecord[recordField];
 			}
 		});
+
+		mappedObject['Name'] = this.cleanName(mappedObject['Name']);
 
 		// BATCH framework requires that each record has an "attributes" property
 		mappedObject['attributes'] = {

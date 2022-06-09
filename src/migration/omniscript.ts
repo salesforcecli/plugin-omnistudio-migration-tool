@@ -147,7 +147,6 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 			}
 
 			// Get All elements for each OmniScript__c record(i.e IP/OS)
-			DebugTimer.getInstance().lap('Query Elements');
 			const elements = await this.getAllElementsForOmniScript(originalRecords);
 
 			if (!this.areValidElements(elements)) {
@@ -157,7 +156,6 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 			}
 
 			// Perform the transformation for OS/IP Parent Record from OmniScript__c
-			DebugTimer.getInstance().lap('Transform items');
 			mappedRecords.push(this.mapOmniScriptRecord(omniscript));
 
 			// Save the OmniScript__c records to Standard BPO i.e OmniProcess

@@ -66,8 +66,8 @@ export default class Migrate extends OmniStudioBaseCommand {
     if (!migrateOnly) {
 
       await namecheck.checkName('DRBundle__c');
-      await namecheck.checkName('VlocityCard__c');
       await namecheck.checkName('OmniScript__c');
+      await namecheck.checkName('VlocityCard__c');
 
       migrationObjects = [
         new CardMigrationTool(namespace, conn, this.logger, messages),

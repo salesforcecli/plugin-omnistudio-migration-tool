@@ -80,33 +80,113 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 	}
 
 	// Upload All the VlocityCard__c records to OmniUiCard
-	private async uploadAllCards(cards: any): Promise<Map<string, UploadRecordResult>> {
+	private async uploadAllCards(cards: any[]): Promise<Map<string, UploadRecordResult>> {
 
-		var cardsUploadInfo = new Map<string, UploadRecordResult>();
-		let exit = false;
-		// Start transforming each Card and upload in different levels
-		// to manage parent-children
-		do {
-			let tempCards = [];
-			for (let card of cards) {
-				let cardId = card['Id'];
-				let cardParentId = card[`${this.namespacePrefix}ParentID__c`];
-				if (!cardsUploadInfo.has(cardId) && (!cardParentId || (cardParentId && cardsUploadInfo.has(cardParentId)))) {
-					tempCards.push(card);
+		const cardsUploadInfo = new Map<string, UploadRecordResult>();
+		const originalRecords = new Map<string, any>();
+		const uniqueNames = new Set<string>();
+
+		for (let card of cards) {
+			await this.uploadCard(cards, card, cardsUploadInfo, originalRecords, uniqueNames);
+		}
+
+		return cardsUploadInfo;
+	}
+
+	private async uploadCard(allCards: any[], card: AnyJson, cardsUploadInfo: Map<string, UploadRecordResult>, originalRecords: Map<string, any>, uniqueNames: Set<string>) {
+
+		const recordId = card['Id'];
+
+		// If we already uploaded this card, skip
+		if (cardsUploadInfo.has(recordId)) {
+			return;
+		}
+
+		const childCards = this.getChildCards(card);
+		if (childCards.length > 0) {
+			for (let childCardName of childCards) {
+				// Upload child cards
+				const childCard = allCards.find(c => c['Name'] === childCardName);
+				if (childCard) {
+					await this.uploadCard(allCards, childCard, cardsUploadInfo, originalRecords, uniqueNames);
 				}
 			}
 
-			// Exit when last child has been uploaded and no more heierarchy left
-			if (tempCards.length === 0) {
-				exit = true;
-			} else {
-				let cardsTransformedData = await this.prepareCardData(tempCards, cardsUploadInfo);
-				let cardsUploadResponse = await this.uploadTransformedData(CardMigrationTool.OMNIUICARD_NAME, cardsTransformedData);
-				cardsUploadInfo = new Map([...Array.from(cardsUploadInfo.entries()), ...Array.from(cardsUploadResponse.entries())]);
-			}
-		} while (exit === false);
+			this.updateChildCards(card);
+		}
 
-		return cardsUploadInfo;
+		// Perform the transformation
+		const transformedCard = this.mapVlocityCardRecord(card, cardsUploadInfo);
+
+		// Verify duplicated names
+		const transformedCardName = transformedCard['Name'];
+		const transformedCardAuthorName = transformedCard['AuthorName'];
+		if (uniqueNames.has(transformedCardName)) {
+			// cardsUploadInfo.set(recordId, {
+			// 	success: false,
+			// 	errors: [this.messages.getMessage('duplicatedCardName')],
+			// 	referenceId: recordId,
+			// 	hasErrors: true
+			// });
+			this.setRecordErrors(card, this.messages.getMessage('duplicatedCardName'));
+			originalRecords.set(recordId, card);
+			return;
+		}
+
+		// Save the name for duplicated names check
+		uniqueNames.add(transformedCardName);
+
+		// Create a map of the original records
+		originalRecords.set(recordId, card);
+
+		// Create card
+		const uploadResult = await NetUtils.createOne(this.connection, CardMigrationTool.OMNIUICARD_NAME, recordId, transformedCard);
+
+		if (uploadResult) {
+
+			// Fix errors
+			if (!uploadResult.success) {
+				uploadResult.errors = Array.isArray(uploadResult.errors) ? uploadResult.errors : [uploadResult.errors];
+			}
+
+			// If name has been changed, add a warning message
+			if (transformedCardName !== card[this.namespacePrefix + 'Name']) {
+				uploadResult.errors.unshift('WARNING: Card name has been modified to fit naming rules: ' + transformedCardName);
+			}
+			if (transformedCardAuthorName !== card[this.namespacePrefix + 'Author__c']) {
+				uploadResult.errors.unshift('WARNING: Card author name has been modified to fit naming rules: ' + transformedCardAuthorName);
+			}
+
+			cardsUploadInfo.set(recordId, uploadResult);
+		}
+	}
+
+	private getChildCards(card: AnyJson): string[] {
+		let childs = [];
+		const definition = JSON.parse(card[this.namespacePrefix + 'Definition__c']);
+
+		for (let state of (definition.states || [])) {
+			if (state.childCards && Array.isArray(state.childCards)) {
+				childs = childs.concat(state.childCards);
+
+				// Modify the name of the child cards
+				state.childCards = state.childCards.map(c => this.cleanName(c));
+			}
+		}
+
+		return childs;
+	}
+
+	private updateChildCards(card: AnyJson): void {
+		const definition = JSON.parse(card[this.namespacePrefix + 'Definition__c']);
+
+		for (let state of (definition.states || [])) {
+			if (state.childCards && Array.isArray(state.childCards)) {
+				state.childCards = state.childCards.map(c => this.cleanName(c));
+			}
+		}
+
+		card[this.namespacePrefix + 'Definition__c'] = JSON.stringify(definition);
 	}
 
 	private async prepareCardData(cards: AnyJson[], cardsUploadInfo: Map<string, UploadRecordResult>): Promise<TransformData> {
@@ -114,7 +194,6 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 			originalRecords = new Map<string, AnyJson>();
 
 		// Start transforming each Card
-		DebugTimer.getInstance().lap('Transform cards');
 		for (let card of cards) {
 			const recordId = card['Id'];
 			// Perform the transformation
@@ -124,6 +203,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 		};
 		return { originalRecords, mappedRecords };
 	}
+
 
 	// Maps an indivitdual VlocityCard__c record to an OmniUiCard record.
 	private mapVlocityCardRecord(cardRecord: AnyJson, cardsUploadInfo: Map<string, UploadRecordResult>): AnyJson {
@@ -140,7 +220,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 
 			if (CardMappings.hasOwnProperty(cleanFieldName) && cleanFieldName !== 'IsChildCard__c') {
 				mappedObject[CardMappings[cleanFieldName]] = cardRecord[recordField];
-				
+
 				// Transform ParentId__c to ClonedFromOmniUiCardKey field from uploaded response map
 				if (cleanFieldName === "ParentID__c" && cardsUploadInfo.has(cardRecord[`${this.namespacePrefix}ParentID__c`])) {
 					mappedObject[CardMappings[cleanFieldName]] = cardsUploadInfo.get(cardRecord[`${this.namespacePrefix}ParentID__c`]).id;
@@ -159,6 +239,10 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 				}
 			}
 		});
+
+		// Clean the name
+		mappedObject['Name'] = this.cleanName(mappedObject['Name']);
+		mappedObject['AuthorName'] = this.cleanName(mappedObject['AuthorName']);
 
 		mappedObject['attributes'] = {
 			type: CardMigrationTool.OMNIUICARD_NAME,

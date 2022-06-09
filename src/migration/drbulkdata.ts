@@ -27,7 +27,7 @@ export class DRBulkDataMigrationTool extends BaseMigrationTool implements Migrat
 			target: DRBulkDataMigrationTool.OMNIPROCESSTRANSIENTDATA_NAME,
 		}];
 	}
-	
+
 	async truncate(): Promise<void> {
 		return super.truncate(DRBulkDataMigrationTool.OMNIPROCESSTRANSIENTDATA_NAME);
 	}
@@ -52,11 +52,9 @@ export class DRBulkDataMigrationTool extends BaseMigrationTool implements Migrat
 			nsPrefix = this.namespace ? this.namespace + '__' : '';
 
 		// Query all DRBulkData and the respective items
-		DebugTimer.getInstance().lap('Query data raptors');
 		const drbulkdata = await QueryTools.queryAll(this.connection, this.namespace, DRBulkDataMigrationTool.DRBULKDATA_NAME, this.getDRBulkDataFields());
 
 		// Start transforming each DRBulkData
-		DebugTimer.getInstance().lap('Transform items');
 		for (let drbd of drbulkdata) {
 
 			// Skip if Type is "Migration"

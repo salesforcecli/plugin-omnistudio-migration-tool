@@ -1,11 +1,12 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-/* eslint-disable */
-
 import * as os from 'os';
 import { flags } from '@salesforce/command';
 import { Messages } from '@salesforce/core';
@@ -27,7 +28,6 @@ Messages.importMessagesDirectory(__dirname);
 const messages = Messages.loadMessages('@salesforce/plugin-omnistudio-migration-tool', 'migrate');
 
 export default class Migrate extends OmniStudioBaseCommand {
-
   public static description = messages.getMessage('commandDescription');
 
   public static examples = messages.getMessage('examples').split(os.EOL);
@@ -41,15 +41,15 @@ export default class Migrate extends OmniStudioBaseCommand {
     }),
     only: flags.string({
       char: 'o',
-      description: messages.getMessage('onlyFlagDescription')
-    })
+      description: messages.getMessage('onlyFlagDescription'),
+    }),
   };
 
-
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public async run(): Promise<any> {
     const namespace = (this.flags.namespace || 'vlocity_ins') as string;
-    const apiVersion = (this.flags.apiversion || "55.0") as string;
-    const migrateOnly = (this.flags.only || "") as string;
+    const apiVersion = (this.flags.apiversion || '55.0') as string;
+    const migrateOnly = (this.flags.only || '') as string;
 
     // this.org is guaranteed because requiresUsername=true, as opposed to supportsUsername
     const conn = this.org.getConnection();
@@ -58,13 +58,11 @@ export default class Migrate extends OmniStudioBaseCommand {
     // Let's time every step
     DebugTimer.getInstance().start();
 
-
     const namecheck = new MetaDataObjNameCheck(namespace, conn, this.logger, messages);
 
     // Register the migration objects
     let migrationObjects: MigrationTool[] = [];
     if (!migrateOnly) {
-
       await namecheck.checkName('DRBundle__c');
       await namecheck.checkName('OmniScript__c');
       await namecheck.checkName('VlocityCard__c');
@@ -72,16 +70,21 @@ export default class Migrate extends OmniStudioBaseCommand {
       migrationObjects = [
         new CardMigrationTool(namespace, conn, this.logger, messages),
         new OmniScriptMigrationTool(OmniScriptExportType.All, namespace, conn, this.logger, messages),
-        new DataRaptorMigrationTool(namespace, conn, this.logger, messages)]
+        new DataRaptorMigrationTool(namespace, conn, this.logger, messages),
+      ];
     } else {
       switch (migrateOnly) {
         case 'os':
           await namecheck.checkName('OmniScript__c');
-          migrationObjects.push(new OmniScriptMigrationTool(OmniScriptExportType.OS, namespace, conn, this.logger, messages));
+          migrationObjects.push(
+            new OmniScriptMigrationTool(OmniScriptExportType.OS, namespace, conn, this.logger, messages)
+          );
           break;
         case 'ip':
           await namecheck.checkName('OmniScript__c');
-          migrationObjects.push(new OmniScriptMigrationTool(OmniScriptExportType.IP, namespace, conn, this.logger, messages));
+          migrationObjects.push(
+            new OmniScriptMigrationTool(OmniScriptExportType.IP, namespace, conn, this.logger, messages)
+          );
           break;
         case 'fc':
           await namecheck.checkName('VlocityCard__c');
@@ -102,7 +105,7 @@ export default class Migrate extends OmniStudioBaseCommand {
 
     // We need to truncate the standard objects first
     let allTruncateComplete = true;
-    for (let cls of migrationObjects) {
+    for (const cls of migrationObjects) {
       try {
         debugTimer.lap('Truncating: ' + cls.getName());
         await cls.truncate();
@@ -110,28 +113,30 @@ export default class Migrate extends OmniStudioBaseCommand {
         allTruncateComplete = false;
         objectMigrationResults.push({
           name: cls.getName(),
-          errors: [ex.message]
+          errors: [ex.message],
         });
       }
     }
 
     if (allTruncateComplete) {
-      for (let cls of migrationObjects) {
+      for (const cls of migrationObjects) {
         try {
           debugTimer.lap('Migrating: ' + cls.getName());
           const results = await cls.migrate();
 
-          objectMigrationResults = objectMigrationResults.concat(results.map(r => {
-            return {
-              name: r.name,
-              data: this.mergeRecordAndUploadResults(r, cls),
-            }
-          }));
+          objectMigrationResults = objectMigrationResults.concat(
+            results.map((r) => {
+              return {
+                name: r.name,
+                data: this.mergeRecordAndUploadResults(r, cls),
+              };
+            })
+          );
         } catch (ex: any) {
-          console.log(JSON.stringify(ex));
+          this.logger.error(JSON.stringify(ex));
           objectMigrationResults.push({
             name: cls.getName(),
-            errors: [ex.message]
+            errors: [ex.message],
           });
         }
       }
@@ -146,25 +151,26 @@ export default class Migrate extends OmniStudioBaseCommand {
     this.logger.debug(timer);
 
     // Return results needed for --json flag
-    return { objectMigrationResults, timer };
+    return { objectMigrationResults };
   }
 
-  private mergeRecordAndUploadResults(migrationResults: MigrationResult, migrationTool: MigrationTool): MigratedRecordInfo[] {
+  private mergeRecordAndUploadResults(
+    migrationResults: MigrationResult,
+    migrationTool: MigrationTool
+  ): MigratedRecordInfo[] {
+    const mergedResults: MigratedRecordInfo[] = [];
 
-    let mergedResults = [];
-
-    for (let record of Array.from(migrationResults.records.values())) {
-
+    for (const record of Array.from(migrationResults.records.values())) {
       const obj = {
         id: record['Id'],
         name: migrationTool.getRecordName(record),
         status: 'Skipped',
         errors: record['errors'],
-        migratedId: undefined
-      }
+        migratedId: undefined,
+      };
 
       if (migrationResults.results.has(record['Id'])) {
-        let recordResults = migrationResults.results.get(record['Id']);
+        const recordResults = migrationResults.results.get(record['Id']);
         obj.status = !recordResults || recordResults.hasErrors ? 'Error' : 'Complete';
         obj.errors = obj.errors || recordResults.errors;
         obj.migratedId = recordResults.id;

@@ -2,7 +2,7 @@
 import { AnyJson } from '@salesforce/ts-types';
 
 import DRBulkDataMappings from '../mappings/DRBulkData';
-import { DebugTimer, QueryTools } from '../utils';
+import { QueryTools } from '../utils';
 import { BaseMigrationTool } from './base';
 import { MigrationResult, MigrationTool, ObjectMapping, TransformData } from './interfaces';
 

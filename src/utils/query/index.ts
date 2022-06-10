@@ -124,7 +124,6 @@ export class QueryTools {
     public static async queryIds(connection: Connection, objectName: string, filters?: Map<string, any>): Promise<string[]> {
         let allrecords = [];
         const andFilters = [];
-        const sorts = [];
 
         let query = `SELECT ID FROM ${objectName}`;
 

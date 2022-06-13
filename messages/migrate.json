@@ -16,5 +16,7 @@
   "couldNotTruncate": "Could not truncate {0}",
   "invalidNameTypeSubtypeOrLanguage": "Not a valid Name, Type, SubType or Language",
   "invalidOrRepeatingOmniscriptElementNames": "Invalid or Repeating Element Names for Same OmniScript",
-  "invalidDataRaptorName": "Invalid name, can not have special characters"
+  "invalidDataRaptorName": "Invalid name, can not have special characters",
+  "duplicatedCardName": "Duplicated card name",
+  "duplicatedDrName": "Duplicated data raptor name"
 }

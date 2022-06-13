@@ -13,7 +13,7 @@ class NetUtils {
             results = new Map<string, UploadRecordResult>();
 
         for (let curr of chunks) {
-            const response = await this.request<TreeResult>(connection, `composite/tree/${objectName}`, curr, RequestMethod.POST);
+            const response = await this.request<TreeResult>(connection, `composite/tree/${objectName}`, { records: curr }, RequestMethod.POST);
             response.results.forEach(result => {
                 results.set(result.referenceId, {
                     ...result,
@@ -25,13 +25,31 @@ class NetUtils {
         return results;
     }
 
+    public static async createOne(connection: Connection, objectName: string, referenceId: string, data: any): Promise<UploadRecordResult> {
+
+        try {
+            const url = 'sobjects/' + objectName;
+
+            const response = await this.request<UploadRecordResult>(connection, url, data, RequestMethod.POST);
+            return { ...response, referenceId, hasErrors: response.errors.length > 0 };
+
+        } catch (err) {
+            return {
+                referenceId,
+                hasErrors: true,
+                success: false,
+                errors: err
+            };
+        }
+    }
+
     public static async update(connection: Connection, data: any[]): Promise<Map<string, UploadRecordResult>> {
         // Metadata API only accepts 200 records per request
         const chunks = chunk(data, NetUtils.CHUNK_SIZE),
             results = new Map<string, UploadRecordResult>();
 
         for (let curr of chunks) {
-            const response = await this.request<UploadRecordResult[]>(connection, 'composite/sobjects', curr, RequestMethod.PATCH);
+            const response = await this.request<UploadRecordResult[]>(connection, 'composite/sobjects', { records: curr }, RequestMethod.PATCH);
 
             response.forEach(result => {
                 results.set(result.referenceId || result.id, {
@@ -66,9 +84,7 @@ class NetUtils {
         const request = {
             method: method,
             url: metadataApiUrl,
-            body: JSON.stringify({
-                records: data
-            })
+            body: JSON.stringify(data)
         }
 
         const response = await connection.request<TResultType>(request);

@@ -55,7 +55,9 @@ export class ResultsBuilder {
         tableBody += '<tr><td colspan="5" style="padding:10px; text-align:center; ">No records found</td>';
       } else {
         for (const record of migrationResult.data) {
-          const errors = record.errors ? record.errors.join('<br>') : '';
+          const errors = record.errors ? (Array.isArray(record.errors) ? record.errors : [record.errors]) : [];
+
+          const errorMessage = errors.join('<br>');
           const newId = record.migratedId
             ? `<a href="${instanceUrl}/${record.migratedId}">${record.migratedId}</a>`
             : '';
@@ -66,7 +68,7 @@ export class ResultsBuilder {
                             <td><div class="slds-truncate" title="${record.name}">${record.name}</div></td>
                             <td><div class="slds-truncate" title="${record.id} status">${record.status}</div></td>
                             <td><div class="slds-truncate" title="">${newId}</div></td>
-                            <td><div class="slds-truncate" title="${record.id} errors">${errors}</div></td>
+                            <td><div class="slds-truncate" title="${record.id} errors">${errorMessage}</div></td>
                         </tr>`;
 
           // Append to the table

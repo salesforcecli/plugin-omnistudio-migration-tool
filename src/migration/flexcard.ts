@@ -122,12 +122,6 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 		const transformedCardName = transformedCard['Name'];
 		const transformedCardAuthorName = transformedCard['AuthorName'];
 		if (uniqueNames.has(transformedCardName)) {
-			// cardsUploadInfo.set(recordId, {
-			// 	success: false,
-			// 	errors: [this.messages.getMessage('duplicatedCardName')],
-			// 	referenceId: recordId,
-			// 	hasErrors: true
-			// });
 			this.setRecordErrors(card, this.messages.getMessage('duplicatedCardName'));
 			originalRecords.set(recordId, card);
 			return;

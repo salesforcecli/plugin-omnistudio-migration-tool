@@ -58,7 +58,7 @@ export default class Migrate extends OmniStudioBaseCommand {
     // Let's time every step
     DebugTimer.getInstance().start();
 
-    const namecheck = new MetaDataObjNameCheck(namespace, conn, this.logger, messages);
+    const namecheck = new MetaDataObjNameCheck(namespace, conn, this.logger, messages, this.ux);
 
     // Register the migration objects
     let migrationObjects: MigrationTool[] = [];

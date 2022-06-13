@@ -53,6 +53,11 @@ export class BaseMigrationTool {
     return false;
   }
 
+  protected cleanName(name: string): string {
+    if (!name) return '';
+    return name.replace(/[^a-z0-9]+/gi, '');
+  }
+
   protected async truncate(objectName: string): Promise<void> {
     DebugTimer.getInstance().lap('Truncating ' + objectName);
 

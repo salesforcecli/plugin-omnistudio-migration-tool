@@ -4,11 +4,11 @@ import { AnyJson } from '@salesforce/ts-types';
 import OmniScriptMappings from '../mappings/OmniScript';
 import ElementMappings from '../mappings/Element';
 import OmniScriptDefinitionMappings from '../mappings/OmniScriptDefinition';
-import { DebugTimer, QueryTools } from '../utils';
+import { DebugTimer, QueryTools, SortDirection } from '../utils';
 import { BaseMigrationTool } from './base';
 import { MigrationResult, MigrationTool, TransformData, UploadRecordResult } from './interfaces';
 import { ObjectMapping } from './interfaces';
-import { NetUtils } from '../utils/net';
+import { NetUtils, RequestMethod } from '../utils/net';
 import { Connection, Logger, Messages } from '@salesforce/core';
 
 export class OmniScriptMigrationTool extends BaseMigrationTool implements MigrationTool {
@@ -57,57 +57,68 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 	}
 
 	async truncate(): Promise<void> {
-		await this.performTruncate(OmniScriptMigrationTool.OMNIPROCESS_NAME, OmniScriptExportType.IP);
-		await this.performTruncate(OmniScriptMigrationTool.OMNIPROCESS_NAME, OmniScriptExportType.OS);
+		const objectName = OmniScriptMigrationTool.OMNIPROCESS_NAME;
+
+		const allIds = await this.deactivateRecord(objectName, false);
+		await this.truncateElements(objectName, allIds.os.parents);
+		await this.truncateElements(objectName, allIds.os.childs);
+		await this.truncateElements(objectName, allIds.ip.parents);
+		await this.truncateElements(objectName, allIds.ip.childs);
 	}
 
-	async performTruncate(objectName: string, type: OmniScriptExportType): Promise<void> {
+	async truncateElements(objectName: string, ids: string[]): Promise<void> {
+		if (!ids || ids.length === 0) { return; }
 
-		const parents = await this.deactivateRecord(objectName, false, type);
-
-		if (parents === null) {
-			throw new Error(this.messages.getMessage('couldNotDeactivateOmniProcesses'));
-		}
-
-		const embeddables = await this.deactivateRecord(objectName, true, type);
-		if (embeddables === null) {
-			throw new Error(this.messages.getMessage('couldNotDeactivateOmniProcesses'));
-		}
-
-		const success: boolean = await NetUtils.delete(this.connection, [...(parents || []), ...(embeddables || [])]);
+		let success: boolean = await NetUtils.delete(this.connection, ids);
 		if (!success) {
 			throw new Error(this.messages.getMessage('couldNotTruncate').formatUnicorn(objectName));
 		}
 	}
 
-	async deactivateRecord(objectName: string, isReusable: boolean, type: OmniScriptExportType): Promise<string[]> {
+	async deactivateRecord(objectName: string, isReusable: boolean): Promise<{ os: { parents: string[], childs: string[] }, ip: { parents: string[], childs: string[] } }> {
 		DebugTimer.getInstance().lap('Truncating ' + objectName + ' (' + this.exportType + ')');
 
 		const filters = new Map<string, any>();
-		if (type === OmniScriptExportType.IP) {
+		const sorting = [{ field: 'IsIntegrationProcedure', direction: SortDirection.ASC }, { field: 'IsOmniScriptEmbeddable', direction: SortDirection.ASC }];
+
+		// Filter if only IP / OS
+		if (this.exportType === OmniScriptExportType.IP) {
 			filters.set('IsIntegrationProcedure', true);
-		} else if (type === OmniScriptExportType.OS) {
+		} else if (this.exportType === OmniScriptExportType.OS) {
 			filters.set('IsIntegrationProcedure', false);
 		}
 
-		filters.set('IsOmniScriptEmbeddable', isReusable);
+		// filters.set('IsOmniScriptEmbeddable', isReusable);
 
-		const ids: string[] = await QueryTools.queryIds(this.connection, objectName, filters);
-		if (ids.length === 0) return;
+		// const ids: string[] = await QueryTools.queryIds(this.connection, objectName, filters);
+		const rows = await QueryTools.query(this.connection, objectName, ['Id', 'IsIntegrationProcedure', 'IsOmniScriptEmbeddable'], filters, sorting);
+		if (rows.length === 0) {
+			return { os: { parents: [], childs: [] }, ip: { parents: [], childs: [] } };
+		}
 
-		const recordsToUpdate = ids.map(id => {
-			return {
-				attributes: { type: OmniScriptMigrationTool.OMNIPROCESS_NAME },
-				Id: id,
+		// We need to update one item at time. Otherwise, we'll have an UNKNOWN_ERROR
+		for (let row of rows) {
+			const id = row['Id'];
+
+			await NetUtils.request(this.connection, `sobjects/${OmniScriptMigrationTool.OMNIPROCESS_NAME}/${id}`, {
 				IsActive: false
+			}, RequestMethod.PATCH);
+		}
+
+		// Sleep 5 seconds, let's wait for all row locks to be released. While this takes less than a second, there has been
+		// times where it take a bit more.
+		await this.sleep();
+
+		return {
+			os: {
+				parents: rows.filter(row => row.IsIntegrationProcedure === false && row.IsOmniScriptEmbeddable === false).map(row => row.Id),
+				childs: rows.filter(row => row.IsIntegrationProcedure === false && row.IsOmniScriptEmbeddable === true).map(row => row.Id),
+			},
+			ip: {
+				parents: rows.filter(row => row.IsIntegrationProcedure === true && row.IsOmniScriptEmbeddable === false).map(row => row.Id),
+				childs: rows.filter(row => row.IsIntegrationProcedure === true && row.IsOmniScriptEmbeddable === true).map(row => row.Id)
 			}
-		});
-
-		// Mark the OmniScripts as inactive
-		const updateResults = await NetUtils.update(this.connection, recordsToUpdate);
-		const updateHasNoErrors = Array.from(updateResults.values()).every(e => !e.hasErrors);
-
-		return updateResults.size === 0 || updateHasNoErrors ? ids : null;
+		};
 	}
 
 	async migrate(): Promise<MigrationResult[]> {
@@ -136,7 +147,6 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 			}
 
 			// Get All elements for each OmniScript__c record(i.e IP/OS)
-			DebugTimer.getInstance().lap('Query Elements');
 			const elements = await this.getAllElementsForOmniScript(originalRecords);
 
 			if (!this.areValidElements(elements)) {
@@ -146,7 +156,6 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 			}
 
 			// Perform the transformation for OS/IP Parent Record from OmniScript__c
-			DebugTimer.getInstance().lap('Transform items');
 			mappedRecords.push(this.mapOmniScriptRecord(omniscript));
 
 			// Save the OmniScript__c records to Standard BPO i.e OmniProcess
@@ -478,8 +487,12 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 	private areValidElements(elements: AnyJson[]): boolean {
 		let elementNames = [];
 		for (let element of elements) {
-			let elementName = element['Name'];
-			if (!this.validMetaDataName(elementName.replaceAll(' ', '')) || elementNames.includes(elementName)) {
+			let elementName: string = element['Name'];
+			if (!elementName) {
+				return false;
+			}
+
+			if (!this.validMetaDataName(elementName.replace(/\s/g, '')) || elementNames.includes(elementName)) {
 				return false;
 			} else {
 				elementNames.push(elementName);
@@ -487,6 +500,12 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 		}
 		return true;
 	}
+
+	private sleep() {
+		return new Promise(resolve => {
+			setTimeout(resolve, 5000);
+		})
+	};
 }
 
 export enum OmniScriptExportType {

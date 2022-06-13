@@ -1,3 +1,4 @@
+import { UX } from '@salesforce/command';
 import { Connection, Logger, Messages } from '@salesforce/core';
 import { DebugTimer, QueryTools } from '../utils';
 
@@ -11,12 +12,14 @@ export class BaseMigrationTool {
   protected readonly namespacePrefix: string;
   protected readonly logger: Logger;
   protected readonly messages: Messages;
+  protected readonly ux: UX;
 
-  public constructor(namespace: string, connection: Connection, logger: Logger, messages: Messages) {
+  public constructor(namespace: string, connection: Connection, logger: Logger, messages: Messages, ux: UX) {
     this.namespace = namespace;
     this.connection = connection;
     this.logger = logger;
     this.messages = messages;
+    this.ux = ux;
     this.namespacePrefix = namespace ? namespace + '__' : '';
   }
 
@@ -78,5 +81,12 @@ export class BaseMigrationTool {
    */
   protected setRecordErrors(record: unknown, ...errors: string[]): void {
     record['errors'] = errors;
+  }
+
+  protected reportProgress(total: number, current: number): void {
+    const progress = ((100 * current) / total).toFixed(0);
+    if (parseInt(progress, 10) % 10 === 0) {
+      this.ux.log(`${progress}% complete...`);
+    }
   }
 }

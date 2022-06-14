@@ -10,6 +10,7 @@ import { MigrationResult, MigrationTool, TransformData, UploadRecordResult } fro
 import { ObjectMapping } from './interfaces';
 import { NetUtils, RequestMethod } from '../utils/net';
 import { Connection, Logger, Messages } from '@salesforce/core';
+import { UX } from '@salesforce/command';
 
 export class OmniScriptMigrationTool extends BaseMigrationTool implements MigrationTool {
 
@@ -25,8 +26,8 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 	static readonly OMNIPROCESSELEMENT_NAME = 'OmniProcessElement';
 	static readonly OMNIPROCESSCOMPILATION_NAME = 'OmniProcessCompilation';
 
-	constructor(exportType: OmniScriptExportType, namespace: string, connection: Connection, logger: Logger, messages: Messages) {
-		super(namespace, connection, logger, messages);
+	constructor(exportType: OmniScriptExportType, namespace: string, connection: Connection, logger: Logger, messages: Messages, ux: UX) {
+		super(namespace, connection, logger, messages, ux);
 		this.exportType = exportType;
 	}
 
@@ -59,7 +60,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 	async truncate(): Promise<void> {
 		const objectName = OmniScriptMigrationTool.OMNIPROCESS_NAME;
 
-		const allIds = await this.deactivateRecord(objectName, false);
+		const allIds = await this.deactivateRecord(objectName);
 		await this.truncateElements(objectName, allIds.os.parents);
 		await this.truncateElements(objectName, allIds.os.childs);
 		await this.truncateElements(objectName, allIds.ip.parents);
@@ -71,11 +72,11 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
 		let success: boolean = await NetUtils.delete(this.connection, ids);
 		if (!success) {
-			throw new Error(this.messages.getMessage('couldNotTruncate').formatUnicorn(objectName));
+			throw new Error(this.messages.getMessage('couldNotTruncateOmnniProcess').formatUnicorn(objectName));
 		}
 	}
 
-	async deactivateRecord(objectName: string, isReusable: boolean): Promise<{ os: { parents: string[], childs: string[] }, ip: { parents: string[], childs: string[] } }> {
+	async deactivateRecord(objectName: string): Promise<{ os: { parents: string[], childs: string[] }, ip: { parents: string[], childs: string[] } }> {
 		DebugTimer.getInstance().lap('Truncating ' + objectName + ' (' + this.exportType + ')');
 
 		const filters = new Map<string, any>();
@@ -87,8 +88,6 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 		} else if (this.exportType === OmniScriptExportType.OS) {
 			filters.set('IsIntegrationProcedure', false);
 		}
-
-		// filters.set('IsOmniScriptEmbeddable', isReusable);
 
 		// const ids: string[] = await QueryTools.queryIds(this.connection, objectName, filters);
 		const rows = await QueryTools.query(this.connection, objectName, ['Id', 'IsIntegrationProcedure', 'IsOmniScriptEmbeddable'], filters, sorting);
@@ -127,12 +126,16 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 		const omniscripts = await this.getAllOmniScripts();
 
 		// Variables to be returned After Migration
-		var originalOsRecords = new Map<string, any>();
-		var osUploadInfo = new Map<string, UploadRecordResult>();
+		let done = 0;
+		let originalOsRecords = new Map<string, any>();
+		let osUploadInfo = new Map<string, UploadRecordResult>();
+		const total = omniscripts.length;
 
 		for (let omniscript of omniscripts) {
 			const mappedRecords = [],
 				originalRecords = new Map<string, AnyJson>();
+
+			this.reportProgress(total, done);
 
 			// Record is Active, Elements can't be Added, Modified or Deleted for that OS/IP
 			omniscript[`${this.namespacePrefix}IsActive__c`] = false;
@@ -184,6 +187,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 			originalOsRecords = new Map([...Array.from(originalOsRecords.entries()), ...Array.from(originalRecords.entries())]);
 			osUploadInfo = new Map([...Array.from(osUploadInfo.entries()), ...Array.from(osUploadResponse.entries())]);
 
+			done++;
 		};
 
 		const objectMigrationResults: MigrationResult[] = [];

@@ -1,13 +1,9 @@
 /* eslint-disable */
-import { Connection, Logger, Messages } from '@salesforce/core';
 import { DebugTimer, QueryTools } from '../utils';
 import { BaseMigrationTool } from './base';
 import { NameTransformData, OriginalRecordName } from './interfaces';
 
 export class MetaDataObjNameCheck extends BaseMigrationTool {
-    constructor(namespace: string, connection: Connection, logger: Logger, messages: Messages) {
-        super(namespace, connection, logger, messages);
-    }
 
     async checkName(objName: string): Promise<any> {
         const result = await this.metaDataObjUniqueNameCheck(objName);

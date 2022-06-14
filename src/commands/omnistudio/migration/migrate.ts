@@ -58,7 +58,7 @@ export default class Migrate extends OmniStudioBaseCommand {
     // Let's time every step
     DebugTimer.getInstance().start();
 
-    const namecheck = new MetaDataObjNameCheck(namespace, conn, this.logger, messages);
+    const namecheck = new MetaDataObjNameCheck(namespace, conn, this.logger, messages, this.ux);
 
     // Register the migration objects
     let migrationObjects: MigrationTool[] = [];
@@ -68,31 +68,31 @@ export default class Migrate extends OmniStudioBaseCommand {
       await namecheck.checkName('VlocityCard__c');
 
       migrationObjects = [
-        new CardMigrationTool(namespace, conn, this.logger, messages),
-        new OmniScriptMigrationTool(OmniScriptExportType.All, namespace, conn, this.logger, messages),
-        new DataRaptorMigrationTool(namespace, conn, this.logger, messages),
+        new DataRaptorMigrationTool(namespace, conn, this.logger, messages, this.ux),
+        new OmniScriptMigrationTool(OmniScriptExportType.All, namespace, conn, this.logger, messages, this.ux),
+        new CardMigrationTool(namespace, conn, this.logger, messages, this.ux),
       ];
     } else {
       switch (migrateOnly) {
         case 'os':
           await namecheck.checkName('OmniScript__c');
           migrationObjects.push(
-            new OmniScriptMigrationTool(OmniScriptExportType.OS, namespace, conn, this.logger, messages)
+            new OmniScriptMigrationTool(OmniScriptExportType.OS, namespace, conn, this.logger, messages, this.ux)
           );
           break;
         case 'ip':
           await namecheck.checkName('OmniScript__c');
           migrationObjects.push(
-            new OmniScriptMigrationTool(OmniScriptExportType.IP, namespace, conn, this.logger, messages)
+            new OmniScriptMigrationTool(OmniScriptExportType.IP, namespace, conn, this.logger, messages, this.ux)
           );
           break;
         case 'fc':
           await namecheck.checkName('VlocityCard__c');
-          migrationObjects.push(new CardMigrationTool(namespace, conn, this.logger, messages));
+          migrationObjects.push(new CardMigrationTool(namespace, conn, this.logger, messages, this.ux));
           break;
         case 'dr':
           await namecheck.checkName('DRBundle__c');
-          migrationObjects.push(new DataRaptorMigrationTool(namespace, conn, this.logger, messages));
+          migrationObjects.push(new DataRaptorMigrationTool(namespace, conn, this.logger, messages, this.ux));
           break;
         default:
           throw new Error(messages.getMessage('invalidOnlyFlag'));
@@ -105,8 +105,9 @@ export default class Migrate extends OmniStudioBaseCommand {
 
     // We need to truncate the standard objects first
     let allTruncateComplete = true;
-    for (const cls of migrationObjects) {
+    for (const cls of migrationObjects.reverse()) {
       try {
+        this.ux.log('Truncating: ' + cls.getName());
         debugTimer.lap('Truncating: ' + cls.getName());
         await cls.truncate();
       } catch (ex: any) {
@@ -119,8 +120,9 @@ export default class Migrate extends OmniStudioBaseCommand {
     }
 
     if (allTruncateComplete) {
-      for (const cls of migrationObjects) {
+      for (const cls of migrationObjects.reverse()) {
         try {
+          this.ux.log('Migrating: ' + cls.getName());
           debugTimer.lap('Migrating: ' + cls.getName());
           const results = await cls.migrate();
 

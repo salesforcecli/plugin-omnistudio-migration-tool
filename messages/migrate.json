@@ -14,6 +14,7 @@
   "invalidOnlyFlag": "Invalid flag, valid options are: osip | fc | dr",
   "couldNotDeactivateOmniProcesses": "Could not deactivate current OmniProcesses",
   "couldNotTruncate": "Could not truncate {0}",
+  "couldNotTruncateOmnniProcess": "Could not truncate OmniProcess. Please make sure your OS/IP is not referenced in an OmniScrirpt or Flex Card.",
   "invalidNameTypeSubtypeOrLanguage": "Not a valid Name, Type, SubType or Language",
   "invalidOrRepeatingOmniscriptElementNames": "Invalid or Repeating Element Names for Same OmniScript",
   "invalidDataRaptorName": "Invalid name, can not have special characters",

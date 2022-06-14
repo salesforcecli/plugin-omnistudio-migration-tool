@@ -54,7 +54,11 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 
 		// Start transforming each dataRaptor
 		DebugTimer.getInstance().lap('Transform Data Raptor');
+		let done = 0;
+		const total = dataRaptors.length;
+
 		for (let dr of dataRaptors) {
+			this.reportProgress(total, done);
 
 			// Skip if Type is "Migration"
 			if (dr[this.namespacePrefix + 'Type__c'] === 'Migration') continue;
@@ -129,6 +133,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 				drUploadInfo.set(recordId, drUploadResponse);
 			}
 
+			done++;
 		};
 
 		return {

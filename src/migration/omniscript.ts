@@ -124,6 +124,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
 		// Get All Records from OmniScript__c (IP & OS Parent Records)
 		const omniscripts = await this.getAllOmniScripts();
+		const duplicatedNames = new Set<string>();
 
 		// Variables to be returned After Migration
 		let done = 0;
@@ -132,8 +133,9 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 		const total = omniscripts.length;
 
 		for (let omniscript of omniscripts) {
-			const mappedRecords = [],
-				originalRecords = new Map<string, AnyJson>();
+			const mappedRecords = [];
+			// const originalRecords = new Map<string, AnyJson>();
+			const recordId = omniscript['Id'];
 
 			this.reportProgress(total, done);
 
@@ -141,51 +143,77 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 			omniscript[`${this.namespacePrefix}IsActive__c`] = false;
 
 			// Create a map of the original OmniScript__c records
-			originalRecords.set(omniscript['Id'], omniscript);
-
-			if (!this.isValidRecord(omniscript)) {
-				this.setRecordErrors(omniscript, this.messages.getMessage('invalidNameTypeSubtypeOrLanguage'));
-				originalOsRecords = new Map([...Array.from(originalOsRecords.entries()), ...Array.from(originalRecords.entries())]);
-				continue;
-			}
+			originalOsRecords.set(recordId, omniscript);
 
 			// Get All elements for each OmniScript__c record(i.e IP/OS)
-			const elements = await this.getAllElementsForOmniScript(originalRecords);
+			const elements = await this.getAllElementsForOmniScript(recordId);
 
 			if (!this.areValidElements(elements)) {
 				this.setRecordErrors(omniscript, this.messages.getMessage('invalidOrRepeatingOmniscriptElementNames'));
-				originalOsRecords = new Map([...Array.from(originalOsRecords.entries()), ...Array.from(originalRecords.entries())]);
+				originalOsRecords.set(recordId, omniscript);
 				continue;
 			}
 
 			// Perform the transformation for OS/IP Parent Record from OmniScript__c
-			mappedRecords.push(this.mapOmniScriptRecord(omniscript));
+			const mappedOmniScript = this.mapOmniScriptRecord(omniscript);
 
-			// Save the OmniScript__c records to Standard BPO i.e OmniProcess
-			var osUploadResponse: Map<string, UploadRecordResult> = await this.uploadTransformedData(OmniScriptMigrationTool.OMNIPROCESS_NAME, { mappedRecords, originalRecords });
+			// Clean type, subtype
+			mappedOmniScript[OmniScriptMappings.Type__c] = this.cleanName(mappedOmniScript[OmniScriptMappings.Type__c]);
+			mappedOmniScript[OmniScriptMappings.SubType__c] = this.cleanName(mappedOmniScript[OmniScriptMappings.SubType__c]);
 
-			// Upload All elements for each OmniScript__c record(i.e IP/OS)
-			await this.uploadAllElements(originalRecords, osUploadResponse, elements);
-
-			// Get OmniScript Compiled Definitions for OmniScript Record
-			const omniscriptsCompiledDefinitions = await this.getOmniScriptCompiledDefinition(originalRecords);
-
-			// Upload OmniScript Compiled Definition to OmniProcessCompilation
-			await this.uploadAllOmniScriptDefinitions(originalRecords, osUploadResponse, omniscriptsCompiledDefinitions);
-
-			// Update the inserted OS record as it was Active and made InActive to insert.
-			mappedRecords[0].IsActive = true;
-			mappedRecords[0].Id = osUploadResponse.entries().next().value[1].id;
-
-			if (mappedRecords[0].IsIntegrationProcedure) {
-				mappedRecords[0].Language = 'Procedure';
+			// Check duplicated name
+			const mappedOsName = `${mappedOmniScript[OmniScriptMappings.Type__c]}_${mappedOmniScript[OmniScriptMappings.SubType__c]}_${mappedOmniScript[OmniScriptMappings.Language__c]}`;
+			if (duplicatedNames.has(mappedOsName)) {
+				this.setRecordErrors(omniscript, this.messages.getMessage('duplicatedOSName'));
+				originalOsRecords.set(recordId, omniscript)
+				continue;
 			}
 
-			await this.updateData({ mappedRecords, originalRecords });
+			// Save the mapped record
+			duplicatedNames.add(mappedOsName);
+			mappedRecords.push(mappedOmniScript);
 
-			// Create the return records and response which have been processed
-			originalOsRecords = new Map([...Array.from(originalOsRecords.entries()), ...Array.from(originalRecords.entries())]);
-			osUploadInfo = new Map([...Array.from(osUploadInfo.entries()), ...Array.from(osUploadResponse.entries())]);
+			// Save the OmniScript__c records to Standard BPO i.e OmniProcess
+			// const osUploadResponse: Map<string, UploadRecordResult> = await this.uploadTransformedData(OmniScriptMigrationTool.OMNIPROCESS_NAME, { mappedRecords, originalRecords });
+			const osUploadResponse = await NetUtils.createOne(this.connection, OmniScriptMigrationTool.OMNIPROCESS_NAME, recordId, mappedOmniScript);
+
+			if (osUploadResponse.success) {
+
+
+				// Fix errors
+				if (!osUploadResponse.success) {
+					osUploadResponse.errors = Array.isArray(osUploadResponse.errors) ? osUploadResponse.errors : [osUploadResponse.errors];
+				}
+
+				const originalOsName = omniscript[this.namespacePrefix + 'Type__c'] + '_' + omniscript[this.namespacePrefix + 'SubType__c'] + '_' + omniscript[this.namespacePrefix + 'Language__c'];
+				if (originalOsName !== mappedOsName) {
+					osUploadResponse.errors.unshift('WARNING: OmniScript name has been modified to fit naming rules: ' + mappedOsName);
+				}
+
+				// Upload All elements for each OmniScript__c record(i.e IP/OS)
+				await this.uploadAllElements(osUploadResponse, elements);
+
+				// Get OmniScript Compiled Definitions for OmniScript Record
+				const omniscriptsCompiledDefinitions = await this.getOmniScriptCompiledDefinition(recordId);
+
+				// Upload OmniScript Compiled Definition to OmniProcessCompilation
+				await this.uploadAllOmniScriptDefinitions(osUploadResponse, omniscriptsCompiledDefinitions);
+
+				// Update the inserted OS record as it was Active and made InActive to insert.
+				mappedRecords[0].IsActive = true;
+				mappedRecords[0].Id = osUploadResponse.id;
+
+				if (mappedRecords[0].IsIntegrationProcedure) {
+					mappedRecords[0].Language = 'Procedure';
+				}
+
+				await this.updateData({ mappedRecords, originalRecords: originalOsRecords });
+
+				// Create the return records and response which have been processed
+				osUploadInfo.set(recordId, osUploadResponse);
+			}
+
+			originalOsRecords.set(recordId, omniscript);
 
 			done++;
 		};
@@ -242,27 +270,27 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 	}
 
 	// Get All Elements w.r.t OmniScript__c i.e Elements tagged to passed in IP/OS
-	private async getAllElementsForOmniScript(omniScriptData: Map<string, AnyJson>): Promise<AnyJson[]> {
+	private async getAllElementsForOmniScript(recordId: string): Promise<AnyJson[]> {
 		// Query all Elements for an OmniScript
 		const filters = new Map<string, any>();
-		filters.set(this.namespacePrefix + 'OmniScriptId__c', omniScriptData.keys().next().value);
+		filters.set(this.namespacePrefix + 'OmniScriptId__c', recordId);
 
 		// const queryFilterStr = ` Where ${this.namespacePrefix}OmniScriptId__c = '${omniScriptData.keys().next().value}'`;
 		return await QueryTools.queryWithFilter(this.connection, this.namespace, OmniScriptMigrationTool.ELEMENT_NAME, this.getElementFields(), filters);
 	}
 
 	// Get All Compiled Definitions w.r.t OmniScript__c i.e Definitions tagged to passed in IP/OS
-	private async getOmniScriptCompiledDefinition(omniScriptData: Map<string, AnyJson>): Promise<AnyJson[]> {
+	private async getOmniScriptCompiledDefinition(recordId: string): Promise<AnyJson[]> {
 		// Query all Definitions for an OmniScript
 		const filters = new Map<string, any>();
-		filters.set(this.namespacePrefix + 'OmniScriptId__c', omniScriptData.keys().next().value);
+		filters.set(this.namespacePrefix + 'OmniScriptId__c', recordId);
 
 		// const queryFilterStr = ` Where ${this.namespacePrefix}OmniScriptId__c = '${omniScriptData.keys().next().value}'`;
 		return await QueryTools.queryWithFilter(this.connection, this.namespace, OmniScriptMigrationTool.OMNISCRIPTDEFINITION_NAME, this.getOmniScriptDefinitionFields(), filters);
 	}
 
 	// Upload All the Elements tagged to a OmniScript__c record, after the parent record has been inserted
-	private async uploadAllElements(omniScriptData: Map<string, AnyJson>, omniScriptUploadResults: Map<string, UploadRecordResult>, elements: AnyJson[]): Promise<Map<string, UploadRecordResult>> {
+	private async uploadAllElements(omniScriptUploadResults: UploadRecordResult, elements: AnyJson[]): Promise<Map<string, UploadRecordResult>> {
 		let levelCount = 0; // To define and insert different levels(Parent-Child relationship) at a time
 		let exit = false;   // Counter variable to exit after all parent-child elements inserted 
 		var elementsUploadInfo = new Map<string, UploadRecordResult>(); // Info for Uploaded Elements to be returned
@@ -284,7 +312,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 				exit = true;
 			} else {
 				// Get Transformed Element__c to OmniProcessElement with updated OmniScriptId & ParentElementId
-				let elementsTransformedData = await this.prepareElementsData(omniScriptData, omniScriptUploadResults, tempElements, elementsUploadInfo);
+				let elementsTransformedData = await this.prepareElementsData(omniScriptUploadResults, tempElements, elementsUploadInfo);
 				// Upload the transformed Element__c
 				let elementsUploadResponse = await this.uploadTransformedData(OmniScriptMigrationTool.OMNIPROCESSELEMENT_NAME, elementsTransformedData);
 				// Keep appending upload Info for Elements at each level
@@ -299,29 +327,24 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 	}
 
 	// Upload All the Definitions tagged to a OmniScript__c record, after the parent record has been inserted
-	private async uploadAllOmniScriptDefinitions(omniScriptData: Map<string, AnyJson>, omniScriptUploadResults: Map<string, UploadRecordResult>, osDefinitions: AnyJson[]): Promise<Map<string, UploadRecordResult>> {
-		let osDefinitionsData = await this.prepareOsDefinitionsData(omniScriptData, omniScriptUploadResults, osDefinitions);
+	private async uploadAllOmniScriptDefinitions(omniScriptUploadResults: UploadRecordResult, osDefinitions: AnyJson[]): Promise<Map<string, UploadRecordResult>> {
+		let osDefinitionsData = await this.prepareOsDefinitionsData(omniScriptUploadResults, osDefinitions);
 		return await this.uploadTransformedData(OmniScriptMigrationTool.OMNIPROCESSCOMPILATION_NAME, osDefinitionsData);
 	}
 
 	// Prepare Elements Data and Do the neccessary updates, transformation, validations etc.
-	private async prepareElementsData(omniScriptData: Map<string, AnyJson>, omniScriptUploadResults: Map<string, UploadRecordResult>, elements: AnyJson[], parentElementUploadResponse: Map<string, UploadRecordResult>): Promise<TransformData> {
+	private async prepareElementsData(osUploadResult: UploadRecordResult, elements: AnyJson[], parentElementUploadResponse: Map<string, UploadRecordResult>): Promise<TransformData> {
 
 		const mappedRecords = [],
 			originalRecords = new Map<string, AnyJson>();
 
 		elements.forEach(element => {
-			// Extract the parent OmniScript__c for the elements		
-			const osRecord = omniScriptData.values().next().value;
 
 			// Perform the transformation. We need parent record & must have been migrated before
-			if (osRecord && omniScriptUploadResults.has(osRecord['Id'])) {
-				const osUploadResult = omniScriptUploadResults.get(osRecord['Id']);
-
-				if (osUploadResult.id) {
-					mappedRecords.push(this.mapElementData(element, osUploadResult.id, parentElementUploadResponse));
-				}
+			if (osUploadResult.id) {
+				mappedRecords.push(this.mapElementData(element, osUploadResult.id, parentElementUploadResponse));
 			}
+
 			// Create a map of the original records
 			originalRecords.set(element['Id'], element);
 		});
@@ -330,22 +353,17 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 	}
 
 	// Prepare OmniScript Definitions to be uploaded
-	private async prepareOsDefinitionsData(omniScriptData: Map<string, AnyJson>, omniScriptUploadResults: Map<string, UploadRecordResult>, osDefinitions: AnyJson[]): Promise<TransformData> {
+	private async prepareOsDefinitionsData(osUploadResult: UploadRecordResult, osDefinitions: AnyJson[]): Promise<TransformData> {
 		const mappedRecords = [],
 			originalRecords = new Map<string, AnyJson>();
 
 		osDefinitions.forEach(osDefinition => {
-			// Extract the parent OmniScript__c for the osDefinitions		
-			const osRecord = omniScriptData.values().next().value;
 
 			// Perform the transformation. We need parent record & must have been migrated before
-			if (osRecord && omniScriptUploadResults.has(osRecord['Id'])) {
-				const osUploadResult = omniScriptUploadResults.get(osRecord['Id']);
-
-				if (osUploadResult.id) {
-					mappedRecords.push(this.mapOsDefinitionsData(osDefinition, osUploadResult.id));
-				}
+			if (osUploadResult.id) {
+				mappedRecords.push(this.mapOsDefinitionsData(osDefinition, osUploadResult.id));
 			}
+
 			// Create a map of the original records
 			originalRecords.set(osDefinition['Id'], osDefinition);
 		});
@@ -473,34 +491,20 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 		return Object.keys(OmniScriptDefinitionMappings);
 	}
 
-	// Return true/false, if the record is valid/invalid
-	private isValidRecord(omniscript: AnyJson): boolean {
-		const nsPrefix = this.namespacePrefix;
-
-		return this.validMetaDataName(omniscript[`${nsPrefix}Type__c`]) &&
-			this.validMetaDataName(omniscript[`${nsPrefix}SubType__c`]) &&
-			this.validMetaDataName(omniscript[`${nsPrefix}Version__c`]) &&
-			(
-				omniscript[`${nsPrefix}Procedure__c`] || (
-					!omniscript[`${nsPrefix}Procedure__c`] &&
-					this.validMetaDataName(omniscript[`${nsPrefix}Language__c`])
-				)
-			);
-	}
-
 	private areValidElements(elements: AnyJson[]): boolean {
-		let elementNames = [];
+		const elementNames = new Set<string>();
 		for (let element of elements) {
-			let elementName: string = element['Name'];
+			let elementName: string = this.cleanName(element['Name']);
 			if (!elementName) {
 				return false;
 			}
 
-			if (!this.validMetaDataName(elementName.replace(/\s/g, '')) || elementNames.includes(elementName)) {
+			if (elementNames.has(elementName)) {
 				return false;
-			} else {
-				elementNames.push(elementName);
 			}
+
+			elementNames.add(elementName);
+			element['Name'] = elementName;
 		}
 		return true;
 	}

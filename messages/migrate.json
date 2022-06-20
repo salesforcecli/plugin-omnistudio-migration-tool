@@ -18,6 +18,8 @@
   "invalidNameTypeSubtypeOrLanguage": "Not a valid Name, Type, SubType or Language",
   "invalidOrRepeatingOmniscriptElementNames": "Invalid or Repeating Element Names for Same OmniScript",
   "invalidDataRaptorName": "Invalid name, can not have special characters",
-  "duplicatedCardName": "Duplicated card name",
-  "duplicatedDrName": "Duplicated data raptor name"
+  "duplicatedCardName": "Duplicated Flex Card name",
+  "duplicatedDrName": "Duplicated DataRaptor name",
+  "duplicatedOSName": "Duplicated OmniScript name",
+  "errorWhileActivatingOs": "Could not activate OmniScript"
 }

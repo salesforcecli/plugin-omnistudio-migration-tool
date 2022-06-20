@@ -107,8 +107,8 @@ export default class Migrate extends OmniStudioBaseCommand {
     let allTruncateComplete = true;
     for (const cls of migrationObjects.reverse()) {
       try {
-        this.ux.log('Truncating: ' + cls.getName());
-        debugTimer.lap('Truncating: ' + cls.getName());
+        this.ux.log('Cleaning: ' + cls.getName());
+        debugTimer.lap('Cleaning: ' + cls.getName());
         await cls.truncate();
       } catch (ex: any) {
         allTruncateComplete = false;

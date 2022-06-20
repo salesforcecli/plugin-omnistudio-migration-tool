@@ -20,5 +20,6 @@
   "invalidDataRaptorName": "Invalid name, can not have special characters",
   "duplicatedCardName": "Duplicated Flex Card name",
   "duplicatedDrName": "Duplicated DataRaptor name",
-  "duplicatedOSName": "Duplicated OmniScript name"
+  "duplicatedOSName": "Duplicated OmniScript name",
+  "errorWhileActivatingOs": "Could not activate OmniScript"
 }

@@ -207,7 +207,15 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 					mappedRecords[0].Language = 'Procedure';
 				}
 
-				await this.updateData({ mappedRecords, originalRecords: originalOsRecords });
+				const updateResult = await this.updateData({ mappedRecords, originalRecords: originalOsRecords });
+				if (updateResult.has(osUploadResponse.id)) {
+					const res = updateResult.get(osUploadResponse.id);
+					if (!res.success) {
+						osUploadResponse.hasErrors = true;
+						osUploadResponse.errors = osUploadResponse.errors || [];
+						osUploadResponse.errors.push(this.messages.getMessage('errorWhileActivatingOs'));
+					}
+				}
 
 				// Create the return records and response which have been processed
 				osUploadInfo.set(recordId, osUploadResponse);

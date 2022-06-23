@@ -183,7 +183,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 				if (!osUploadResponse.success) {
 					osUploadResponse.errors = Array.isArray(osUploadResponse.errors) ? osUploadResponse.errors : [osUploadResponse.errors];
 				}
-
+        
 				osUploadResponse.warnings = osUploadResponse.warnings || [];
 
 				const originalOsName = omniscript[this.namespacePrefix + 'Type__c'] + '_' + omniscript[this.namespacePrefix + 'SubType__c'] + '_' + omniscript[this.namespacePrefix + 'Language__c'];
@@ -193,7 +193,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
 				// Upload All elements for each OmniScript__c record(i.e IP/OS)
 				await this.uploadAllElements(osUploadResponse, elements);
-
+        
 				// Get OmniScript Compiled Definitions for OmniScript Record
 				const omniscriptsCompiledDefinitions = await this.getOmniScriptCompiledDefinition(recordId);
 
@@ -207,7 +207,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 				if (mappedRecords[0].IsIntegrationProcedure) {
 					mappedRecords[0].Language = 'Procedure';
 				}
-
+        
 				const updateResult = await NetUtils.updateOne(this.connection, OmniScriptMigrationTool.OMNIPROCESS_NAME, recordId, osUploadResponse.id, {
 					[OmniScriptMappings.IsActive__c]: true
 				});

@@ -145,14 +145,25 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 			}
 
 			// If name has been changed, add a warning message
-			if (transformedCardName !== card[this.namespacePrefix + 'Name']) {
-				uploadResult.errors.unshift('WARNING: Card name has been modified to fit naming rules: ' + transformedCardName);
-			}
+			uploadResult.warnings = uploadResult.warnings || [];
 			if (transformedCardAuthorName !== card[this.namespacePrefix + 'Author__c']) {
-				uploadResult.errors.unshift('WARNING: Card author name has been modified to fit naming rules: ' + transformedCardAuthorName);
+				uploadResult.warnings.unshift('WARNING: Card author name has been modified to fit naming rules: ' + transformedCardAuthorName);
+			}
+			if (transformedCardName !== card['Name']) {
+				uploadResult.warnings.unshift('WARNING: Card name has been modified to fit naming rules: ' + transformedCardName);
 			}
 
 			cardsUploadInfo.set(recordId, uploadResult);
+			const updateResult = await NetUtils.updateOne(this.connection, CardMigrationTool.OMNIUICARD_NAME, recordId, uploadResult.id, {
+				[CardMappings.Active__c]: true
+			});
+
+			if (!updateResult.success) {
+				uploadResult.hasErrors = true;
+				uploadResult.errors = uploadResult.errors || [];
+
+				uploadResult.errors.push(this.messages.getMessage('errorWhileActivatingCard') + updateResult.errors);
+			}
 		}
 	}
 
@@ -237,7 +248,8 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 
 		// Clean the name
 		mappedObject['Name'] = this.cleanName(mappedObject['Name']);
-		mappedObject['AuthorName'] = this.cleanName(mappedObject['AuthorName']);
+		mappedObject[CardMappings.Author__c] = this.cleanName(mappedObject[CardMappings.Author__c]);
+		mappedObject[CardMappings.Active__c] = false;
 
 		mappedObject['attributes'] = {
 			type: CardMigrationTool.OMNIUICARD_NAME,

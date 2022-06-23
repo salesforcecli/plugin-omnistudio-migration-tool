@@ -39,6 +39,7 @@ export interface UploadRecordResult {
   referenceId: string;
   id?: string;
   errors: string[];
+  warnings: string[];
   hasErrors: boolean;
   success?: boolean;
 }

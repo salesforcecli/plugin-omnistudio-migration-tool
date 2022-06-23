@@ -81,16 +81,16 @@ export class ResultsBuilder {
             <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped slds-table_col-bordered" aria-label="Results for ${migrationResult.name}">
             <thead>
                 <tr class="slds-line-height_reset">
-                    <th class="" scope="col">
+                    <th class="" scope="col" style="width: 10%">
                         <div class="slds-truncate" title="Record ID">Record ID</div>
                     </th>
-                    <th class="" scope="col">
+                    <th class="" scope="col" style="width: 30%">
                         <div class="slds-truncate" title="Name">Name</div>
                     </th>
-                    <th class="" scope="col">
+                    <th class="" scope="col" style="width: 10%">
                         <div class="slds-truncate" title="Status">Status</div>
                     </th>
-                    <th class="" scope="col">
+                    <th class="" scope="col" style="width: 10%">
                         <div class="slds-truncate" title="New Record ID">New Record ID</div>
                     </th>
                     <th class="" scope="col">

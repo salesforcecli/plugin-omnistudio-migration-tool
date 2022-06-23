@@ -148,12 +148,6 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 			// Get All elements for each OmniScript__c record(i.e IP/OS)
 			const elements = await this.getAllElementsForOmniScript(recordId);
 
-			if (!this.areValidElements(elements)) {
-				this.setRecordErrors(omniscript, this.messages.getMessage('invalidOrRepeatingOmniscriptElementNames'));
-				originalOsRecords.set(recordId, omniscript);
-				continue;
-			}
-
 			// Perform the transformation for OS/IP Parent Record from OmniScript__c
 			const mappedOmniScript = this.mapOmniScriptRecord(omniscript);
 
@@ -174,7 +168,6 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 			mappedRecords.push(mappedOmniScript);
 
 			// Save the OmniScript__c records to Standard BPO i.e OmniProcess
-			// const osUploadResponse: Map<string, UploadRecordResult> = await this.uploadTransformedData(OmniScriptMigrationTool.OMNIPROCESS_NAME, { mappedRecords, originalRecords });
 			const osUploadResponse = await NetUtils.createOne(this.connection, OmniScriptMigrationTool.OMNIPROCESS_NAME, recordId, mappedOmniScript);
 
 			if (osUploadResponse.success) {
@@ -184,15 +177,17 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 				if (!osUploadResponse.success) {
 					osUploadResponse.errors = Array.isArray(osUploadResponse.errors) ? osUploadResponse.errors : [osUploadResponse.errors];
 				}
+        
+				osUploadResponse.warnings = osUploadResponse.warnings || [];
 
 				const originalOsName = omniscript[this.namespacePrefix + 'Type__c'] + '_' + omniscript[this.namespacePrefix + 'SubType__c'] + '_' + omniscript[this.namespacePrefix + 'Language__c'];
 				if (originalOsName !== mappedOsName) {
-					osUploadResponse.errors.unshift('WARNING: OmniScript name has been modified to fit naming rules: ' + mappedOsName);
+					osUploadResponse.warnings.unshift('WARNING: OmniScript name has been modified to fit naming rules: ' + mappedOsName);
 				}
 
 				// Upload All elements for each OmniScript__c record(i.e IP/OS)
 				await this.uploadAllElements(osUploadResponse, elements);
-
+        
 				// Get OmniScript Compiled Definitions for OmniScript Record
 				const omniscriptsCompiledDefinitions = await this.getOmniScriptCompiledDefinition(recordId);
 
@@ -206,15 +201,16 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 				if (mappedRecords[0].IsIntegrationProcedure) {
 					mappedRecords[0].Language = 'Procedure';
 				}
+        
+				const updateResult = await NetUtils.updateOne(this.connection, OmniScriptMigrationTool.OMNIPROCESS_NAME, recordId, osUploadResponse.id, {
+					[OmniScriptMappings.IsActive__c]: true
+				});
 
-				const updateResult = await this.updateData({ mappedRecords, originalRecords: originalOsRecords });
-				if (updateResult.has(osUploadResponse.id)) {
-					const res = updateResult.get(osUploadResponse.id);
-					if (!res.success) {
-						osUploadResponse.hasErrors = true;
-						osUploadResponse.errors = osUploadResponse.errors || [];
-						osUploadResponse.errors.push(this.messages.getMessage('errorWhileActivatingOs'));
-					}
+				if (!updateResult.success) {
+					osUploadResponse.hasErrors = true;
+					osUploadResponse.errors = osUploadResponse.errors || [];
+
+					osUploadResponse.errors.push(this.messages.getMessage('errorWhileActivatingOs') + updateResult.errors);
 				}
 
 				// Create the return records and response which have been processed
@@ -497,24 +493,6 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
 	private getOmniScriptDefinitionFields(): string[] {
 		return Object.keys(OmniScriptDefinitionMappings);
-	}
-
-	private areValidElements(elements: AnyJson[]): boolean {
-		const elementNames = new Set<string>();
-		for (let element of elements) {
-			let elementName: string = this.cleanName(element['Name']);
-			if (!elementName) {
-				return false;
-			}
-
-			if (elementNames.has(elementName)) {
-				return false;
-			}
-
-			elementNames.add(elementName);
-			element['Name'] = elementName;
-		}
-		return true;
 	}
 
 	private sleep() {

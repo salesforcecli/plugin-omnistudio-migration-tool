@@ -38,7 +38,34 @@ class NetUtils {
                 referenceId,
                 hasErrors: true,
                 success: false,
-                errors: err
+                errors: err,
+                warnings: []
+            };
+        }
+    }
+
+    public static async updateOne(connection: Connection, objectName: string, referenceId: string, recordId: string, data: any): Promise<UploadRecordResult> {
+
+        try {
+            const url = 'sobjects/' + objectName + '/' + recordId;
+
+            await this.request<UploadRecordResult>(connection, url, data, RequestMethod.PATCH);
+
+            return {
+                referenceId,
+                hasErrors: false,
+                success: true,
+                errors: [],
+                warnings: []
+            }
+
+        } catch (err) {
+            return {
+                referenceId,
+                hasErrors: true,
+                success: false,
+                errors: err,
+                warnings: []
             };
         }
     }

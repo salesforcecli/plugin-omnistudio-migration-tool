@@ -10,4 +10,5 @@ export interface MigratedRecordInfo {
   status: string;
   errors: string[];
   migratedId?: string;
+  warnings: string[];
 }

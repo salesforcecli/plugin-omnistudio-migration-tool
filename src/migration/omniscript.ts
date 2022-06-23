@@ -148,12 +148,6 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 			// Get All elements for each OmniScript__c record(i.e IP/OS)
 			const elements = await this.getAllElementsForOmniScript(recordId);
 
-			// if (!this.areValidElements(elements)) {
-			// 	this.setRecordErrors(omniscript, this.messages.getMessage('invalidOrRepeatingOmniscriptElementNames'));
-			// 	originalOsRecords.set(recordId, omniscript);
-			// 	continue;
-			// }
-
 			// Perform the transformation for OS/IP Parent Record from OmniScript__c
 			const mappedOmniScript = this.mapOmniScriptRecord(omniscript);
 
@@ -499,24 +493,6 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
 	private getOmniScriptDefinitionFields(): string[] {
 		return Object.keys(OmniScriptDefinitionMappings);
-	}
-
-	private areValidElements(elements: AnyJson[]): boolean {
-		const elementNames = new Set<string>();
-		for (let element of elements) {
-			let elementName: string = element['Name'];		// this.cleanName(element['Name']);
-			if (!elementName) {
-				return false;
-			}
-
-			if (elementNames.has(elementName)) {
-				return false;
-			}
-
-			elementNames.add(elementName);
-			element['Name'] = elementName;
-		}
-		return true;
 	}
 
 	private sleep() {

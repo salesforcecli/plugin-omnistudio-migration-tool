@@ -12,7 +12,6 @@ import { flags } from '@salesforce/command';
 import { Messages } from '@salesforce/core';
 import '../../../utils/prototypes';
 import OmniStudioBaseCommand from '../../basecommand';
-import { MetaDataObjNameCheck } from '../../../migration/metadataobjnamecheck';
 import { DataRaptorMigrationTool } from '../../../migration/dataraptor';
 import { DebugTimer, MigratedObject, MigratedRecordInfo } from '../../../utils';
 import { MigrationResult, MigrationTool } from '../../../migration/interfaces';

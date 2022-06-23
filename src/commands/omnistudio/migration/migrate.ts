@@ -58,15 +58,9 @@ export default class Migrate extends OmniStudioBaseCommand {
     // Let's time every step
     DebugTimer.getInstance().start();
 
-    const namecheck = new MetaDataObjNameCheck(namespace, conn, this.logger, messages, this.ux);
-
     // Register the migration objects
     let migrationObjects: MigrationTool[] = [];
     if (!migrateOnly) {
-      await namecheck.checkName('DRBundle__c');
-      await namecheck.checkName('OmniScript__c');
-      await namecheck.checkName('VlocityCard__c');
-
       migrationObjects = [
         new DataRaptorMigrationTool(namespace, conn, this.logger, messages, this.ux),
         new OmniScriptMigrationTool(OmniScriptExportType.All, namespace, conn, this.logger, messages, this.ux),
@@ -75,23 +69,19 @@ export default class Migrate extends OmniStudioBaseCommand {
     } else {
       switch (migrateOnly) {
         case 'os':
-          await namecheck.checkName('OmniScript__c');
           migrationObjects.push(
             new OmniScriptMigrationTool(OmniScriptExportType.OS, namespace, conn, this.logger, messages, this.ux)
           );
           break;
         case 'ip':
-          await namecheck.checkName('OmniScript__c');
           migrationObjects.push(
             new OmniScriptMigrationTool(OmniScriptExportType.IP, namespace, conn, this.logger, messages, this.ux)
           );
           break;
         case 'fc':
-          await namecheck.checkName('VlocityCard__c');
           migrationObjects.push(new CardMigrationTool(namespace, conn, this.logger, messages, this.ux));
           break;
         case 'dr':
-          await namecheck.checkName('DRBundle__c');
           migrationObjects.push(new DataRaptorMigrationTool(namespace, conn, this.logger, messages, this.ux));
           break;
         default:
@@ -169,6 +159,7 @@ export default class Migrate extends OmniStudioBaseCommand {
         status: 'Skipped',
         errors: record['errors'],
         migratedId: undefined,
+        warnings: [],
       };
 
       if (migrationResults.results.has(record['Id'])) {
@@ -176,6 +167,7 @@ export default class Migrate extends OmniStudioBaseCommand {
         obj.status = !recordResults || recordResults.hasErrors ? 'Error' : 'Complete';
         obj.errors = obj.errors || recordResults.errors;
         obj.migratedId = recordResults.id;
+        obj.warnings = recordResults.warnings;
       }
 
       mergedResults.push(obj);

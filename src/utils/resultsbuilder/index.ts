@@ -61,6 +61,7 @@ export class ResultsBuilder {
           const newId = record.migratedId
             ? `<a href="${instanceUrl}/${record.migratedId}">${record.migratedId}</a>`
             : '';
+          const newName = record.migratedName || '';
 
           // Create the row
           const row = `<tr class="slds-hint_parent">
@@ -68,6 +69,7 @@ export class ResultsBuilder {
                             <td><div class="slds-truncate" title="${record.name}">${record.name}</div></td>
                             <td><div class="slds-truncate" title="${record.id} status">${record.status}</div></td>
                             <td><div class="slds-truncate" title="">${newId}</div></td>
+                            <td><div class="slds-truncate" title="">${newName}</div></td>
                             <td><div class="slds-truncate" title="${record.id} errors">${errorMessage}</div></td>
                         </tr>`;
 
@@ -84,7 +86,7 @@ export class ResultsBuilder {
                     <th class="" scope="col" style="width: 10%">
                         <div class="slds-truncate" title="Record ID">Record ID</div>
                     </th>
-                    <th class="" scope="col" style="width: 30%">
+                    <th class="" scope="col" style="width: 25%">
                         <div class="slds-truncate" title="Name">Name</div>
                     </th>
                     <th class="" scope="col" style="width: 10%">
@@ -92,6 +94,9 @@ export class ResultsBuilder {
                     </th>
                     <th class="" scope="col" style="width: 10%">
                         <div class="slds-truncate" title="New Record ID">New Record ID</div>
+                    </th>
+                    <th class="" scope="col" style="width: 25%">
+                        <div class="slds-truncate" title="New Record Name">New Record Name</div>
                     </th>
                     <th class="" scope="col">
                         <div class="slds-truncate" title="Errors">Errors</div>

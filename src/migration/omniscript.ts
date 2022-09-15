@@ -462,10 +462,11 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 				const key: String = propertySet['integrationProcedureKey'] || '';
 				if (key) {
 					const parts = key.split('_');
-					if ((parts.length === 2 && (parts[0] !== this.cleanName(parts[0]) || parts[1] !== this.cleanName(parts[1])))
-						|| parts.length > 2) {
+					const newKey = parts.map(p => this.cleanName(p, true)).join('_');
+					if (parts.length > 2) {
 						invalidIpReferences.set(mappedObject[ElementMappings.Name], key);
 					}
+					propertySet['integrationProcedureKey'] = newKey;
 				}
 				break;
 			case 'DataRaptor Turbo Action':

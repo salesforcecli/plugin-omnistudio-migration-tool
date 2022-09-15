@@ -56,9 +56,9 @@ export class BaseMigrationTool {
     return false;
   }
 
-  protected cleanName(name: string): string {
+  protected cleanName(name: string, allowUnderscores = false): string {
     if (!name) return '';
-    return name.replace(/[^a-z0-9]+/gi, '');
+    return allowUnderscores ? name.replace(/[^a-z0-9_]+/gi, '') : name.replace(/[^a-z0-9]+/gi, '');
   }
 
   protected async truncate(objectName: string): Promise<void> {

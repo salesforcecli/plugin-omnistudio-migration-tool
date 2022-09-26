@@ -1,12 +1,10 @@
 /* eslint-disable */
 import { AnyJson } from '@salesforce/ts-types';
-
 import CardMappings from '../mappings/VlocityCard';
 import { DebugTimer, QueryTools } from '../utils';
 import { NetUtils } from '../utils/net';
 import { BaseMigrationTool } from './base';
-import { MigrationResult, MigrationTool, ObjectMapping, TransformData, UploadRecordResult } from './interfaces';
-
+import { MigrationResult, MigrationTool, ObjectMapping, UploadRecordResult } from './interfaces';
 
 export class CardMigrationTool extends BaseMigrationTool implements MigrationTool {
 
@@ -62,9 +60,14 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 		// Save the Vlocity Cards in OmniUiCard
 		const cardUploadResponse = await this.uploadAllCards(cards);
 
+		const records = new Map<string, any>();
+		for (let i = 0; i < cards.length; i++) {
+			records.set(cards[i]['Id'], cards[i]);
+		}
+
 		return [{
 			name: 'FlexCards',
-			records: (await this.prepareCardData(cards, new Map<string, UploadRecordResult>())).originalRecords,
+			records: records,
 			results: cardUploadResponse
 		}];
 	}
@@ -117,7 +120,8 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 		}
 
 		// Perform the transformation
-		const transformedCard = this.mapVlocityCardRecord(card, cardsUploadInfo);
+		const invalidIpNames = new Map<string, string>();
+		const transformedCard = this.mapVlocityCardRecord(card, cardsUploadInfo, invalidIpNames);
 
 		// Verify duplicated names
 		const transformedCardName = transformedCard['Name'];
@@ -140,6 +144,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 		if (uploadResult) {
 
 			// Fix errors
+			uploadResult.errors = uploadResult.errors || [];
 			if (!uploadResult.success) {
 				uploadResult.errors = Array.isArray(uploadResult.errors) ? uploadResult.errors : [uploadResult.errors];
 			}
@@ -150,7 +155,13 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 				uploadResult.warnings.unshift('WARNING: Card author name has been modified to fit naming rules: ' + transformedCardAuthorName);
 			}
 			if (transformedCardName !== card['Name']) {
+				uploadResult.newName = transformedCardName;
 				uploadResult.warnings.unshift('WARNING: Card name has been modified to fit naming rules: ' + transformedCardName);
+			}
+
+			if (uploadResult.id && invalidIpNames.size > 0) {
+				const val = Array.from(invalidIpNames.entries()).map(e => e[0]).join(', ');
+				uploadResult.errors.push('Integration Procedure Actions will need manual updates, please verify: ' + val);
 			}
 
 			cardsUploadInfo.set(recordId, uploadResult);
@@ -195,24 +206,8 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 		card[this.namespacePrefix + 'Definition__c'] = JSON.stringify(definition);
 	}
 
-	private async prepareCardData(cards: AnyJson[], cardsUploadInfo: Map<string, UploadRecordResult>): Promise<TransformData> {
-		const mappedRecords = [],
-			originalRecords = new Map<string, AnyJson>();
-
-		// Start transforming each Card
-		for (let card of cards) {
-			const recordId = card['Id'];
-			// Perform the transformation
-			mappedRecords.push(this.mapVlocityCardRecord(card, cardsUploadInfo));
-			// Create a map of the original records
-			originalRecords.set(recordId, card);
-		};
-		return { originalRecords, mappedRecords };
-	}
-
-
 	// Maps an indivitdual VlocityCard__c record to an OmniUiCard record.
-	private mapVlocityCardRecord(cardRecord: AnyJson, cardsUploadInfo: Map<string, UploadRecordResult>): AnyJson {
+	private mapVlocityCardRecord(cardRecord: AnyJson, cardsUploadInfo: Map<string, UploadRecordResult>, invalidIpNames: Map<string, string>): AnyJson {
 
 		// Transformed object
 		const mappedObject = {};
@@ -250,6 +245,74 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 		mappedObject['Name'] = this.cleanName(mappedObject['Name']);
 		mappedObject[CardMappings.Author__c] = this.cleanName(mappedObject[CardMappings.Author__c]);
 		mappedObject[CardMappings.Active__c] = false;
+
+		// Update the datasource
+		const datasource = JSON.parse(mappedObject[CardMappings.Datasource__c] || '{}');
+		if (datasource.dataSource) {
+			const type = datasource.dataSource.type;
+			if (type === 'DataRaptor') {
+				datasource.dataSource.value.bundle = this.cleanName(datasource.dataSource.value.bundle);
+			} else if (type === 'IntegrationProcedures') {
+				const ipMethod: string = datasource.dataSource.value.ipMethod || '';
+
+				const parts = ipMethod.split('_');
+				const newKey = parts.map(p => this.cleanName(p, true)).join('_');
+
+				datasource.dataSource.value.ipMethod = newKey;
+
+				if (parts.length > 2) {
+					invalidIpNames.set('DataSource', ipMethod);
+				}
+			}
+			mappedObject[CardMappings.Datasource__c] = JSON.stringify(datasource);
+		}
+
+		// Update the propertyset datasource
+		const propertySet = JSON.parse(mappedObject[CardMappings.Definition__c] || '{}');
+		if (propertySet.dataSource) {
+			const type = propertySet.dataSource.type;
+			if (type === 'DataRaptor') {
+				propertySet.dataSource.value.bundle = this.cleanName(propertySet.dataSource.value.bundle);
+				mappedObject[CardMappings.Definition__c] = JSON.stringify(propertySet);
+			} else if (type === 'IntegrationProcedures') {
+				const ipMethod: string = propertySet.dataSource.value.ipMethod || '';
+
+				const parts = ipMethod.split('_');
+				const newKey = parts.map(p => this.cleanName(p, true)).join('_');
+				datasource.dataSource.value.ipMethod = newKey;
+
+				if (parts.length > 2) {
+					invalidIpNames.set('DataSource', ipMethod);
+				}
+			}
+		}
+
+		// update the states for child cards
+		for (let i = 0; i < propertySet.states.length; i++) {
+			const state = propertySet.states[i];
+
+			// Clean childCards property
+			if (state.childCards && Array.isArray(state.childCards)) {
+				state.childCards = state.childCards.map(c => this.cleanName(c));
+			}
+
+			// Fix the "components" for child cards
+			for (let componentKey in state.components) {
+				if (state.components.hasOwnProperty(componentKey)) {
+					const component = state.components[componentKey];
+
+					if (component.children && Array.isArray(component.children)) {
+						for (let j = 0; j < component.children.length; j++) {
+							const child = component.children[j];
+							if (child.element === 'childCardPreview') {
+								child.property.cardName = this.cleanName(child.property.cardName);
+							}
+						}
+					}
+				}
+			}
+		}
+
 
 		mappedObject['attributes'] = {
 			type: CardMigrationTool.OMNIUICARD_NAME,

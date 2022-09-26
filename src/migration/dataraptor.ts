@@ -127,6 +127,11 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 			if (drUploadResponse && drUploadResponse.success === true) {
 				const items = await this.getItemsForDataRaptor(dataRaptorItemsData, name, drUploadResponse.id);
 
+				// Check for name changes
+				if (transformedDataRaptor[DRBundleMappings.Name] !== dr['Name']) {
+					drUploadResponse.newName = transformedDataRaptor[DRBundleMappings.Name];
+				}
+
 				// Move the items
 				await this.uploadTransformedData(DataRaptorMigrationTool.OMNIDATATRANSFORMITEM_NAME, items);
 

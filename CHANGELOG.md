@@ -2,6 +2,8 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.2.7-beta.1](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/v1.2.6...v1.2.7-beta.1) (2022-09-26)
+
 ### [1.2.6](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/v1.2.5...v1.2.6) (2022-06-23)
 
 ### [1.2.5](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/v1.2.4...v1.2.5) (2022-06-20)

@@ -159,6 +159,7 @@ export default class Migrate extends OmniStudioBaseCommand {
         errors: record['errors'],
         migratedId: undefined,
         warnings: [],
+        migratedName: '',
       };
 
       if (migrationResults.results.has(record['Id'])) {
@@ -167,6 +168,7 @@ export default class Migrate extends OmniStudioBaseCommand {
         obj.errors = obj.errors || recordResults.errors;
         obj.migratedId = recordResults.id;
         obj.warnings = recordResults.warnings;
+        obj.migratedName = recordResults.newName;
       }
 
       mergedResults.push(obj);

@@ -156,7 +156,10 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 			mappedOmniScript[OmniScriptMappings.SubType__c] = this.cleanName(mappedOmniScript[OmniScriptMappings.SubType__c]);
 
 			// Check duplicated name
-			const mappedOsName = `${mappedOmniScript[OmniScriptMappings.Type__c]}_${mappedOmniScript[OmniScriptMappings.SubType__c]}_${mappedOmniScript[OmniScriptMappings.Language__c]}`;
+			// const mappedOsName = `${mappedOmniScript[OmniScriptMappings.Type__c]}_${mappedOmniScript[OmniScriptMappings.SubType__c]}_${mappedOmniScript[OmniScriptMappings.Language__c]}`;
+			const mappedOsName = mappedOmniScript[OmniScriptMappings.Type__c] + '_' + mappedOmniScript[OmniScriptMappings.SubType__c]
+				+ (mappedOmniScript[OmniScriptMappings.Language__c] ? '_' + mappedOmniScript[OmniScriptMappings.Language__c] : '') + '_1';
+
 			if (duplicatedNames.has(mappedOsName)) {
 				this.setRecordErrors(omniscript, this.messages.getMessage('duplicatedOSName'));
 				originalOsRecords.set(recordId, omniscript)
@@ -177,17 +180,18 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 				if (!osUploadResponse.success) {
 					osUploadResponse.errors = Array.isArray(osUploadResponse.errors) ? osUploadResponse.errors : [osUploadResponse.errors];
 				}
-        
+
 				osUploadResponse.warnings = osUploadResponse.warnings || [];
 
 				const originalOsName = omniscript[this.namespacePrefix + 'Type__c'] + '_' + omniscript[this.namespacePrefix + 'SubType__c'] + '_' + omniscript[this.namespacePrefix + 'Language__c'];
 				if (originalOsName !== mappedOsName) {
+					osUploadResponse.newName = mappedOsName;
 					osUploadResponse.warnings.unshift('WARNING: OmniScript name has been modified to fit naming rules: ' + mappedOsName);
 				}
 
 				// Upload All elements for each OmniScript__c record(i.e IP/OS)
 				await this.uploadAllElements(osUploadResponse, elements);
-        
+
 				// Get OmniScript Compiled Definitions for OmniScript Record
 				const omniscriptsCompiledDefinitions = await this.getOmniScriptCompiledDefinition(recordId);
 
@@ -201,7 +205,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 				if (mappedRecords[0].IsIntegrationProcedure) {
 					mappedRecords[0].Language = 'Procedure';
 				}
-        
+
 				const updateResult = await NetUtils.updateOne(this.connection, OmniScriptMigrationTool.OMNIPROCESS_NAME, recordId, osUploadResponse.id, {
 					[OmniScriptMappings.IsActive__c]: true
 				});
@@ -340,18 +344,24 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 	private async prepareElementsData(osUploadResult: UploadRecordResult, elements: AnyJson[], parentElementUploadResponse: Map<string, UploadRecordResult>): Promise<TransformData> {
 
 		const mappedRecords = [],
-			originalRecords = new Map<string, AnyJson>();
+			originalRecords = new Map<string, AnyJson>(),
+			invalidIpNames = new Map<String, String>();
 
 		elements.forEach(element => {
 
 			// Perform the transformation. We need parent record & must have been migrated before
 			if (osUploadResult.id) {
-				mappedRecords.push(this.mapElementData(element, osUploadResult.id, parentElementUploadResponse));
+				mappedRecords.push(this.mapElementData(element, osUploadResult.id, parentElementUploadResponse, invalidIpNames));
 			}
 
 			// Create a map of the original records
 			originalRecords.set(element['Id'], element);
 		});
+
+		if (osUploadResult.id && invalidIpNames.size > 0) {
+			const val = Array.from(invalidIpNames.entries()).map(e => e[0]).join(', ');
+			osUploadResult.errors.push('Integration Procedure Actions will need manual updates, please verify: ' + val);
+		}
 
 		return { originalRecords, mappedRecords };
 	}
@@ -407,7 +417,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 	}
 
 	// Maps an individual Element into an OmniProcessElement record
-	private mapElementData(elementRecord: AnyJson, omniProcessId: string, parentElementUploadResponse: Map<String, UploadRecordResult>) {
+	private mapElementData(elementRecord: AnyJson, omniProcessId: string, parentElementUploadResponse: Map<String, UploadRecordResult>, invalidIpReferences: Map<String, String>) {
 
 		// Transformed object
 		const mappedObject = {};
@@ -430,6 +440,43 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
 		// Set the parent/child relationship
 		mappedObject['OmniProcessId'] = omniProcessId;
+
+		// We need to fix the child references
+		const elementType = mappedObject[ElementMappings.Type__c];
+		const propertySet = JSON.parse(mappedObject[ElementMappings.PropertySet__c] || '{}');
+		switch (elementType) {
+			case 'OmniScript':
+				propertySet['Type'] = this.cleanName(propertySet['Type']);
+				propertySet['Sub Type'] = this.cleanName(propertySet['Sub Type']);
+				break;
+			case 'Integration Procedure Action':
+				const remoteOptions = propertySet['remoteOptions'] || {};
+				remoteOptions['preTransformBundle'] = this.cleanName(remoteOptions['preTransformBundle']);
+				remoteOptions['postTransformBundle'] = this.cleanName(remoteOptions['postTransformBundle']);
+				propertySet['remoteOptions'] = remoteOptions;
+
+				propertySet['preTransformBundle'] = this.cleanName(propertySet['preTransformBundle']);
+				propertySet['postTransformBundle'] = this.cleanName(propertySet['postTransformBundle']);
+
+				// We can't update the IP references, we need to let the user know
+				const key: String = propertySet['integrationProcedureKey'] || '';
+				if (key) {
+					const parts = key.split('_');
+					const newKey = parts.map(p => this.cleanName(p, true)).join('_');
+					if (parts.length > 2) {
+						invalidIpReferences.set(mappedObject[ElementMappings.Name], key);
+					}
+					propertySet['integrationProcedureKey'] = newKey;
+				}
+				break;
+			case 'DataRaptor Turbo Action':
+			case 'DataRaptor Transform Action':
+			case 'DataRaptor Post Action':
+			case 'DataRaptor Extract Action':
+				propertySet['bundle'] = this.cleanName(propertySet['bundle']);
+				break;
+		}
+		mappedObject[ElementMappings.PropertySet__c] = JSON.stringify(propertySet);
 
 		// BATCH framework requires that each record has an "attributes" property
 		mappedObject['attributes'] = {

@@ -38,6 +38,7 @@ export interface ObjectMapping {
 export interface UploadRecordResult {
   referenceId: string;
   id?: string;
+  newName?: string;
   errors: string[];
   warnings: string[];
   hasErrors: boolean;

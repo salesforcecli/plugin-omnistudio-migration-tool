@@ -22,5 +22,6 @@
   "duplicatedDrName": "Duplicated DataRaptor name",
   "duplicatedOSName": "Duplicated OmniScript name",
   "errorWhileActivatingOs": "Could not activate OmniScript / Integration Procedure: ",
-  "errorWhileActivatingCard": "Could not activate Card: "
+  "errorWhileActivatingCard": "Could not activate Card: ",
+  "errorWhileUploadingCard": "An error ocurred while uploading Card: "
 }

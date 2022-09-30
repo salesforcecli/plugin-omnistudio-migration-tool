@@ -99,7 +99,6 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 	private async uploadCard(allCards: any[], card: AnyJson, cardsUploadInfo: Map<string, UploadRecordResult>, originalRecords: Map<string, any>, uniqueNames: Set<string>) {
 
 		const recordId = card['Id'];
-		this.reportProgress(allCards.length, originalRecords.size);
 
 		// If we already uploaded this card, skip
 		if (cardsUploadInfo.has(recordId)) {
@@ -118,6 +117,8 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 
 			this.updateChildCards(card);
 		}
+
+		this.reportProgress(allCards.length, originalRecords.size);
 
 		try {
 

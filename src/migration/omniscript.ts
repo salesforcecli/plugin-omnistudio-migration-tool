@@ -175,7 +175,6 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
 			if (osUploadResponse.success) {
 
-
 				// Fix errors
 				if (!osUploadResponse.success) {
 					osUploadResponse.errors = Array.isArray(osUploadResponse.errors) ? osUploadResponse.errors : [osUploadResponse.errors];
@@ -189,36 +188,60 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 					osUploadResponse.warnings.unshift('WARNING: OmniScript name has been modified to fit naming rules: ' + mappedOsName);
 				}
 
-				// Upload All elements for each OmniScript__c record(i.e IP/OS)
-				await this.uploadAllElements(osUploadResponse, elements);
+				try {
+					// Upload All elements for each OmniScript__c record(i.e IP/OS)
+					await this.uploadAllElements(osUploadResponse, elements);
 
-				// Get OmniScript Compiled Definitions for OmniScript Record
-				const omniscriptsCompiledDefinitions = await this.getOmniScriptCompiledDefinition(recordId);
+					// Get OmniScript Compiled Definitions for OmniScript Record
+					const omniscriptsCompiledDefinitions = await this.getOmniScriptCompiledDefinition(recordId);
 
-				// Upload OmniScript Compiled Definition to OmniProcessCompilation
-				await this.uploadAllOmniScriptDefinitions(osUploadResponse, omniscriptsCompiledDefinitions);
+					// Upload OmniScript Compiled Definition to OmniProcessCompilation
+					await this.uploadAllOmniScriptDefinitions(osUploadResponse, omniscriptsCompiledDefinitions);
 
-				// Update the inserted OS record as it was Active and made InActive to insert.
-				mappedRecords[0].IsActive = true;
-				mappedRecords[0].Id = osUploadResponse.id;
+					// Update the inserted OS record as it was Active and made InActive to insert.
+					mappedRecords[0].IsActive = true;
+					mappedRecords[0].Id = osUploadResponse.id;
 
-				if (mappedRecords[0].IsIntegrationProcedure) {
-					mappedRecords[0].Language = 'Procedure';
-				}
+					if (mappedRecords[0].IsIntegrationProcedure) {
+						mappedRecords[0].Language = 'Procedure';
+					}
 
-				const updateResult = await NetUtils.updateOne(this.connection, OmniScriptMigrationTool.OMNIPROCESS_NAME, recordId, osUploadResponse.id, {
-					[OmniScriptMappings.IsActive__c]: true
-				});
+					const updateResult = await NetUtils.updateOne(this.connection, OmniScriptMigrationTool.OMNIPROCESS_NAME, recordId, osUploadResponse.id, {
+						[OmniScriptMappings.IsActive__c]: true
+					});
 
-				if (!updateResult.success) {
+					if (!updateResult.success) {
+						osUploadResponse.hasErrors = true;
+						osUploadResponse.errors = osUploadResponse.errors || [];
+
+						osUploadResponse.errors.push(this.messages.getMessage('errorWhileActivatingOs') + updateResult.errors);
+					}
+
+
+				} catch (e) {
 					osUploadResponse.hasErrors = true;
 					osUploadResponse.errors = osUploadResponse.errors || [];
 
-					osUploadResponse.errors.push(this.messages.getMessage('errorWhileActivatingOs') + updateResult.errors);
-				}
+					let error = 'UNKNOWN';
+					if (typeof e === 'object') {
+						try {
+							const obj = JSON.parse(e.message || '{}');
+							if (obj.hasErrors && obj.results && Array.isArray(obj.results)) {
+								error = obj.results.map(r => {
+									return Array.isArray(r.errors) ? r.errors.map(e => e.message).join('. ') : r.errors;
+								}).join('. ');
+							}
+						} catch {
+							error = e.toString();
+						}
+					}
 
-				// Create the return records and response which have been processed
-				osUploadInfo.set(recordId, osUploadResponse);
+					osUploadResponse.errors.push(this.messages.getMessage('errorWhileCreatingElements') + error);
+				}
+				finally {
+					// Create the return records and response which have been processed
+					osUploadInfo.set(recordId, osUploadResponse);
+				}
 			}
 
 			originalOsRecords.set(recordId, omniscript);

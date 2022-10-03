@@ -164,8 +164,12 @@ export default class Migrate extends OmniStudioBaseCommand {
 
       if (migrationResults.results.has(record['Id'])) {
         const recordResults = migrationResults.results.get(record['Id']);
+
+        let errors: any[] = obj.errors || [];
+        errors = errors.concat(recordResults.errors || []);
+
         obj.status = !recordResults || recordResults.hasErrors ? 'Error' : 'Complete';
-        obj.errors = obj.errors || recordResults.errors;
+        obj.errors = errors;
         obj.migratedId = recordResults.id;
         obj.warnings = recordResults.warnings;
         obj.migratedName = recordResults.newName;

@@ -23,5 +23,6 @@
   "duplicatedOSName": "Duplicated OmniScript name",
   "errorWhileActivatingOs": "Could not activate OmniScript / Integration Procedure: ",
   "errorWhileActivatingCard": "Could not activate Card: ",
+  "errorWhileUploadingCard": "An error ocurred while uploading Card: ",
   "errorWhileCreatingElements": "An error ocurred while saving OmniScript elements: "
 }

@@ -78,6 +78,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 		// const filterStr: string = ` Where ${this.namespacePrefix}Active__c = true`
 		const filters = new Map<string, any>();
 		filters.set(this.namespacePrefix + 'Active__c', true);
+		filters.set(this.namespacePrefix + 'CardType__c', 'flex');
 
 		return await QueryTools.queryWithFilter(this.connection, this.namespace, CardMigrationTool.VLOCITYCARD_NAME, this.getCardFields(), filters);
 	}

@@ -39,5 +39,7 @@ node_modules
 # os specific files
 .DS_Store
 .idea
+out.log
+migrationresults.html
 
 oclif.manifest.json

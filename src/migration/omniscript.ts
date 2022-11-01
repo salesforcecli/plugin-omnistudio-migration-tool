@@ -430,6 +430,8 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 			}
 		});
 
+		mappedObject['Name'] = this.cleanName(mappedObject['Name']);
+
 		// BATCH framework requires that each record has an "attributes" property
 		mappedObject['attributes'] = {
 			type: OmniScriptMigrationTool.OMNIPROCESS_NAME,
@@ -499,7 +501,9 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 				propertySet['bundle'] = this.cleanName(propertySet['bundle']);
 				break;
 		}
+
 		mappedObject[ElementMappings.PropertySet__c] = JSON.stringify(propertySet);
+		mappedObject['Name'] = this.cleanName(mappedObject['Name']);
 
 		// BATCH framework requires that each record has an "attributes" property
 		mappedObject['attributes'] = {

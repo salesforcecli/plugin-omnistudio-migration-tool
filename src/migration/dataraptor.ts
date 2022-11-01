@@ -207,6 +207,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 		});
 
 		mappedObject['Name'] = this.cleanName(mappedObject['Name']);
+		mappedObject['IsActive'] = true;
 
 		// BATCH framework requires that each record has an "attributes" property
 		mappedObject['attributes'] = {

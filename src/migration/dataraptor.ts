@@ -240,6 +240,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 
 		// Set the parent/child relationship
 		mappedObject['OmniDataTransformationId'] = omniDataTransformationId;
+		mappedObject['Name'] = this.cleanName(mappedObject['Name']);
 
 		// BATCH framework requires that each record has an "attributes" property
 		mappedObject['attributes'] = {

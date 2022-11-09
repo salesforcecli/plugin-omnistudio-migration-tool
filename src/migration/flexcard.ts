@@ -106,22 +106,22 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 			return;
 		}
 
-		const childCards = this.getChildCards(card);
-		if (childCards.length > 0) {
-			for (let childCardName of childCards) {
-				// Upload child cards
-				const childCard = allCards.find(c => c['Name'] === childCardName);
-				if (childCard) {
-					await this.uploadCard(allCards, childCard, cardsUploadInfo, originalRecords, uniqueNames);
+		try {
+			const childCards = this.getChildCards(card);
+			if (childCards.length > 0) {
+				for (let childCardName of childCards) {
+					// Upload child cards
+					const childCard = allCards.find(c => c['Name'] === childCardName);
+					if (childCard) {
+						await this.uploadCard(allCards, childCard, cardsUploadInfo, originalRecords, uniqueNames);
+					}
 				}
+
+				this.updateChildCards(card);
 			}
 
-			this.updateChildCards(card);
-		}
+			this.reportProgress(allCards.length, originalRecords.size);
 
-		this.reportProgress(allCards.length, originalRecords.size);
-
-		try {
 
 			// Perform the transformation
 			const invalidIpNames = new Map<string, string>();

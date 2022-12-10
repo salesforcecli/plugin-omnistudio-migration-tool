@@ -48,7 +48,7 @@
     "pretty-quick": "^3.1.0",
     "sinon": "10.0.0",
     "ts-node": "^10.0.0",
-    "typescript": "^4.9.3"
+    "typescript": "^4.9.4"
   },
   "engines": {
     "node": ">=12.0.0"

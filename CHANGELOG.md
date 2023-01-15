@@ -1,3 +1,12 @@
+## [1.2.18](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.2.17...1.2.18) (2023-01-15)
+
+
+### Bug Fixes
+
+* **deps:** bump @oclif/command from 1.8.19 to 1.8.21 ([076533b](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/076533bbb020a637e8610276acc786904cdc645c))
+
+
+
 ## [1.2.17](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.2.16...1.2.17) (2023-01-08)
 
 

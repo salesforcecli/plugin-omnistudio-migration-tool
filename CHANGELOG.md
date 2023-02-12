@@ -1,3 +1,12 @@
+## [1.2.22](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.2.21...1.2.22) (2023-02-12)
+
+
+### Bug Fixes
+
+* **deps:** bump open from 8.4.0 to 8.4.1 ([15d09dd](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/15d09ddbc0891cf48e4ba57f9e64ec4232e73c9a))
+
+
+
 ## [1.2.21](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.2.20...1.2.21) (2023-02-05)
 
 

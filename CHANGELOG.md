@@ -1,3 +1,12 @@
+## [1.2.28](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.2.27...1.2.28) (2023-05-21)
+
+
+### Bug Fixes
+
+* **deps:** bump tslib from 2.5.0 to 2.5.2 ([bb56bfa](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/bb56bfafef31e83f6b655078e8fc99fdc9eb95d2))
+
+
+
 ## [1.2.27](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.2.26...1.2.27) (2023-05-21)
 
 

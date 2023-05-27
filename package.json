@@ -22,7 +22,7 @@
     "@oclif/test": "^1",
     "@salesforce/dev-config": "^2.1.2",
     "@salesforce/dev-scripts": "^0",
-    "@salesforce/plugin-command-reference": "^1.4.7",
+    "@salesforce/plugin-command-reference": "^1.6.17",
     "@salesforce/prettier-config": "^0.0.3",
     "@salesforce/ts-sinon": "^1",
     "@types/jsforce": "^1.11.0",

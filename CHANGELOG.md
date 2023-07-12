@@ -1,3 +1,12 @@
+## [1.2.38](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.2.37...1.2.38) (2023-07-12)
+
+
+### Bug Fixes
+
+* **deps:** bump semver from 5.7.1 to 5.7.2 ([d8d8e9c](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/d8d8e9c49ee2cf2bf47796d207b7ea5b895265ef))
+
+
+
 ## [1.2.37](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.2.36...1.2.37) (2023-07-09)
 
 

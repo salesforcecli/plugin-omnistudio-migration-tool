@@ -1,3 +1,12 @@
+## [1.2.41](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.2.40...1.2.41) (2023-07-20)
+
+
+### Bug Fixes
+
+* **deps:** bump word-wrap from 1.2.3 to 1.2.4 ([b6271fe](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/b6271fe43ce161cfb06b333c95fa2e31041b78d1))
+
+
+
 ## [1.2.40](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.2.39...1.2.40) (2023-07-16)
 
 

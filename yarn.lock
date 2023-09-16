@@ -1054,10 +1054,10 @@
   dependencies:
     "@types/node" "*"
 
-"@types/jsforce@^1.11.1", "@types/jsforce@^1.9.41":
-  version "1.11.1"
-  resolved "https://registry.yarnpkg.com/@types/jsforce/-/jsforce-1.11.1.tgz#b415eb49a7ed167470ac718a85de307ce74c7b53"
-  integrity sha512-tRHEH6OdhNgP0+rn8As1U9xwTdr+9UH8JT7AbdWAgEIYai/txKxuNmhhLjuJAOpniq0p4JHhug3EgzaVoreheg==
+"@types/jsforce@^1.11.2", "@types/jsforce@^1.9.41":
+  version "1.11.2"
+  resolved "https://registry.yarnpkg.com/@types/jsforce/-/jsforce-1.11.2.tgz#2714719726e091d05a5ba074cc363128709039a0"
+  integrity sha512-NJGYN1vzZnZRMkzQ7wDiBXLPTCUVWOY/UrnEWbg19SCLMBzsCVYVPrG9X3CCOeF0Ddo3r/iFwfsrxH2f+DTICg==
   dependencies:
     "@types/node" ">=4.0"
 

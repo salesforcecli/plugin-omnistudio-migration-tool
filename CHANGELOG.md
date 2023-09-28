@@ -1,3 +1,12 @@
+## [1.2.49](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.2.48...1.2.49) (2023-09-28)
+
+
+### Bug Fixes
+
+* **deps:** bump get-func-name from 2.0.0 to 2.0.2 ([d62af2a](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/d62af2acd40f1c0eb1be9ad8503912a6e49ffc79))
+
+
+
 ## [1.2.48](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.2.47...1.2.48) (2023-08-27)
 
 

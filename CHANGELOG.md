@@ -1,3 +1,12 @@
+## [1.2.50](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.2.49...1.2.50) (2023-10-18)
+
+
+### Bug Fixes
+
+* **deps:** bump @babel/traverse from 7.17.3 to 7.23.2 ([b5cc633](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/b5cc633d33a315ba2da76384f6f742d604015abd))
+
+
+
 ## [1.2.49](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.2.48...1.2.49) (2023-09-28)
 
 

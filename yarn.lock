@@ -1150,10 +1150,10 @@
   dependencies:
     "@types/node" "*"
 
-"@types/jsforce@^1.11.2", "@types/jsforce@^1.9.41":
-  version "1.11.2"
-  resolved "https://registry.yarnpkg.com/@types/jsforce/-/jsforce-1.11.2.tgz#2714719726e091d05a5ba074cc363128709039a0"
-  integrity sha512-NJGYN1vzZnZRMkzQ7wDiBXLPTCUVWOY/UrnEWbg19SCLMBzsCVYVPrG9X3CCOeF0Ddo3r/iFwfsrxH2f+DTICg==
+"@types/jsforce@^1.11.3", "@types/jsforce@^1.9.41":
+  version "1.11.3"
+  resolved "https://registry.yarnpkg.com/@types/jsforce/-/jsforce-1.11.3.tgz#561631e25fb9aa39f30accf26d9e4d9f3fd9924f"
+  integrity sha512-3M4+uuGaqUQqG+Cb+IDx8xaQIw+s6xW69rvMc7LQm6KzFZtady9KiokNsvyxHwWBrsLJ/PGA10A2N3kMDI6StQ==
   dependencies:
     "@types/node" ">=4.0"
 

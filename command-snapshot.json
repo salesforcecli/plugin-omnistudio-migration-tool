@@ -2,19 +2,19 @@
   {
     "command": "basecommand",
     "plugin": "@salesforce/plugin-omnistudio-migration-tool",
-    "flags": ["apiversion", "json", "loglevel", "targetusername", "allversions"],
+    "flags": ["apiversion", "json", "loglevel", "targetusername"],
     "alias": []
   },
   {
     "command": "omnistudio:migration:info",
     "plugin": "@salesforce/plugin-omnistudio-migration-tool",
-    "flags": ["apiversion", "json", "loglevel", "name", "targetdevhubusername", "targetusername", "allversions"],
+    "flags": ["apiversion", "json", "loglevel", "name", "targetdevhubusername", "targetusername"],
     "alias": []
   },
   {
     "command": "omnistudio:migration:migrate",
     "plugin": "@salesforce/plugin-omnistudio-migration-tool",
-    "flags": ["apiversion", "json", "loglevel", "namespace", "only", "targetusername", "allversions"],
+    "flags": ["allversions", "apiversion", "json", "loglevel", "namespace", "only", "targetusername"],
     "alias": []
   }
 ]

@@ -8,7 +8,7 @@
   {
     "command": "omnistudio:migration:info",
     "plugin": "@salesforce/plugin-omnistudio-migration-tool",
-    "flags": ["apiversion", "json", "loglevel", "name", "targetdevhubusername", "targetusername"],
+    "flags": ["allversions", "apiversion", "json", "loglevel", "name", "targetdevhubusername", "targetusername"],
     "alias": []
   },
   {

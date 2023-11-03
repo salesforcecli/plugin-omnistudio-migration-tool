@@ -5,5 +5,5 @@
     "rootDir": "./src",
     "esModuleInterop": true
   },
-  "include": ["./src/**/*.ts", "./src/prototypes.d.ts"]
+  "include": ["./src/**/*.ts"]
 }

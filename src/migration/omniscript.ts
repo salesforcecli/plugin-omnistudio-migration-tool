@@ -375,9 +375,6 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     DebugTimer.getInstance().lap('Query OmniScripts');
     this.logger.info('allVersions : ' + this.allVersions);
     const filters = new Map<string, any>();
-    if (!this.allVersions) {
-      filters.set(this.namespacePrefix + 'IsActive__c', true);
-    }
 
     if (this.exportType === OmniScriptExportType.IP) {
       filters.set(this.namespacePrefix + 'IsProcedure__c', true);
@@ -385,13 +382,30 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
       filters.set(this.namespacePrefix + 'IsProcedure__c', false);
     }
 
-    return await QueryTools.queryWithFilter(
-      this.connection,
-      this.namespace,
-      OmniScriptMigrationTool.OMNISCRIPT_NAME,
-      this.getOmniScriptFields(),
-      filters
-    );
+    if (this.allVersions) {
+      const sortFields = [
+        { field: this.namespacePrefix + 'Type__c', direction: SortDirection.ASC },
+        { field: this.namespacePrefix + 'SubType__c', direction: SortDirection.ASC },
+        { field: this.namespacePrefix + 'Version__c', direction: SortDirection.ASC },
+      ];
+      return await QueryTools.queryWithFilterAndSort(
+        this.connection,
+        this.namespace,
+        OmniScriptMigrationTool.OMNISCRIPT_NAME,
+        this.getOmniScriptFields(),
+        filters,
+        sortFields
+      );
+    } else {
+      filters.set(this.namespacePrefix + 'IsActive__c', true);
+      return await QueryTools.queryWithFilter(
+        this.connection,
+        this.namespace,
+        OmniScriptMigrationTool.OMNISCRIPT_NAME,
+        this.getOmniScriptFields(),
+        filters
+      );
+    }
   }
 
   // Get All Elements w.r.t OmniScript__c i.e Elements tagged to passed in IP/OS

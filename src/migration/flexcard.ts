@@ -1,7 +1,7 @@
 /* eslint-disable */
 import { AnyJson } from '@salesforce/ts-types';
 import CardMappings from '../mappings/VlocityCard';
-import { DebugTimer, QueryTools } from '../utils';
+import { DebugTimer, QueryTools, SortDirection } from '../utils';
 import { NetUtils } from '../utils/net';
 import { BaseMigrationTool } from './base';
 import { MigrationResult, MigrationTool, ObjectMapping, UploadRecordResult } from './interfaces';
@@ -92,20 +92,32 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
   // Query all cards that are active
   private async getAllActiveCards(): Promise<AnyJson[]> {
     DebugTimer.getInstance().lap('Query Vlocity Cards');
-    // const filterStr: string = ` Where ${this.namespacePrefix}Active__c = true`
     const filters = new Map<string, any>();
-    if (!this.allVersions) {
-      filters.set(this.namespacePrefix + 'Active__c', true);
-    }
     filters.set(this.namespacePrefix + 'CardType__c', 'flex');
 
-    return await QueryTools.queryWithFilter(
-      this.connection,
-      this.namespace,
-      CardMigrationTool.VLOCITYCARD_NAME,
-      this.getCardFields(),
-      filters
-    );
+    if (this.allVersions) {
+      const sortFields = [
+        { field: 'Name', direction: SortDirection.ASC },
+        { field: this.namespacePrefix + 'Version__c', direction: SortDirection.ASC },
+      ];
+      return await QueryTools.queryWithFilterAndSort(
+        this.connection,
+        this.namespace,
+        CardMigrationTool.VLOCITYCARD_NAME,
+        this.getCardFields(),
+        filters,
+        sortFields
+      );
+    } else {
+      filters.set(this.namespacePrefix + 'Active__c', true);
+      return await QueryTools.queryWithFilter(
+        this.connection,
+        this.namespace,
+        CardMigrationTool.VLOCITYCARD_NAME,
+        this.getCardFields(),
+        filters
+      );
+    }
   }
 
   // Upload All the VlocityCard__c records to OmniUiCard

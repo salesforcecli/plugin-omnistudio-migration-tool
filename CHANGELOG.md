@@ -1,3 +1,12 @@
+## [1.2.52](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.2.51...1.2.52) (2023-11-12)
+
+
+### Bug Fixes
+
+* **deps:** bump @types/lodash.chunk from 4.2.8 to 4.2.9 ([5328b3a](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/5328b3aa7c6164df0bab54235dc17295861994b7))
+
+
+
 ## [1.2.51](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.2.50...1.2.51) (2023-10-29)
 
 

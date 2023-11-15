@@ -41,6 +41,7 @@ USAGE
 
 OPTIONS
   -n, --namespace=namespace                                                         the namespace of the vertical package
+  -n, --namespace=namespace                                                         the namespace of the vertical package
 
   -u, --targetusername=targetusername                                               username or alias for the target
                                                                                     org; overrides default target org

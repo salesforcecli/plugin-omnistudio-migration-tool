@@ -1150,10 +1150,17 @@
   dependencies:
     "@types/node" "*"
 
-"@types/jsforce@^1.11.4", "@types/jsforce@^1.9.41":
+"@types/jsforce@^1.11.4":
   version "1.11.4"
   resolved "https://registry.yarnpkg.com/@types/jsforce/-/jsforce-1.11.4.tgz#96c484584929e5d8d60afeaab820f767336a29e1"
   integrity sha512-bgMESDt7cgupb7WM2DtKKEnhHz/aPRSwgz6HyAVmwV1Z2eClARiLJ/pQ7XfytY7Rao3DQKNA8YkUsURF9BR4xQ==
+  dependencies:
+    "@types/node" ">=4.0"
+
+"@types/jsforce@^1.9.41":
+  version "1.11.3"
+  resolved "https://registry.yarnpkg.com/@types/jsforce/-/jsforce-1.11.3.tgz#561631e25fb9aa39f30accf26d9e4d9f3fd9924f"
+  integrity sha512-3M4+uuGaqUQqG+Cb+IDx8xaQIw+s6xW69rvMc7LQm6KzFZtady9KiokNsvyxHwWBrsLJ/PGA10A2N3kMDI6StQ==
   dependencies:
     "@types/node" ">=4.0"
 
@@ -1800,9 +1807,9 @@ camelcase@^6.0.0:
   integrity sha512-Gmy6FhYlCY7uOElZUSbxo2UCDH8owEk996gkbrpsgGtrJLM3J7jGxl9Ic7Qwwj4ivOE5AWZWRMecDdF7hqGjFA==
 
 caniuse-lite@^1.0.30001312:
-  version "1.0.30001559"
-  resolved "https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001559.tgz"
-  integrity sha512-cPiMKZgqgkg5LY3/ntGeLFUpi6tzddBNS58A4tnTgQw1zON7u2sZMU7SzOeVH4tj20++9ggL+V6FDOFMTaFFYA==
+  version "1.0.30001312"
+  resolved "https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001312.tgz"
+  integrity sha512-Wiz1Psk2MEK0pX3rUzWaunLTZzqS2JYZFzNKqAiJGiuxIjRPLgV6+VDPOg6lQOUxmDwhTlh198JsTTi8Hzw6aQ==
 
 capital-case@^1.0.4:
   version "1.0.4"

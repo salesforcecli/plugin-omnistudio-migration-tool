@@ -10,6 +10,14 @@
     "@jridgewell/trace-mapping" "^0.3.0"
 
 "@babel/code-frame@7.12.11", "@babel/code-frame@^7.0.0":
+"@ampproject/remapping@^2.1.0":
+  version "2.1.2"
+  resolved "https://registry.npmjs.org/@ampproject/remapping/-/remapping-2.1.2.tgz"
+  integrity sha512-hoyByceqwKirw7w3Z7gnIIZC3Wx3J484Y3L/cMpXFbr7d9ZQj2mODrirNzcJa+SM3UlpWXYvKV4RlRpFXlWgXg==
+  dependencies:
+    "@jridgewell/trace-mapping" "^0.3.0"
+
+"@babel/code-frame@7.12.11", "@babel/code-frame@^7.0.0":
   version "7.12.11"
   resolved "https://registry.npmjs.org/@babel/code-frame/-/code-frame-7.12.11.tgz"
   integrity sha512-Zt1yodBx1UcyiePMSkWnU4hPqhwq7hGi2nFL1LeA3EUl+q2LQx16MISgJ0+z7dnmgvP9QtIleuETGOiOH1RcIw==
@@ -1150,10 +1158,10 @@
   dependencies:
     "@types/node" "*"
 
-"@types/jsforce@^1.11.3", "@types/jsforce@^1.9.41":
-  version "1.11.3"
-  resolved "https://registry.yarnpkg.com/@types/jsforce/-/jsforce-1.11.3.tgz#561631e25fb9aa39f30accf26d9e4d9f3fd9924f"
-  integrity sha512-3M4+uuGaqUQqG+Cb+IDx8xaQIw+s6xW69rvMc7LQm6KzFZtady9KiokNsvyxHwWBrsLJ/PGA10A2N3kMDI6StQ==
+"@types/jsforce@^1.11.4", "@types/jsforce@^1.9.41":
+  version "1.11.4"
+  resolved "https://registry.yarnpkg.com/@types/jsforce/-/jsforce-1.11.4.tgz#96c484584929e5d8d60afeaab820f767336a29e1"
+  integrity sha512-bgMESDt7cgupb7WM2DtKKEnhHz/aPRSwgz6HyAVmwV1Z2eClARiLJ/pQ7XfytY7Rao3DQKNA8YkUsURF9BR4xQ==
   dependencies:
     "@types/node" ">=4.0"
 
@@ -1172,10 +1180,10 @@
   resolved "https://registry.npmjs.org/@types/json5/-/json5-0.0.29.tgz"
   integrity sha1-7ihweulOEdK4J7y+UnC86n8+ce4=
 
-"@types/lodash.chunk@^4.2.8":
-  version "4.2.8"
-  resolved "https://registry.yarnpkg.com/@types/lodash.chunk/-/lodash.chunk-4.2.8.tgz#12212b6053cf00831b9152ab7eb9e97e9a90d739"
-  integrity sha512-wSUIKYp9PMko5SjZIbdoy7mRiEXAVXWFS3kFQu5wDl6+DtFBJ5OvtD62kJIJ+rH3ELPLijUr2gV3EVT+iqO1og==
+"@types/lodash.chunk@^4.2.9":
+  version "4.2.9"
+  resolved "https://registry.yarnpkg.com/@types/lodash.chunk/-/lodash.chunk-4.2.9.tgz#60da44c404dfa8b01b426034c1183e5eb9b09727"
+  integrity sha512-Z9VtFUSnmT0No/QymqfG9AGbfOA4O5qB/uyP89xeZBqDAsKsB4gQFTqt7d0pHjbsTwtQ4yZObQVHuKlSOhIJ5Q==
   dependencies:
     "@types/lodash" "*"
 

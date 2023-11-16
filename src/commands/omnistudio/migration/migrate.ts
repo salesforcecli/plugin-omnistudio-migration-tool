@@ -42,6 +42,11 @@ export default class Migrate extends OmniStudioBaseCommand {
       char: 'o',
       description: messages.getMessage('onlyFlagDescription'),
     }),
+    allversions: flags.boolean({
+      char: 'a',
+      description: messages.getMessage('allVersionsDescription'),
+      required: false,
+    }),
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -49,6 +54,7 @@ export default class Migrate extends OmniStudioBaseCommand {
     const namespace = (this.flags.namespace || 'vlocity_ins') as string;
     const apiVersion = (this.flags.apiversion || '55.0') as string;
     const migrateOnly = (this.flags.only || '') as string;
+    const allVersions = this.flags.allversions || false;
 
     // this.org is guaranteed because requiresUsername=true, as opposed to supportsUsername
     const conn = this.org.getConnection();
@@ -62,23 +68,47 @@ export default class Migrate extends OmniStudioBaseCommand {
     if (!migrateOnly) {
       migrationObjects = [
         new DataRaptorMigrationTool(namespace, conn, this.logger, messages, this.ux),
-        new OmniScriptMigrationTool(OmniScriptExportType.All, namespace, conn, this.logger, messages, this.ux),
-        new CardMigrationTool(namespace, conn, this.logger, messages, this.ux),
+        new OmniScriptMigrationTool(
+          OmniScriptExportType.All,
+          namespace,
+          conn,
+          this.logger,
+          messages,
+          this.ux,
+          allVersions
+        ),
+        new CardMigrationTool(namespace, conn, this.logger, messages, this.ux, allVersions),
       ];
     } else {
       switch (migrateOnly) {
         case 'os':
           migrationObjects.push(
-            new OmniScriptMigrationTool(OmniScriptExportType.OS, namespace, conn, this.logger, messages, this.ux)
+            new OmniScriptMigrationTool(
+              OmniScriptExportType.OS,
+              namespace,
+              conn,
+              this.logger,
+              messages,
+              this.ux,
+              allVersions
+            )
           );
           break;
         case 'ip':
           migrationObjects.push(
-            new OmniScriptMigrationTool(OmniScriptExportType.IP, namespace, conn, this.logger, messages, this.ux)
+            new OmniScriptMigrationTool(
+              OmniScriptExportType.IP,
+              namespace,
+              conn,
+              this.logger,
+              messages,
+              this.ux,
+              allVersions
+            )
           );
           break;
         case 'fc':
-          migrationObjects.push(new CardMigrationTool(namespace, conn, this.logger, messages, this.ux));
+          migrationObjects.push(new CardMigrationTool(namespace, conn, this.logger, messages, this.ux, allVersions));
           break;
         case 'dr':
           migrationObjects.push(new DataRaptorMigrationTool(namespace, conn, this.logger, messages, this.ux));

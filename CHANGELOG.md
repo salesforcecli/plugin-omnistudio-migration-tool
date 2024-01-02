@@ -1,3 +1,12 @@
+# [1.3.0](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.2.52...1.3.0) (2023-11-15)
+
+
+### Features
+
+* **salesforcecli:** add new workflow to support pre release ([fffc9f9](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/fffc9f958fa4921a232ceb26871bd0a026269562))
+
+
+
 ## [1.2.52](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.2.51...1.2.52) (2023-11-12)
 
 

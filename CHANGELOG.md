@@ -1,3 +1,22 @@
+# [1.4.0](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.3.1-dev.0...1.4.0) (2024-01-03)
+
+
+
+## [1.3.1-dev.0](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.3.0...1.3.1-dev.0) (2024-01-02)
+
+
+### Features
+
+* **salesforcecli:** add yarn.lock + new snapshot ([7f5974e](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/7f5974eaad591794c6142a1c32536113370192ee))
+* **salesforcecli:** adding new functionality to migrate with all versions of omni components ([73b93ca](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/73b93ca75ad8191a8301bf62d8fa331fc5f2bfe8))
+* **salesforcecli:** adding sort by field, so we will get the correct version migrated ([d635111](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/d63511118210548cec49a51f96cf8235f7a32483))
+* **salesforcecli:** bumping npm version ([69faa46](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/69faa4653d41fb63df5514b0a1ad359e2188aba0))
+* **salesforcecli:** reverting change in tsconfig.json ([6723dfc](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/6723dfcfbc397cc542fc6fae889868a23d1f465c))
+* **salesforcecli:** setting beta version ([57df938](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/57df938ece3e06e5eff34149c6986b1931fcd398))
+* **salesforcecli:** updating snapshot ([e25b209](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/e25b209d18bea56f40367d9eb93a5411000f7e35))
+
+
+
 # [1.3.0](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.2.52...1.3.0) (2023-11-15)
 
 

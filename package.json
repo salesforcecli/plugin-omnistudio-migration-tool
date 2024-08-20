@@ -5,6 +5,7 @@
   "author": "Salesforce",
   "bugs": "https://github.com/forcedotcom/cli/issues",
   "dependencies": {
+    "@apexdevtools/apex-parser": "^4.1.0",
     "@oclif/command": "^1",
     "@oclif/config": "^1",
     "@oclif/errors": "^1",
@@ -13,8 +14,7 @@
     "@types/lodash.chunk": "^4.2.9",
     "lodash.chunk": "^4.2.0",
     "open": "^8.4.2",
-    "tslib": "^2",
-    "@apexdevtools/apex-parser": "^4.1.0"
+    "tslib": "^2"
   },
   "devDependencies": {
     "@oclif/dev-cli": "^1",
@@ -99,7 +99,7 @@
     "prepack": "sf-prepack",
     "prepare": "sf-install",
     "pretest": "sf-compile-test",
-    "test": "sf-test",
+    "test": "nyc mocha \"test/**/*.test.ts\"",
     "test:command-reference": "./bin/run commandreference:generate --erroronwarnings",
     "test:deprecation-policy": "./bin/run snapshot:compare",
     "test:nuts": "nyc mocha \"**/*.nut.ts\" --slow 4500 --timeout 600000 --parallel",
@@ -114,5 +114,8 @@
       "pre-commit": "sf-husky-pre-commit",
       "pre-push": "sf-husky-pre-push"
     }
+  },
+  "sf-test": {
+    "command": "nyc mocha \"test/**/*.test.ts\""
   }
 }

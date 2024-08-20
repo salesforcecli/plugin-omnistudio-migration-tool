@@ -5,6 +5,14 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "type": "pwa-node",
+      "request": "launch",
+      "name": "Debug TS",
+      "program": "${workspaceFolder}/src/utils/apex/parser/apexparser.ts",
+      "runtimeArgs": ["-r", "ts-node/register"],
+      "console": "integratedTerminal"
+    },
+    {
       "type": "node",
       "request": "attach",
       "name": "Attach to Remote",

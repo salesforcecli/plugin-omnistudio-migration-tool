@@ -42,9 +42,8 @@ export class interfaceVisitor implements ApexParserListener {
 
     if (ctx.dotMethodCall()) {
       // console.log(ctx.dotMethodCall().anyId().Identifier().symbol.text);
-      // ctx.dotMethodCall().expressionList().expression(1).children[0].children[0].children[0]; 
+      // ctx.dotMethodCall().expressionList().expression(1).children[0].children[0].children[0];
       // console.log(ctx.dotMethodCall().expressionList().expression(1).children[0]);
-
     }
     // console.log('*********');
   }

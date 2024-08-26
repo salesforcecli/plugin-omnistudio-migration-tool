@@ -20,10 +20,10 @@ import { ParseTreeWalker } from 'antlr4ts/tree/ParseTreeWalker';
 export class ApexASTParser {
   private apexFilePath: string;
   private implementsInterface: Map<string, Token>;
-  private callsMethods: Map<string, Token[]>;
+  // private callsMethods: Map<string, Token[]>;
   private interfaceName: string;
   private methodName: string;
-  private className: string;
+  // private className: string;
   private astListener: ApexParserListener;
 
   public get implemementsInterface(): Map<string, Token> {
@@ -37,8 +37,8 @@ export class ApexASTParser {
     this.astListener = this.createASTListener();
   }
 
-  public parse(filePath: string): CompilationUnitContext {
-    const fileContent = fs.readFileSync(filePath).toString();
+  public parse(): CompilationUnitContext {
+    const fileContent = fs.readFileSync(this.apexFilePath).toString();
     const lexer = new ApexLexer(new CaseInsensitiveInputStream(CharStreams.fromString(fileContent)));
     const tokens = new CommonTokenStream(lexer);
     const parser = new ApexParser(tokens);
@@ -50,8 +50,7 @@ export class ApexASTParser {
 
   private createASTListener(): ApexParserListener {
     class ApexMigrationListener implements ApexParserListener {
-      public constructor(private parser: ApexASTParser) { }
-
+      public constructor(private parser: ApexASTParser) {}
       public enterClassDeclaration(ctx: ClassDeclarationContext): void {
         const interfaceToBeSearched = this.parser.interfaceName;
         if (!interfaceToBeSearched) return;
@@ -68,7 +67,7 @@ export class ApexASTParser {
       public enterDotExpression(ctx: DotExpressionContext): void {
         // console.log('*********');
         // console.log(ctx.expression().start.text);
-        if (ctx.dotMethodCall()) {
+        if (ctx.dotMethodCall() && this.parser.methodName) {
           // console.log(ctx.dotMethodCall().anyId().Identifier().symbol.text);
           // ctx.dotMethodCall().expressionList().expression(1).children[0].children[0].children[0];
           // console.log(ctx.dotMethodCall().expressionList().expression(1).children[0]);

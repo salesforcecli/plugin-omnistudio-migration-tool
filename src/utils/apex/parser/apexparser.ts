@@ -2,7 +2,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import * as fs from 'fs';
 import {
   ApexLexer,
   CommonTokenStream,
@@ -18,7 +17,7 @@ import { CharStreams, Token } from 'antlr4ts';
 import { ParseTreeWalker } from 'antlr4ts/tree/ParseTreeWalker';
 
 export class ApexASTParser {
-  private apexFilePath: string;
+  private apexFileContent: string;
   private implementsInterface: Map<string, Token> = new Map();
   // private callsMethods: Map<string, Token[]>;
   private interfaceName: string;
@@ -30,16 +29,15 @@ export class ApexASTParser {
     return this.implementsInterface;
   }
 
-  public constructor(apexFilePath: string, interfaceName: string, methodName: string) {
-    this.apexFilePath = apexFilePath;
+  public constructor(apexFileContent: string, interfaceName: string, methodName: string) {
+    this.apexFileContent = apexFileContent;
     this.interfaceName = interfaceName;
     this.methodName = methodName;
     this.astListener = this.createASTListener();
   }
 
   public parse(): CompilationUnitContext {
-    const fileContent = fs.readFileSync(this.apexFilePath).toString();
-    const lexer = new ApexLexer(new CaseInsensitiveInputStream(CharStreams.fromString(fileContent)));
+    const lexer = new ApexLexer(new CaseInsensitiveInputStream(CharStreams.fromString(this.apexFileContent)));
     const tokens = new CommonTokenStream(lexer);
     const parser = new ApexParser(tokens);
     const context = parser.compilationUnit();

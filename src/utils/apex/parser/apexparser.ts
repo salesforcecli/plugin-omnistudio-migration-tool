@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import fs from 'fs';
 import {
   ApexLexer,
@@ -10,51 +14,79 @@ import {
   VariableDeclaratorContext,
   CompilationUnitContext,
 } from '@apexdevtools/apex-parser';
-import { CharStreams } from 'antlr4ts';
+import { CharStreams, Token } from 'antlr4ts';
 import { ParseTreeWalker } from 'antlr4ts/tree/ParseTreeWalker';
 
-export class ApexASTTraverser {
-  public static parse(apexClass: string): CompilationUnitContext {
-    const lexer = new ApexLexer(new CaseInsensitiveInputStream(CharStreams.fromString(apexClass)));
+export class ApexASTParser {
+  private apexFilePath: string;
+  private implementsInterface: Map<string, Token>;
+  private callsMethods: Map<string, Token[]>;
+  private interfaceName: string;
+  private methodName: string;
+  private className: string;
+  private astListener: ApexParserListener;
+
+  public get implemementsInterface(): Map<string, Token> {
+    return this.implementsInterface;
+  }
+
+  public constructor(apexFilePath: string, interfaceName: string, methodName: string) {
+    this.apexFilePath = apexFilePath;
+    this.interfaceName = interfaceName;
+    this.methodName = methodName;
+    this.astListener = this.createASTListener();
+  }
+
+  public parse(filePath: string): CompilationUnitContext {
+    const fileContent = fs.readFileSync(filePath).toString();
+    const lexer = new ApexLexer(new CaseInsensitiveInputStream(CharStreams.fromString(fileContent)));
     const tokens = new CommonTokenStream(lexer);
     const parser = new ApexParser(tokens);
     const context = parser.compilationUnit();
     //  parser.addParseListener(new interfaceVisitor() as ApexParserListener);
-    ParseTreeWalker.DEFAULT.walk(new interfaceVisitor() as ApexParserListener, context);
+    ParseTreeWalker.DEFAULT.walk(this.astListener, context);
     return context;
   }
 
-  public static traverse(filePath: string): CompilationUnitContext {
-    const fileContent = fs.readFileSync(filePath).toString();
-    const ast = this.parse(fileContent);
-    return ast;
+  private createASTListener(): ApexParserListener {
+    class ApexMigrationListener implements ApexParserListener {
+      public constructor(private parser: ApexASTParser) { }
+
+      public enterClassDeclaration(ctx: ClassDeclarationContext): void {
+        const interfaceToBeSearched = this.parser.interfaceName;
+        if (!interfaceToBeSearched) return;
+        if (!ctx.typeList() || !ctx.typeList().typeRef()) return;
+        for (const typeRefContext of ctx.typeList().typeRef())
+          for (const typeNameContext of typeRefContext.typeName()) {
+            if (!typeNameContext.id() || !typeNameContext.id().Identifier()) continue;
+            if (typeNameContext.id().Identifier().symbol.text === interfaceToBeSearched) {
+              this.parser.implementsInterface.set(interfaceToBeSearched, typeNameContext.id().Identifier().symbol);
+            }
+          }
+      }
+
+      public enterDotExpression(ctx: DotExpressionContext): void {
+        // console.log('*********');
+        // console.log(ctx.expression().start.text);
+        if (ctx.dotMethodCall()) {
+          // console.log(ctx.dotMethodCall().anyId().Identifier().symbol.text);
+          // ctx.dotMethodCall().expressionList().expression(1).children[0].children[0].children[0];
+          // console.log(ctx.dotMethodCall().expressionList().expression(1).children[0]);
+        }
+        // console.log('*********');
+      }
+
+      public enterVariableDeclarator(ctx: VariableDeclaratorContext): void {
+        if (ctx.id().Identifier().symbol.text === 'DRName') {
+          // console.log(ctx.expression());
+        }
+      }
+    }
+    return new ApexMigrationListener(this);
   }
 }
-export class interfaceVisitor implements ApexParserListener {
-  private interfaceImplementations: string[] = [];
 
-  public enterClassDeclaration(ctx: ClassDeclarationContext): void {
-    this.interfaceImplementations.push(ctx.typeList().typeRef(0).typeName(0).id().Identifier().symbol.text);
-  }
-  public enterDotExpression(ctx: DotExpressionContext): void {
-    // console.log('*********');
-    // console.log(ctx.expression().start.text);
-
-    if (ctx.dotMethodCall()) {
-      // console.log(ctx.dotMethodCall().anyId().Identifier().symbol.text);
-      // ctx.dotMethodCall().expressionList().expression(1).children[0].children[0].children[0];
-      // console.log(ctx.dotMethodCall().expressionList().expression(1).children[0]);
-    }
-    // console.log('*********');
-  }
-  public enterVariableDeclarator(ctx: VariableDeclaratorContext): void {
-    if (ctx.id().Identifier().symbol.text === 'DRName') {
-      // console.log(ctx.expression());
-    }
-  }
-}
-
-const filePath = '/Users/abhinavkumar2/company/plugin-omnistudio-migration-tool/test/FormulaParserService.cls';
-ApexASTTraverser.traverse(filePath);
+// const filePath = '/Users/abhinavkumar2/company/plugin-omnistudio-migration-tool/test/FormulaParserService.cls';
+// new ApexASTParser(filePath, 'callable', '').parse(filePath);
 
 // console.log(ast);

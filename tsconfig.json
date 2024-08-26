@@ -5,7 +5,9 @@
     "outDir": "lib",
     "rootDir": "./src",
     "esModuleInterop": true,
-    "types": ["jest", "node"]
+    "types": ["jest", "node"],
+    "skipLibCheck": true
   },
-  "include": ["./src/**/*.ts", "tests/**/*"]
+  "include": ["./src/**/*.ts", "tests/**/*"],
+  "exclude": ["node_modules"]
 }

@@ -2,7 +2,7 @@ import { LightningElement, track, api } from 'lwc';
 import * as LABELS from './labels';
 import { cloneDeep } from 'runtime_omnistudio_common/lodash';
 
-export default class actionDebugger extends LightningElement {
+export default class TestInputJsFile extends LightningElement {
   labels = LABELS;
   @api set actionData(val) {
     if (val) {

@@ -1,9 +1,11 @@
 {
   "extends": "@salesforce/dev-config/tsconfig",
   "compilerOptions": {
+    "lib": ["dom"],
     "outDir": "lib",
     "rootDir": "./src",
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "types": ["jest", "node"]
   },
-  "include": ["./src/**/*.ts"]
+  "include": ["./src/**/*.ts", "tests/**/*"]
 }

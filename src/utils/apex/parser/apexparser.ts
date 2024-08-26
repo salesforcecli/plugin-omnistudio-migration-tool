@@ -19,7 +19,7 @@ import { ParseTreeWalker } from 'antlr4ts/tree/ParseTreeWalker';
 
 export class ApexASTParser {
   private apexFilePath: string;
-  private implementsInterface: Map<string, Token>;
+  private implementsInterface: Map<string, Token> = new Map();
   // private callsMethods: Map<string, Token[]>;
   private interfaceName: string;
   private methodName: string;
@@ -50,7 +50,7 @@ export class ApexASTParser {
 
   private createASTListener(): ApexParserListener {
     class ApexMigrationListener implements ApexParserListener {
-      public constructor(private parser: ApexASTParser) {}
+      public constructor(private parser: ApexASTParser) { }
       public enterClassDeclaration(ctx: ClassDeclarationContext): void {
         const interfaceToBeSearched = this.parser.interfaceName;
         if (!interfaceToBeSearched) return;

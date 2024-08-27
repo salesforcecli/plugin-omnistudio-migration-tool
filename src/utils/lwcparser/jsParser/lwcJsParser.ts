@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import JavaScriptParser from './JavaScriptParser';
+import JavaScriptParser from './javascriptparser';
 
 const filePath =
   '/Users/spachbhai/os-migration/plugin-omnistudio-migration-tool/src/utils/lwcparser/input/TestInputJsFile.js';

@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-import JavaScriptParser from '../../../../../src/utils/lwcparser/jsParser/JavaScriptParser'; // Adjust the path as needed
+import JavaScriptParser from '../../src/utils/lwcparser/jsparser/javascriptparser'; // Adjust the path as needed
 // eslint-disable-next-line import/order
 import { expect } from 'chai';
 

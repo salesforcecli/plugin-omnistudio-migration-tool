@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import { expect } from 'chai';
-import { XmlParser } from '../XmlParser'; // Adjust the path accordingly
+import { XmlParser } from '../../src/utils/lwcparser/xmlparser/xmlparser'; // Adjust the path accordingly
 
 describe('XmlParser', () => {
   const xmlString = `

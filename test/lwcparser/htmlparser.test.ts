@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { expect } from '@salesforce/command/lib/test';
-import HTMLParser from '../../../../../src/utils/lwcparser/htmlParser/htmlparser'; // Adjust the path as needed
+import HTMLParser from '../../src/utils/lwcparser/htmlparser/htmlParser';
 
 describe('HTMLParser test class', () => {
   const mockFilePath = 'src/utils/lwcparser/input/test.html';

@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/explicit-member-accessibility */
-import fs from 'fs';
+import * as fs from 'fs';
 import * as parser from '@babel/parser';
 import traverse, { NodePath } from '@babel/traverse';
 import * as t from '@babel/types'; // Import all types from @babel/types

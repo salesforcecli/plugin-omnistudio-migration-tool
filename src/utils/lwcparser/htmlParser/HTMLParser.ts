@@ -26,7 +26,6 @@ class HTMLParser {
   }
 
   // Method to replace custom tags
-  // eslint-disable-next-line @typescript-eslint/member-ordering
   public replaceCustomTag(oldTag: string, newTag: string): void {
     this.parser(oldTag).each((_, element) => {
       const newElement = this.parser(`<${newTag}></${newTag}>`).html(this.parser(element).html());
@@ -35,7 +34,6 @@ class HTMLParser {
   }
 
   // Method to save modified HTML back to a file
-  // eslint-disable-next-line @typescript-eslint/member-ordering
   public saveToFile(outputFilePath: string): void {
     try {
       const modifiedHtml = this.parser.html();

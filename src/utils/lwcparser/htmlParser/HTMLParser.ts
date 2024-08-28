@@ -6,13 +6,13 @@ import * as fs from 'fs';
 import * as cheerio from 'cheerio';
 
 class HTMLParser {
-  private $: cheerio.CheerioAPI;
+  private parser: cheerio.CheerioAPI;
 
   // eslint-disable-next-line @typescript-eslint/explicit-member-accessibility
   constructor(htmlFilePath: string) {
     // Load the HTML file and initialize cheerio
     const html = this.loadHTMLFromFile(htmlFilePath);
-    this.$ = cheerio.load(html);
+    this.parser = cheerio.load(html);
   }
 
   // Method to load HTML from a file
@@ -28,9 +28,9 @@ class HTMLParser {
   // Method to replace custom tags
   // eslint-disable-next-line @typescript-eslint/member-ordering
   public replaceCustomTag(oldTag: string, newTag: string): void {
-    this.$(oldTag).each((_, element) => {
-      const newElement = this.$(`<${newTag}></${newTag}>`).html(this.$(element).html());
-      this.$(element).replaceWith(newElement);
+    this.parser(oldTag).each((_, element) => {
+      const newElement = this.parser(`<${newTag}></${newTag}>`).html(this.parser(element).html());
+      this.parser(element).replaceWith(newElement);
     });
   }
 
@@ -38,7 +38,7 @@ class HTMLParser {
   // eslint-disable-next-line @typescript-eslint/member-ordering
   public saveToFile(outputFilePath: string): void {
     try {
-      const modifiedHtml = this.$.html();
+      const modifiedHtml = this.parser.html();
       fs.writeFileSync(outputFilePath, modifiedHtml);
       console.log(`Modified HTML saved to ${outputFilePath}`);
     } catch (error) {
@@ -49,7 +49,7 @@ class HTMLParser {
 
   // Optional: Method to get the modified HTML as a string
   public getModifiedHTML(): string {
-    return this.$.html();
+    return this.parser.html();
   }
 }
 

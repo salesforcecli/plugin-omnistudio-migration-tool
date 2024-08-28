@@ -12,10 +12,12 @@ import { flags } from '@salesforce/command';
 import { Messages } from '@salesforce/core';
 import '../../../utils/prototypes';
 import OmniStudioBaseCommand from '../../basecommand';
-import { LWCComponentMigrationTool, CustomLabelMigrationTool, ApexClassMigrationTool } from '../../../migration/interfaces';
 import { DebugTimer, MigratedObject, MigratedRecordInfo } from '../../../utils';
 import { MigrationResult, MigrationTool } from '../../../migration/interfaces';
 import { ResultsBuilder } from '../../../utils/resultsbuilder';
+import { LWCComponentMigrationTool } from '../../../migration/interfaces/LWCComponentMigrationTool';
+import { CustomLabelMigrationTool } from '../../../migration/interfaces/CustomLabelMigrationTool';
+import { ApexClassMigrationTool } from '../../../migration/interface/ApexClassMigrationTool';
 
 // Initialize Messages with the current plugin directory
 Messages.importMessagesDirectory(__dirname);

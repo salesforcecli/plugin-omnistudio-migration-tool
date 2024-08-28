@@ -1,23 +1,12 @@
-// {
-//   "extends": "@salesforce/dev-config/tsconfig",
-//   "compilerOptions": {
-//     "lib": ["dom"],
-//     "outDir": "lib",
-//     "rootDir": "./src",
-//     "esModuleInterop": true,
-//     "types": ["jest", "node"],
-//     "skipLibCheck": true
-//   },
-//   "include": ["./src/**/*.ts"],
-//   "exclude": ["node_modules"]
-// }
-
 {
   "extends": "@salesforce/dev-config/tsconfig",
   "compilerOptions": {
+    "lib": ["dom"],
     "outDir": "lib",
     "rootDir": "./src",
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "types": ["jest", "node"],
+    "skipLibCheck": true
   },
   "include": ["./src/**/*.ts"],
   "exclude": ["node_modules"]

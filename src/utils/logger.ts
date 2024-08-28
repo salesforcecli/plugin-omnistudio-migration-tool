@@ -21,6 +21,4 @@ export class Logger {
   public debug(message: string): void {
     this.logger.debug(message);
   }
-
-  // You can add more logging methods as needed
 }

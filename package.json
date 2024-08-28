@@ -5,7 +5,7 @@
   "author": "Salesforce",
   "bugs": "https://github.com/forcedotcom/cli/issues",
   "dependencies": {
-    "@babel/parser": "^7.25.3",
+    "@babel/parser": "^7.25.4",
     "@apexdevtools/apex-parser": "^4.1.0",
     "@oclif/command": "^1",
     "@oclif/config": "^1",

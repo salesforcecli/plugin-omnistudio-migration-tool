@@ -49,7 +49,6 @@ export default class Migrate extends OmniStudioBaseCommand {
       required: false,
     }),
   };
-  private logger: Logger;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public async run(): Promise<any> {
@@ -57,7 +56,8 @@ export default class Migrate extends OmniStudioBaseCommand {
     const apiVersion = (this.flags.apiversion || '55.0') as string;
     const migrateOnly = (this.flags.only || '') as string;
     const allVersions = this.flags.allversions || false;
-    this.logger = new Logger(this.ux, this.logger);
+    Logger.initialiseLogger(this.ux, this.logger);
+    this.logger = Logger.logger;
     // this.org is guaranteed because requiresUsername=true, as opposed to supportsUsername
     const conn = this.org.getConnection();
     conn.setApiVersion(apiVersion);
@@ -128,7 +128,7 @@ export default class Migrate extends OmniStudioBaseCommand {
     let allTruncateComplete = true;
     for (const cls of migrationObjects.reverse()) {
       try {
-        this.logger.log('Cleaning: ' + cls.getName());
+        Logger.ux.log('Cleaning: ' + cls.getName());
         debugTimer.lap('Cleaning: ' + cls.getName());
         await cls.truncate();
       } catch (ex: any) {

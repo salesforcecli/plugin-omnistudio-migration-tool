@@ -15,9 +15,7 @@ import OmniStudioBaseCommand from '../../basecommand';
 import { DebugTimer, MigratedObject, MigratedRecordInfo } from '../../../utils';
 import { MigrationResult, MigrationTool } from '../../../migration/interfaces';
 import { ResultsBuilder } from '../../../utils/resultsbuilder';
-import { LWCComponentMigrationTool } from '../../../migration/interfaces/LWCComponentMigrationTool';
-import { CustomLabelMigrationTool } from '../../../migration/interfaces/CustomLabelMigrationTool';
-import { ApexClassMigrationTool } from '../../../migration/interface/ApexClassMigrationTool';
+import { LWCComponentMigrationTool, CustomLabelMigrationTool, ApexClassMigrationTool } from '../../../migration/interfaces';
 
 // Initialize Messages with the current plugin directory
 Messages.importMessagesDirectory(__dirname);

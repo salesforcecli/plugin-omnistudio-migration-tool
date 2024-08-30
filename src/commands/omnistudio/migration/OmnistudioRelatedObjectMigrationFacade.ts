@@ -26,9 +26,7 @@ const messages = Messages.loadMessages('@salesforce/plugin-omnistudio-related-ob
 
 export default class OmnistudioRelatedObjectMigrationFacade extends OmniStudioBaseCommand {
   public static description = messages.getMessage('commandDescription');
-
   public static examples = messages.getMessage('examples').split(os.EOL);
-
   public static args = [{ name: 'file' }];
 
   protected static flagsConfig = {
@@ -55,23 +53,25 @@ export default class OmnistudioRelatedObjectMigrationFacade extends OmniStudioBa
     // Start the debug timer
     DebugTimer.getInstance().start();
 
-    // Register the migration tools based on the relatedObjects parameter
+    // Declare an array of MigrationTool
     let migrationTools: MigrationTool[] = [];
+
+    // Initialize migration tools based on the relatedObjects parameter
     if (relatedObjects.includes('lwc')) {
-      migrationTools.push(new LWCComponentMigrationTool(namespace, conn, this.logger, messages, this.ux));
+      migrationTools.push(this.createLWCComponentMigrationTool(namespace, conn));
     }
     if (relatedObjects.includes('labels')) {
-      migrationTools.push(new CustomLabelMigrationTool(namespace, conn, this.logger, messages, this.ux));
+      migrationTools.push(this.createCustomLabelMigrationTool(namespace, conn));
     }
     if (relatedObjects.includes('apex')) {
-      migrationTools.push(new ApexClassMigrationTool(namespace, conn, this.logger, messages, this.ux));
+      migrationTools.push(this.createApexClassMigrationTool(namespace, conn));
     }
 
     if (migrationTools.length === 0) {
       throw new Error(messages.getMessage('noMigrationToolsSelected'));
     }
 
-    // Migrate individual objects
+    // Proceed with migration logic
     const debugTimer = DebugTimer.getInstance();
     let objectMigrationResults: MigratedObject[] = [];
 
@@ -124,6 +124,22 @@ export default class OmnistudioRelatedObjectMigrationFacade extends OmniStudioBa
 
     // Return results needed for --json flag
     return { objectMigrationResults };
+  }
+
+  // Factory methods to create instances of specific tools
+  private createLWCComponentMigrationTool(namespace: string, conn: any): LWCComponentMigrationTool {
+    // Return an instance of LWCComponentMigrationTool when implemented
+    throw new Error('LWCComponentMigrationTool implementation is not provided yet.');
+  }
+
+  private createCustomLabelMigrationTool(namespace: string, conn: any): CustomLabelMigrationTool {
+    // Return an instance of CustomLabelMigrationTool when implemented
+    throw new Error('CustomLabelMigrationTool implementation is not provided yet.');
+  }
+
+  private createApexClassMigrationTool(namespace: string, conn: any): ApexClassMigrationTool {
+    // Return an instance of ApexClassMigrationTool when implemented
+    throw new Error('ApexClassMigrationTool implementation is not provided yet.');
   }
 
   private mergeRecordAndUploadResults(

@@ -1,48 +1,40 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/explicit-member-accessibility */
-// import * as fs from 'fs';
-// import { parse, type ParseResult } from '@babel/parser'; // Import all types from @babel/types
+import * as fs from 'fs';
+import * as parser from '@babel/parser';
+import traverse, { NodePath } from '@babel/traverse';
+import * as t from '@babel/types';
 
 class JavaScriptParser {
-  // private fileContent: string;
-  private ast: File | null = null; // Specify the generic type argument
+  private fileContent: string;
+  private ast: parser.ParseResult<t.File> | null; // Specify the generic type argument
 
   constructor(filePath: string) {
-    // this.fileContent = fs.readFileSync(filePath, 'utf-8');
+    this.fileContent = fs.readFileSync(filePath, 'utf-8');
     this.ast = null;
   }
 
-  // public parseCode(): void {
-  //   const parseResult: File = parse(this.fileContent, {
-  //     sourceType: 'module', // Use 'script' if you're parsing non-module code
-  //     plugins: ['jsx', 'typescript'], // Add plugins as needed
-  //   });
-
-  //   if (parseResult.type === 'File') {
-  //     this.ast = parseResult;
-  //   } else {
-  //     throw new Error("Parsing did not return a 'File' node as expected.");
-  //   }
-  // }
-
-  // Method to get the AST as a string
-  getAST(): string | null {
-    if (!this.ast) {
-      console.error('AST is not available. Please parse the code first.');
-      return null;
-    }
-    return JSON.stringify(this.ast, null, 2);
+  public parseFile(): void {
+    this.ast = parser.parse(this.fileContent, {
+      sourceType: 'module',
+      plugins: ['decorators'],
+    });
   }
 
-  // Main method to process the file
-  processFile(): void {
-    // this.parseCode(); // Parse the JavaScript code
-    const astString = this.getAST(); // Get the AST as a string
-    if (astString) {
-      console.log(astString); // Output the AST
+  public traverseAST(): string[] {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const labels: string[] = [];
+    if (!this.ast) {
+      throw new Error('AST has not been generated. Call parseFile() first.');
     }
+
+    traverse(this.ast, {
+      ImportDeclaration(path: NodePath<t.ImportDeclaration>) {
+        // console.log('Import found:', path.node.source.value);
+        labels.push(path.node.source.value);
+      },
+    });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return labels;
   }
 }
 

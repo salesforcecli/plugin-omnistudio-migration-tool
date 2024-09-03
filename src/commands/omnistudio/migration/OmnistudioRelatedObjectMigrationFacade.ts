@@ -8,14 +8,18 @@
  * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 import * as os from 'os';
-import { flags } from '@salesforce/command';
 import { Messages } from '@salesforce/core';
 import '../../../utils/prototypes';
+import { IConfig } from '@oclif/config';
 import OmniStudioBaseCommand from '../../basecommand';
 import { DebugTimer, MigratedObject, MigratedRecordInfo } from '../../../utils';
 import { MigrationResult, MigrationTool } from '../../../migration/interfaces';
 import { ResultsBuilder } from '../../../utils/resultsbuilder';
-import { LWCComponentMigrationTool, CustomLabelMigrationTool, ApexClassMigrationTool } from '../../../migration/interfaces';
+import {
+  LWCComponentMigrationTool,
+  CustomLabelMigrationTool,
+  ApexClassMigrationTool,
+} from '../../../migration/interfaces';
 
 // Initialize Messages with the current plugin directory
 Messages.importMessagesDirectory(__dirname);
@@ -29,22 +33,17 @@ export default class OmnistudioRelatedObjectMigrationFacade extends OmniStudioBa
   public static examples = messages.getMessage('examples').split(os.EOL);
   public static args = [{ name: 'file' }];
 
-  protected static flagsConfig = {
-    namespace: flags.string({
-      char: 'n',
-      description: messages.getMessage('namespaceFlagDescription'),
-    }),
-    only: flags.string({
-      char: 'o',
-      description: messages.getMessage('onlyFlagDescription'),
-    }),
-    allversions: flags.boolean({
-      char: 'a',
-      description: messages.getMessage('allVersionsDescription'),
-      required: false,
-    }),
-  };
+  protected readonly namespace: string;
+  protected readonly only: string;
+  protected readonly allversions: boolean;
 
+  public constructor(argv: string[], config: IConfig) {
+    super(argv, config);
+    const { flags } = this.parse(OmnistudioRelatedObjectMigrationFacade);
+    this.namespace = flags.namespace;
+    this.only = flags.only;
+    this.allversions = flags.allversions;
+  }
   public async migrateAll(migrationResult: MigrationResult, namespace: string, relatedObjects: string[]): Promise<any> {
     const apiVersion = '55.0'; // Define the API version or make it configurable
     const conn = this.org.getConnection();
@@ -54,7 +53,7 @@ export default class OmnistudioRelatedObjectMigrationFacade extends OmniStudioBa
     DebugTimer.getInstance().start();
 
     // Declare an array of MigrationTool
-    let migrationTools: MigrationTool[] = [];
+    const migrationTools: MigrationTool[] = [];
 
     // Initialize migration tools based on the relatedObjects parameter
     if (relatedObjects.includes('lwc')) {

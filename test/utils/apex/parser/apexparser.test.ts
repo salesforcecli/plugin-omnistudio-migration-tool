@@ -19,7 +19,7 @@ describe('ApexASTParser', () => {
 
     const apexParser = new ApexASTParser(apexFileContent, interfaceName, methodName);
     apexParser.parse();
-    const implementsInterface = apexParser.implemementsInterface;
+    const implementsInterface = apexParser.implementsInterfaces;
     // const callsMethods = apexParser.getCallsMethods();
     // const className = apexParser.getClassName();
 

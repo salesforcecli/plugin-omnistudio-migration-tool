@@ -25,7 +25,7 @@ export class ApexASTParser {
   // private className: string;
   private astListener: ApexParserListener;
 
-  public get implemementsInterface(): Map<string, Token> {
+  public get implementsInterfaces(): Map<string, Token> {
     return this.implementsInterface;
   }
 
@@ -48,7 +48,7 @@ export class ApexASTParser {
 
   private createASTListener(): ApexParserListener {
     class ApexMigrationListener implements ApexParserListener {
-      public constructor(private parser: ApexASTParser) {}
+      public constructor(private parser: ApexASTParser) { }
       public enterClassDeclaration(ctx: ClassDeclarationContext): void {
         const interfaceToBeSearched = this.parser.interfaceName;
         if (!interfaceToBeSearched) return;

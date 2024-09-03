@@ -18,6 +18,8 @@ import { MigrationResult, MigrationTool } from '../../../migration/interfaces';
 import { ResultsBuilder } from '../../../utils/resultsbuilder';
 import { CardMigrationTool } from '../../../migration/flexcard';
 import { OmniScriptExportType, OmniScriptMigrationTool } from '../../../migration/omniscript';
+import { sfcclicommand } from '../../../utils/sfcli/commands/sfclicommand';
+import { cli } from '../../../utils/shell/cli';
 
 // Initialize Messages with the current plugin directory
 Messages.importMessagesDirectory(__dirname);
@@ -55,7 +57,11 @@ export default class Migrate extends OmniStudioBaseCommand {
     const apiVersion = (this.flags.apiversion || '55.0') as string;
     const migrateOnly = (this.flags.only || '') as string;
     const allVersions = this.flags.allversions || false;
-
+    await sfcclicommand.fetchApexClasses(this.org, '/Users/abhinavkumar2/company/mywork');
+    await sfcclicommand.deployApexClasses(this.org, '/Users/abhinavkumar2/company/mywork/main/default/classes');
+    cli.exec(
+      'sf project retrieve start --metadata Apexclass --target-org debug_migration_testing_org2@usa794.org.migsand'
+    );
     // this.org is guaranteed because requiresUsername=true, as opposed to supportsUsername
     const conn = this.org.getConnection();
     conn.setApiVersion(apiVersion);

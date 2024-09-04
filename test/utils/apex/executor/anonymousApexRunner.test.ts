@@ -7,7 +7,6 @@ import { AnonymousApexRunner } from '../../../../src/utils/apex/executor/Anonymo
 
 describe('AnonymusApexRunner', () => {
   let org: Org;
-  // let executeAnonymousStub: sinon.SinonStub;
   let sandboxStub: sinon.SinonSandbox;
 
   beforeEach(async () => {
@@ -22,7 +21,6 @@ describe('AnonymusApexRunner', () => {
   });
 
   afterEach(() => {
-    // executeAnonymousStub.restore();
     sandboxStub.restore();
   });
 
@@ -34,8 +32,6 @@ describe('AnonymusApexRunner', () => {
       .stub()
       .returns(Promise.resolve({ success: true } as unknown as ExecuteAnonymousResult));
     sandboxStub.stub(Org.prototype.getConnection().tooling, 'executeAnonymous').callsFake(executeAnonymousResultStub);
-    // .stub(org.getConnection().tooling.executeAnonymous(), 'executeAnonymous')
-    // .returns(Promise.resolve({ success: true } as unknown as ExecuteAnonymousResult));
 
     const result = await AnonymousApexRunner.run(org, anonymousApex);
 
@@ -48,7 +44,6 @@ describe('AnonymusApexRunner', () => {
     const anonymousApex = "System.debug 'Hello, World');";
     const executeAnonymousError = new Error('Error executing anonymous Apex');
     const executeAnonymousResultStub = sandboxStub.stub().rejects(executeAnonymousError);
-    // executeAnonymousStub.rejects(executeAnonymousError);
     sandboxStub.stub(Org.prototype.getConnection().tooling, 'executeAnonymous').callsFake(executeAnonymousResultStub);
 
     try {

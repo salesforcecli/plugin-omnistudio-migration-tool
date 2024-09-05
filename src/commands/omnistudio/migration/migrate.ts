@@ -20,6 +20,7 @@ import { CardMigrationTool } from '../../../migration/flexcard';
 import { OmniScriptExportType, OmniScriptMigrationTool } from '../../../migration/omniscript';
 import { sfcclicommand } from '../../../utils/sfcli/commands/sfclicommand';
 import { cli } from '../../../utils/shell/cli';
+import { Logger } from '../../../utils/logger';
 
 // Initialize Messages with the current plugin directory
 Messages.importMessagesDirectory(__dirname);
@@ -62,6 +63,8 @@ export default class Migrate extends OmniStudioBaseCommand {
     cli.exec(
       'sf project retrieve start --metadata Apexclass --target-org debug_migration_testing_org2@usa794.org.migsand'
     );
+    Logger.initialiseLogger(this.ux, this.logger);
+    this.logger = Logger.logger;
     // this.org is guaranteed because requiresUsername=true, as opposed to supportsUsername
     const conn = this.org.getConnection();
     conn.setApiVersion(apiVersion);
@@ -132,7 +135,7 @@ export default class Migrate extends OmniStudioBaseCommand {
     let allTruncateComplete = true;
     for (const cls of migrationObjects.reverse()) {
       try {
-        this.ux.log('Cleaning: ' + cls.getName());
+        Logger.ux.log('Cleaning: ' + cls.getName());
         debugTimer.lap('Cleaning: ' + cls.getName());
         await cls.truncate();
       } catch (ex: any) {

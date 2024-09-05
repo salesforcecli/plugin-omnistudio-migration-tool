@@ -4,6 +4,7 @@
   "version": "1.4.1-dev.1",
   "author": "Salesforce",
   "bugs": "https://github.com/forcedotcom/cli/issues",
+  "type": "module",
   "dependencies": {
     "@apexdevtools/apex-parser": "^4.1.0",
     "@babel/parser": "^7.25.4",
@@ -111,8 +112,8 @@
     "prepare": "sf-install",
     "pretest": "sf-compile-test",
     "test": "sf-test",
-    "test:command-reference": "./bin/run commandreference:generate --erroronwarnings",
-    "test:deprecation-policy": "./bin/run snapshot:compare",
+    "test:command-reference": "./bin/run.js commandreference:generate --erroronwarnings",
+    "test:deprecation-policy": "./bin/run.js snapshot:compare",
     "test:nuts": "nyc mocha \"**/*.nut.ts\" --slow 4500 --timeout 600000 --parallel",
     "version": "oclif-dev readme"
   },

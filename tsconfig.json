@@ -1,12 +1,23 @@
 {
   "extends": "@salesforce/dev-config/tsconfig",
   "compilerOptions": {
-    "lib": ["dom"],
+    "lib": [
+      "dom"
+    ],
     "outDir": "lib",
     "rootDir": "./src",
     "esModuleInterop": true,
-    "types": ["node"],
-    "skipLibCheck": true
+    "types": [
+      "node"
+    ],
+    "skipLibCheck": true,
+    "module": "ES2020",
+    "moduleResolution": "node"
   },
-  "include": ["./src/**/*.ts"]
+  "ts-node": {
+    "esm": true
+  },
+  "include": [
+    "./src/**/*.ts"
+  ]
 }

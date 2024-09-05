@@ -48,7 +48,7 @@ export class ApexASTParser {
 
   private createASTListener(): ApexParserListener {
     class ApexMigrationListener implements ApexParserListener {
-      public constructor(private parser: ApexASTParser) { }
+      public constructor(private parser: ApexASTParser) {}
       public enterClassDeclaration(ctx: ClassDeclarationContext): void {
         const interfaceToBeSearched = this.parser.interfaceNames;
         if (!interfaceToBeSearched) return;

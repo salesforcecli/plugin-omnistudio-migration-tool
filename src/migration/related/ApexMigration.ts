@@ -1,11 +1,10 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { RetrieveResult } from '@salesforce/source-deploy-retrieve';
 import { sfcclicommand } from '../../utils/sfcli/commands/sfclicommand';
 import { Logger } from '../../utils/logger';
-import { BaseRelatedObjectMigration } from './BaseRealtedObjectMigration';
-import * as fs from 'fs';
-import * as path from 'path';
 import { ApexASTParser } from '../../utils/apex/parser/apexparser';
-
+import { BaseRelatedObjectMigration } from './BaseRealtedObjectMigration';
 
 export class ApexMigration extends BaseRelatedObjectMigration {
   public async migrate(): Promise<void> {

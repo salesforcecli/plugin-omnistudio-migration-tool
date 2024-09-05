@@ -1,22 +1,20 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { RetrieveResult } from '@salesforce/source-deploy-retrieve';
-import { sfcclicommand } from '../../utils/sfcli/commands/sfclicommand';
-import { Logger } from '../../utils/logger';
+// import { RetrieveResult } from '@salesforce/source-deploy-retrieve';
+// import { sfcclicommand } from '../../utils/sfcli/commands/sfclicommand';
+import * as shell from 'shelljs';
 import { ApexASTParser } from '../../utils/apex/parser/apexparser';
+import { cli } from '../../utils/shell/cli';
 import { BaseRelatedObjectMigration } from './BaseRealtedObjectMigration';
 
 export class ApexMigration extends BaseRelatedObjectMigration {
-  public async migrate(): Promise<void> {
-    const retrieveResult: Promise<RetrieveResult> = sfcclicommand.fetchApexClasses(this.org, this.projectPath);
-    const res = await retrieveResult;
-    if (!res.components || res.components.size === 0) {
-      Logger.ux.log('No Apex found in the org');
-      return;
-    }
-    Logger.ux.log(`${res.components.size} Apex classes found in the org`);
+  public migrate(): void {
+    cli.exec(`sf project retrieve start --metadata Apexclass --target-org ${this.org.getUsername()}`);
     this.processApexFiles(this.projectPath);
-    await sfcclicommand.deployApexClasses(this.org, this.projectPath);
+    const pwd = shell.pwd();
+    shell.cd(this.projectPath);
+    cli.exec(`sf project deploy start --metadata Apexclass --target-org ${this.org.getUsername()}`);
+    shell.cd(pwd);
   }
   public processApexFiles(dir: string): File[] {
     let files: File[] = [];

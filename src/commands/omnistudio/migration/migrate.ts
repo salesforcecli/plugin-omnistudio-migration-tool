@@ -11,6 +11,7 @@ import * as os from 'os';
 import { flags } from '@salesforce/command';
 import { Messages } from '@salesforce/core';
 import '../../../utils/prototypes';
+import * as shell from 'shelljs';
 import OmniStudioBaseCommand from '../../basecommand';
 import { DataRaptorMigrationTool } from '../../../migration/dataraptor';
 import { DebugTimer, MigratedObject, MigratedRecordInfo } from '../../../utils';
@@ -18,9 +19,9 @@ import { MigrationResult, MigrationTool } from '../../../migration/interfaces';
 import { ResultsBuilder } from '../../../utils/resultsbuilder';
 import { CardMigrationTool } from '../../../migration/flexcard';
 import { OmniScriptExportType, OmniScriptMigrationTool } from '../../../migration/omniscript';
-import { sfcclicommand } from '../../../utils/sfcli/commands/sfclicommand';
 import { cli } from '../../../utils/shell/cli';
 import { Logger } from '../../../utils/logger';
+import { sfProject } from '../../../utils/sfcli/project/sfProject';
 
 // Initialize Messages with the current plugin directory
 Messages.importMessagesDirectory(__dirname);
@@ -58,11 +59,17 @@ export default class Migrate extends OmniStudioBaseCommand {
     const apiVersion = (this.flags.apiversion || '55.0') as string;
     const migrateOnly = (this.flags.only || '') as string;
     const allVersions = this.flags.allversions || false;
-    await sfcclicommand.fetchApexClasses(this.org, '/Users/abhinavkumar2/company/mywork');
-    await sfcclicommand.deployApexClasses(this.org, '/Users/abhinavkumar2/company/mywork/main/default/classes');
-    cli.exec(
-      'sf project retrieve start --metadata Apexclass --target-org debug_migration_testing_org2@usa794.org.migsand'
-    );
+    // await sfcclicommand.fetchApexClasses(this.org, '/Users/abhinavkumar2/company/mywork');
+    // await sfcclicommand.deployApexClasses(this.org, '/Users/abhinavkumar2/company/mywork/main/default/classes');
+    sfProject.create('omnistudio_migration', '/Users/abhinavkumar2/company/new');
+    this.ux.log('creating project');
+    const pwd = shell.pwd();
+    shell.cd('/Users/abhinavkumar2/company/new/omnistudio_migration');
+    cli.exec(`sf project retrieve start --metadata Apexclass --target-org ${this.org.getUsername()}`);
+    this.ux.log('retrieving apex classes');
+    cli.exec(`sf project deploy start --metadata Apexclass --target-org ${this.org.getUsername()}`);
+    shell.cd(pwd);
+
     Logger.initialiseLogger(this.ux, this.logger);
     this.logger = Logger.logger;
     // this.org is guaranteed because requiresUsername=true, as opposed to supportsUsername

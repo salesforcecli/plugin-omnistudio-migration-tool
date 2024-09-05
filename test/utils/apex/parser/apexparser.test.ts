@@ -14,7 +14,8 @@ describe('ApexASTParser', () => {
         omnistudio.DRProcessResult result1 = omnistudio.DRGlobal.process(myTransformData, DRName);
     }
     }`;
-    const interfaceName = 'Callable';
+    const callable = 'Callable';
+    const interfaceName = new Set<string>(['Callable']);
     const methodName = 'yourMethod';
 
     const apexParser = new ApexASTParser(apexFileContent, interfaceName, methodName);
@@ -25,8 +26,8 @@ describe('ApexASTParser', () => {
 
     // Add your assertions here based on the expected results
     // implementsInterface.get(interfaceName);
-    expect(implementsInterface.get(interfaceName).charPositionInLine).to.be.equal(58);
-    expect(implementsInterface.get(interfaceName).line).to.be.equal(1);
+    expect(implementsInterface.get(callable).charPositionInLine).to.be.equal(58);
+    expect(implementsInterface.get(callable).line).to.be.equal(1);
     // expect(callsMethods).to.not.be.empty;
     // expect(className).to.equal('YourClass');
   });

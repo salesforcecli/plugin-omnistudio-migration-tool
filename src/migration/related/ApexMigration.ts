@@ -21,9 +21,10 @@ export class ApexMigration extends BaseRelatedObjectMigration implements Related
   public migrate(): void {
     const pwd = shell.pwd();
     shell.cd(this.projectPath);
-    sfProject.retrieve(APEXCLASS, this.org.getUsername());
+    const targetOrg: Org = this.org;
+    sfProject.retrieve(APEXCLASS, targetOrg.getUsername());
     this.processApexFiles(this.projectPath);
-    sfProject.deploy(APEXCLASS, this.org.getUsername());
+    sfProject.deploy(APEXCLASS, targetOrg.getUsername());
     shell.cd(pwd);
   }
   public processApexFiles(dir: string): File[] {

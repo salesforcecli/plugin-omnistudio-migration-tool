@@ -91,7 +91,7 @@ export interface RelatedObjectsMigrate {
    * @param namespace The namespace used to identify objects.
    * @returns List of identified migration candidates as strings.
    */
-  identifyObjects(migrationResults: MigrationResult[], namespace: string): Promise<string[]>;
+  identifyObjects(migrationResults: MigrationResult[]): Promise<JSON[]>;
 
   /**
    * Private method to perform the migration of related objects based on the provided candidates.
@@ -100,15 +100,9 @@ export interface RelatedObjectsMigrate {
    * @param namespace The namespace used to perform the migration.
    * @param migrationCandidates List of candidates to migrate.
    */
-  migrateRelatedObjects(
-    migrationResults: MigrationResult[],
-    namespace: string,
-    migrationCandidates: string[]
-  ): Promise<void>;
+  migrateRelatedObjects(migrationResults: MigrationResult[], migrationCandidates: JSON[]): void;
 }
 
 export type LWCComponentMigrationTool = MigrationTool;
 
 export type CustomLabelMigrationTool = MigrationTool;
-
-export type ApexClassMigrationTool = MigrationTool;

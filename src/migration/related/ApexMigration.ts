@@ -1,24 +1,34 @@
 import * as fs from 'fs';
-import * as path from 'path';
 // import { RetrieveResult } from '@salesforce/source-deploy-retrieve';
 // import { sfcclicommand } from '../../utils/sfcli/commands/sfclicommand';
 import * as shell from 'shelljs';
 import { ApexASTParser } from '../../utils/apex/parser/apexparser';
-import { cli } from '../../utils/shell/cli';
+import { MigrationResult, RelatedObjectsMigrate } from '../interfaces';
+import { sfProject } from '../../utils/sfcli/project/sfProject';
+import { fileutil, File } from '../../utils/file/fileutil';
 import { BaseRelatedObjectMigration } from './BaseRealtedObjectMigration';
 
-export class ApexMigration extends BaseRelatedObjectMigration {
+const APEXCLASS = 'Apexclass';
+const APEX_CLASS_PATH = 'main/default/classes';
+export class ApexMigration extends BaseRelatedObjectMigration implements RelatedObjectsMigrate {
+  public identifyObjects(migrationResults: MigrationResult[]): Promise<JSON[]> {
+    throw new Error('Method not implemented.');
+  }
+  public migrateRelatedObjects(migrationResults: MigrationResult[], migrationCandidates: JSON[]): void {
+    this.migrate();
+  }
   public migrate(): void {
-    cli.exec(`sf project retrieve start --metadata Apexclass --target-org ${this.org.getUsername()}`);
-    this.processApexFiles(this.projectPath);
     const pwd = shell.pwd();
     shell.cd(this.projectPath);
-    cli.exec(`sf project deploy start --metadata Apexclass --target-org ${this.org.getUsername()}`);
+    sfProject.retrieve(APEXCLASS, this.org.getUsername());
+    this.processApexFiles(this.projectPath);
+    sfProject.deploy(APEXCLASS, this.org.getUsername());
     shell.cd(pwd);
   }
   public processApexFiles(dir: string): File[] {
+    dir += APEX_CLASS_PATH;
     let files: File[] = [];
-    files = this.readFilesSync(dir);
+    files = fileutil.readFilesSync(dir);
     for (const file of files) {
       if (file.ext !== '.cls') continue;
       this.processApexFile(file);
@@ -42,30 +52,4 @@ export class ApexMigration extends BaseRelatedObjectMigration {
     if (implementsInterfaces.has('Callable')) return;
   }
 */
-
-  public readFilesSync(dir: string): File[] {
-    let files: File[];
-
-    fs.readdirSync(dir).forEach((filename) => {
-      const name = path.parse(filename).name;
-      const ext = path.parse(filename).ext;
-      const filepath = path.resolve(dir, filename);
-      const stat = fs.statSync(filepath);
-      const isFile = stat.isFile();
-
-      if (isFile) files.push(new File(name, filepath, ext));
-    });
-    return files;
-  }
-}
-
-export class File {
-  public name: string;
-  public location: string;
-  public ext: string;
-  public constructor(name: string, location: string, ext: string) {
-    this.name = name;
-    this.location = location;
-    this.ext = ext;
-  }
 }

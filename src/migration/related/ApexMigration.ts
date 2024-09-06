@@ -2,6 +2,7 @@ import * as fs from 'fs';
 // import { RetrieveResult } from '@salesforce/source-deploy-retrieve';
 // import { sfcclicommand } from '../../utils/sfcli/commands/sfclicommand';
 import * as shell from 'shelljs';
+import { Org } from '@salesforce/core';
 import { ApexASTParser } from '../../utils/apex/parser/apexparser';
 import { MigrationResult, RelatedObjectsMigrate } from '../interfaces';
 import { sfProject } from '../../utils/sfcli/project/sfProject';

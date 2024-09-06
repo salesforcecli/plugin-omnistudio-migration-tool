@@ -8,4 +8,10 @@ export class sfProject {
     }
     cli.exec(cmd);
   }
+  public static retrieve(metadataName: string, username: string): void {
+    cli.exec(`sf project retrieve start --metadata ${metadataName} --target-org ${username}`);
+  }
+  public static deploy(metadataName: string, username: string): void {
+    cli.exec(`sf project deploy start --metadata ${metadataName} --target-org ${username}`);
+  }
 }

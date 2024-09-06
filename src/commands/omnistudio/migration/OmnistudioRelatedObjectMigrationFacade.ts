@@ -5,12 +5,7 @@ import * as os from 'os';
 import { Messages, Org } from '@salesforce/core';
 import '../../../utils/prototypes';
 import { DebugTimer } from '../../../utils';
-import { MigrationResult, MigrationTool, RelatedObjectsMigrate } from '../../../migration/interfaces';
-import {
-  LWCComponentMigrationTool,
-  CustomLabelMigrationTool,
-  ApexClassMigrationTool,
-} from '../../../migration/interfaces';
+import { MigrationResult, RelatedObjectsMigrate } from '../../../migration/interfaces';
 import { sfProject } from '../../../utils/sfcli/project/sfProject';
 import { Logger } from '../../../utils/logger';
 import { ApexMigration } from '../../../migration/related/ApexMigration';
@@ -85,12 +80,12 @@ export default class OmnistudioRelatedObjectMigrationFacade {
   }
 
   // Factory methods to create instances of specific tools
-  private createLWCComponentMigrationTool(namespace: string, org: Org): LWCComponentMigrationTool {
+  private createLWCComponentMigrationTool(namespace: string, org: Org): RelatedObjectsMigrate {
     // Return an instance of LWCComponentMigrationTool when implemented
     throw new Error('LWCComponentMigrationTool implementation is not provided yet.');
   }
 
-  private createCustomLabelMigrationTool(namespace: string, org: Org): CustomLabelMigrationTool {
+  private createCustomLabelMigrationTool(namespace: string, org: Org): RelatedObjectsMigrate {
     // Return an instance of CustomLabelMigrationTool when implemented
     throw new Error('CustomLabelMigrationTool implementation is not provided yet.');
   }

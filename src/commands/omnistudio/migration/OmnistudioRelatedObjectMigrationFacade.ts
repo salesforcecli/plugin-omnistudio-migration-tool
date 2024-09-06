@@ -5,7 +5,7 @@ import * as os from 'os';
 import { Messages, Org } from '@salesforce/core';
 import '../../../utils/prototypes';
 import { DebugTimer } from '../../../utils';
-import { MigrationResult, MigrationTool } from '../../../migration/interfaces';
+import { MigrationResult, MigrationTool, RelatedObjectsMigrate } from '../../../migration/interfaces';
 import {
   LWCComponentMigrationTool,
   CustomLabelMigrationTool,
@@ -13,6 +13,7 @@ import {
 } from '../../../migration/interfaces';
 import { sfProject } from '../../../utils/sfcli/project/sfProject';
 import { Logger } from '../../../utils/logger';
+import { ApexMigration } from '../../../migration/related/ApexMigration';
 
 // Initialize Messages with the current plugin directory
 Messages.importMessagesDirectory(__dirname);
@@ -43,8 +44,8 @@ export default class OmnistudioRelatedObjectMigrationFacade {
     DebugTimer.getInstance().start();
 
     // Declare an array of MigrationTool
-    const migrationTools: MigrationTool[] = [];
-    this.intializeProject();
+    const migrationTools: RelatedObjectsMigrate[] = [];
+    const projectDirectory: string = this.intializeProject();
     const debugTimer = DebugTimer.getInstance();
     debugTimer.start();
     // Initialize migration tools based on the relatedObjects parameter
@@ -55,7 +56,7 @@ export default class OmnistudioRelatedObjectMigrationFacade {
       migrationTools.push(this.createCustomLabelMigrationTool(namespace, this.org));
     }
     if (relatedObjects.includes('apex')) {
-      migrationTools.push(this.createApexClassMigrationTool(namespace, this.org));
+      migrationTools.push(this.createApexClassMigrationTool(projectDirectory));
     }
 
     if (migrationTools.length === 0) {
@@ -63,10 +64,18 @@ export default class OmnistudioRelatedObjectMigrationFacade {
     }
 
     // Proceed with migration logic
-    this.intializeProject();
+    for (const migrationTool of migrationTools.reverse()) {
+      try {
+        migrationTool.migrateRelatedObjects(null, null);
+      } catch (Error) {
+        // Log the error
+        Logger.logger.error(Error.message);
+        return { migrationResult };
+      }
+    }
     // Truncate existing objects if necessary
     // Stop the debug timer
-    const timer = DebugTimer.getInstance().stop();
+    const timer = debugTimer.stop();
 
     // Save timer to debug logger
     Logger.logger.debug(timer);
@@ -86,12 +95,17 @@ export default class OmnistudioRelatedObjectMigrationFacade {
     throw new Error('CustomLabelMigrationTool implementation is not provided yet.');
   }
 
-  private createApexClassMigrationTool(namespace: string, org: Org): ApexClassMigrationTool {
+  private createApexClassMigrationTool(projectPath: string): ApexMigration {
     // Return an instance of ApexClassMigrationTool when implemented
-    throw new Error('ApexClassMigrationTool implementation is not provided yet.');
+    return new ApexMigration(projectPath, this.namespace, this.org);
   }
-  private intializeProject(projectPath?: string): void {
-    if (projectPath) sfProject.create(defaultProjectName, projectPath);
-    else sfProject.create(defaultProjectName);
+  private intializeProject(projectPath?: string): string {
+    if (projectPath) {
+      sfProject.create(defaultProjectName, projectPath);
+      return projectPath + '/' + defaultProjectName;
+    } else {
+      sfProject.create(defaultProjectName);
+      return process.cwd() + '/' + defaultProjectName;
+    }
   }
 }

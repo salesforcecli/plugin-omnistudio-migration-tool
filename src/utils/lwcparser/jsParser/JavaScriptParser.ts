@@ -1,41 +1,47 @@
-/* eslint-disable @typescript-eslint/explicit-member-accessibility */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable no-console */
 import * as fs from 'fs';
 import * as parser from '@babel/parser';
-import traverse, { NodePath } from '@babel/traverse';
+import traverse from '@babel/traverse';
+import generate from '@babel/generator';
 import * as t from '@babel/types';
 
-class JavaScriptParser {
-  private fileContent: string;
-  private ast: parser.ParseResult<t.File> | null; // Specify the generic type argument
+const NAMESPACE = 'c';
 
-  constructor(filePath: string) {
-    this.fileContent = fs.readFileSync(filePath, 'utf-8');
-    this.ast = null;
-  }
+export class JavaScriptParser {
+  // Function to replace strings in import declarations and write back to file
+  public replaceImportSource(filePath: string, oldSource: string): void {
+    // Read the JavaScript file
+    const code = fs.readFileSync(filePath, 'utf-8');
 
-  public parseFile(): void {
-    this.ast = parser.parse(this.fileContent, {
-      sourceType: 'module',
-      plugins: ['decorators'],
+    // Parse the code into an AST (Abstract Syntax Tree)
+    const ast = parser.parse(code, {
+      sourceType: 'module', // Specify that we are parsing an ES module
+      plugins: ['decorators'], // Include any relevant plugins if necessary (e.g., 'jsx', 'flow', etc.)
     });
-  }
 
-  public traverseAST(): string[] {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const labels: string[] = [];
-    if (!this.ast) {
-      throw new Error('AST has not been generated. Call parseFile() first.');
-    }
+    // Traverse the AST and modify import declarations
+    traverse(ast, {
+      ImportDeclaration(path) {
+        const importSource = path.node.source.value;
 
-    traverse(this.ast, {
-      ImportDeclaration(path: NodePath<t.ImportDeclaration>) {
-        // console.log('Import found:', path.node.source.value);
-        labels.push(path.node.source.value);
+        // Check if the import source contains the old substring
+        if (importSource.includes(oldSource + '/')) {
+          // Replace the old substring with the new substring
+          const updatedSource = importSource.replace(oldSource, NAMESPACE);
+          // Update the AST with the new source
+          path.node.source = t.stringLiteral(updatedSource);
+        }
       },
     });
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return labels;
+
+    // Generate the updated code from the modified AST
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+    const output = generate(ast, {}, code);
+
+    // Write the modified code back to the file
+    fs.writeFileSync(filePath, output.code, 'utf-8');
+
+    console.log(`Replaced import '${oldSource}' with '${NAMESPACE}' in file: ${filePath}`);
   }
 }
-
-export default JavaScriptParser;

@@ -1,10 +1,11 @@
 import { LightningElement, track, api } from 'lwc';
 import * as LABELS from './labels';
 import { cloneDeep } from 'runtime_omnistudio_common/lodash';
-
+import { lodash } from 'c/lodash';
 export default class TestInputJsFile extends LightningElement {
   labels = LABELS;
-  @api set actionData(val) {
+  @api
+  set actionData(val) {
     if (val) {
       this.actionJson = cloneDeep(val);
     }
@@ -12,14 +13,15 @@ export default class TestInputJsFile extends LightningElement {
   get actionData() {
     return this.actionJson;
   }
-
-  @api attrsToBeRemoved = [];
-
-  @track actionJson = [];
-  @track filteredLogs = [];
-  @track actionSearchInput;
+  @api
+  attrsToBeRemoved = [];
+  @track
+  actionJson = [];
+  @track
+  filteredLogs = [];
+  @track
+  actionSearchInput;
   _displayFilteredLogs = false;
-
   toggle(event) {
     const index = event.currentTarget.dataset.index;
     this.actionJson[index].expanded = !this.actionJson[index].expanded;
@@ -28,7 +30,7 @@ export default class TestInputJsFile extends LightningElement {
   // Search
   get actionLogs() {
     const imports = "'import fs from 'fssss'";
-    console.log(imports);
+    console.log(imports, lodash);
     // Display filtered debug logs
     if (Array.isArray(this.filteredLogs) && this._displayFilteredLogs) {
       return this.filteredLogs;
@@ -37,16 +39,13 @@ export default class TestInputJsFile extends LightningElement {
     // Display entire debug logs
     return this.actionJson;
   }
-
   clearLogs() {
     this._displayFilteredLogs = false;
     this.actionSearchInput = '';
     this.actionJson = [];
   }
-
   searchActionLogs(event) {
     event.preventDefault();
-
     if (event.target.value) {
       this._displayFilteredLogs = true;
       const valueToSearch = event.target.value.toLowerCase();

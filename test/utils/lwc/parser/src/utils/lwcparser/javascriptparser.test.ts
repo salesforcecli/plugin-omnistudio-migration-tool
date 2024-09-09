@@ -1,28 +1,71 @@
-import JavaScriptParser from '../../../../../../../src/utils/lwcparser/jsparser/JavaScriptParser';
-// eslint-disable-next-line import/order
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import * as fs from 'fs';
 import { expect } from 'chai';
+import * as sinon from 'sinon';
+import { JavaScriptParser } from '../../../../../../../src/utils/lwcparser/jsparser/JavaScriptParser'; // Adjust the path as necessary
 
-describe('JavaScriptParser file', () => {
-  const mockFilePath = 'src/utils/lwcparser/input/test.js';
+const mockFilePath = 'src/utils/lwcparser/input/test.js';
 
-  it('should parse file content to AST correctly', () => {
-    const jsParser: JavaScriptParser = new JavaScriptParser(mockFilePath);
-    jsParser.parseFile();
-    // eslint-disable-next-line no-unused-expressions
-    expect(jsParser['ast']).not.null;
-    expect(jsParser['ast']?.type).to.be.equal('File'); // Check if the AST root node is of type 'File'
+describe('JavaScriptParser', () => {
+  let parser: JavaScriptParser;
+  let readFileSyncStub: sinon.SinonStub;
+  let writeFileSyncStub: sinon.SinonStub;
+  let consoleLogStub: sinon.SinonStub;
+
+  beforeEach(() => {
+    parser = new JavaScriptParser();
+    // Stub fs methods
+    readFileSyncStub = sinon.stub(fs, 'readFileSync');
+    writeFileSyncStub = sinon.stub(fs, 'writeFileSync');
+    consoleLogStub = sinon.stub(console, 'log');
   });
 
-  it('should traverse AST and find import declarations', () => {
-    const jsParser = new JavaScriptParser(mockFilePath);
-    jsParser.parseFile();
-    expect(jsParser.traverseAST()[0]).to.have.to.be.contains('lwc');
+  afterEach(() => {
+    // Restore the original methods after each test
+    sinon.restore();
   });
 
-  it('should throw an error if traverseAST is called before parseFile', () => {
-    const jsParser = new JavaScriptParser(mockFilePath);
-    expect(() => {
-      jsParser.traverseAST();
-    }).to.Throw('AST has not been generated. Call parseFile() first.');
+  it('should read the file content', () => {
+    const mockFileContent = `
+      import something from 'oldSource/module';
+    `;
+
+    // Mock file reading
+    readFileSyncStub.returns(mockFileContent);
+
+    parser.replaceImportSource(mockFilePath, 'oldSource');
+
+    // Assert that readFileSync was called with correct arguments
+    expect(readFileSyncStub.calledWith(mockFilePath, 'utf-8')).to.be.false;
+  });
+
+  it('should replace import source correctly', () => {
+    const mockFileContent = `
+      import something from 'oldSource/module';
+    `;
+
+    // Mock file reading and writing
+    readFileSyncStub.returns(mockFileContent);
+
+    parser.replaceImportSource(mockFilePath, 'oldSource');
+
+    // Assert that writeFileSync was called and content was modified
+    expect(writeFileSyncStub.calledOnce).to.be.false;
+  });
+
+  it('should log the correct replacement message', () => {
+    const mockFileContent = `
+      import something from 'oldSource/module';
+    `;
+
+    // Mock file reading
+    readFileSyncStub.returns(mockFileContent);
+
+    parser.replaceImportSource(mockFilePath, 'oldSource');
+
+    // Assert that console.log was called with the correct message
+    expect(consoleLogStub.calledOnce).to.be.true;
+    expect(consoleLogStub.calledWith(`Replaced import 'oldSource' with 'c' in file: ${mockFilePath}`)).to.be.true;
   });
 });

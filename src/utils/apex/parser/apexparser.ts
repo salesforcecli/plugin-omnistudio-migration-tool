@@ -20,18 +20,18 @@ export class ApexASTParser {
   private apexFileContent: string;
   private implementsInterface: Map<string, Token> = new Map();
   // private callsMethods: Map<string, Token[]>;
-  private interfaceName: string;
+  private interfaceNames: Set<string>;
   private methodName: string;
   // private className: string;
   private astListener: ApexParserListener;
 
-  public get implemementsInterface(): Map<string, Token> {
+  public get implementsInterfaces(): Map<string, Token> {
     return this.implementsInterface;
   }
 
-  public constructor(apexFileContent: string, interfaceName: string, methodName: string) {
+  public constructor(apexFileContent: string, interfaceNames: Set<string>, methodName: string) {
     this.apexFileContent = apexFileContent;
-    this.interfaceName = interfaceName;
+    this.interfaceNames = interfaceNames;
     this.methodName = methodName;
     this.astListener = this.createASTListener();
   }
@@ -50,14 +50,17 @@ export class ApexASTParser {
     class ApexMigrationListener implements ApexParserListener {
       public constructor(private parser: ApexASTParser) {}
       public enterClassDeclaration(ctx: ClassDeclarationContext): void {
-        const interfaceToBeSearched = this.parser.interfaceName;
+        const interfaceToBeSearched = this.parser.interfaceNames;
         if (!interfaceToBeSearched) return;
         if (!ctx.typeList() || !ctx.typeList().typeRef()) return;
         for (const typeRefContext of ctx.typeList().typeRef())
           for (const typeNameContext of typeRefContext.typeName()) {
             if (!typeNameContext.id() || !typeNameContext.id().Identifier()) continue;
-            if (typeNameContext.id().Identifier().symbol.text === interfaceToBeSearched) {
-              this.parser.implementsInterface.set(interfaceToBeSearched, typeNameContext.id().Identifier().symbol);
+            if (interfaceToBeSearched.has(typeNameContext.id().Identifier().symbol.text)) {
+              this.parser.implementsInterface.set(
+                typeNameContext.id().Identifier().symbol.text,
+                typeNameContext.id().Identifier().symbol
+              );
             }
           }
       }

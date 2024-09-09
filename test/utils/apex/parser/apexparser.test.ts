@@ -1,5 +1,5 @@
 import { expect } from '@salesforce/command/lib/test';
-import { ApexASTParser } from '../../../../src/utils/apex/parser/apexparser';
+import { ApexASTParser, MethodCall } from '../../../../src/utils/apex/parser/apexparser';
 
 describe('ApexASTParser', () => {
   it('should parse the Apex file and collect interface implementations, method calls, and class names', () => {
@@ -11,14 +11,15 @@ describe('ApexASTParser', () => {
         /* Populate the input JSON */ 
         Map<String, Object> myTransformData = new Map<String, Object>{'MyKey'=>'MyValue'}; 
         /* Call the Data Mapper */ 
-        omnistudio.DRProcessResult result1 = omnistudio.DRGlobal.process(myTransformData, DRName);
+        vlocity_ins.DRProcessResult result1 = vlocity_ins.DRGlobal.process(myTransformData, 'DRName');
     }
     }`;
     const callable = 'Callable';
     const interfaceName = new Set<string>(['Callable']);
-    const methodName = 'yourMethod';
-
-    const apexParser = new ApexASTParser(apexFileContent, interfaceName, methodName);
+    const methodCalls = new Set<MethodCall>();
+    methodCalls.add(new MethodCall('process', 'DRGlobal', 'vlocity_ins'));
+    methodCalls.add(new MethodCall('processObjectsJSON', 'DRGlobal', 'vlocity_ins'));
+    const apexParser = new ApexASTParser(apexFileContent, interfaceName, methodCalls, 'vlocity_ins');
     apexParser.parse();
     const implementsInterface = apexParser.implementsInterfaces;
     // const callsMethods = apexParser.getCallsMethods();

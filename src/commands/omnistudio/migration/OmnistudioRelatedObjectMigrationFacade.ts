@@ -1,26 +1,25 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import * as os from 'os';
-import { Messages, Org } from '@salesforce/core';
+import { Org } from '@salesforce/core';
 import '../../../utils/prototypes';
-import { DebugTimer } from '../../../utils';
-import { MigrationResult, RelatedObjectsMigrate } from '../../../migration/interfaces';
+import { DebugTimer, MigratedObject } from '../../../utils';
+import { RelatedObjectsMigrate } from '../../../migration/interfaces';
 import { sfProject } from '../../../utils/sfcli/project/sfProject';
 import { Logger } from '../../../utils/logger';
 import { ApexMigration } from '../../../migration/related/ApexMigration';
 
 // Initialize Messages with the current plugin directory
-Messages.importMessagesDirectory(__dirname);
+// Messages.importMessagesDirectory(__dirname);
 
 // Load the specific messages for this file. Messages from @salesforce/command, @salesforce/core,
 // or any library that is using the messages framework can also be loaded this way.
-const messages = Messages.loadMessages('@salesforce/plugin-omnistudio-related-object-migration-tool', 'migrate');
+// const messages = Messages.loadMessages('@salesforce/plugin-omnistudio-related-object-migration-tool', 'migrate');
 
 const defaultProjectName = 'omnistudio_migration';
 export default class OmnistudioRelatedObjectMigrationFacade {
-  public static description = messages.getMessage('commandDescription');
-  public static examples = messages.getMessage('examples').split(os.EOL);
+  // public static description = messages.getMessage('commandDescription');
+  // public static examples = messages.getMessage('examples').split(os.EOL);
   public static args = [{ name: 'file' }];
 
   protected readonly namespace: string;
@@ -34,7 +33,7 @@ export default class OmnistudioRelatedObjectMigrationFacade {
     this.allversions = allversions;
     this.org = org;
   }
-  public migrateAll(migrationResult: MigrationResult, namespace: string, relatedObjects: string[]): any {
+  public migrateAll(migrationResult: MigratedObject[], relatedObjects: string[]): any {
     // Start the debug timer
     DebugTimer.getInstance().start();
 
@@ -45,17 +44,13 @@ export default class OmnistudioRelatedObjectMigrationFacade {
     debugTimer.start();
     // Initialize migration tools based on the relatedObjects parameter
     if (relatedObjects.includes('lwc')) {
-      migrationTools.push(this.createLWCComponentMigrationTool(namespace, this.org));
+      migrationTools.push(this.createLWCComponentMigrationTool(this.namespace, this.org));
     }
     if (relatedObjects.includes('labels')) {
-      migrationTools.push(this.createCustomLabelMigrationTool(namespace, this.org));
+      migrationTools.push(this.createCustomLabelMigrationTool(this.namespace, this.org));
     }
     if (relatedObjects.includes('apex')) {
       migrationTools.push(this.createApexClassMigrationTool(projectDirectory));
-    }
-
-    if (migrationTools.length === 0) {
-      throw new Error(messages.getMessage('noMigrationToolsSelected'));
     }
 
     // Proceed with migration logic

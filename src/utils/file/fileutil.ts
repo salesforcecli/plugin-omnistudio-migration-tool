@@ -3,7 +3,7 @@ import * as path from 'path';
 
 export class fileutil {
   public static readFilesSync(dir: string): File[] {
-    let files: File[];
+    const files: File[] = [];
     fs.readdirSync(dir).forEach((filename) => {
       const name = path.parse(filename).name;
       const ext = path.parse(filename).ext;

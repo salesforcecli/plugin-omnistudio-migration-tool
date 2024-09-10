@@ -41,5 +41,7 @@ node_modules
 .idea
 out.log
 migrationresults.html
+*force-app*
+.sfdx
 
 oclif.manifest.json

@@ -10,10 +10,10 @@ import { HTMLParser } from '../../utils/lwcparser/htmlparser/HTMLParser';
 import { XmlParser } from '../../utils/lwcparser/xmlparser/XmlParser';
 import { BaseRelatedObjectMigration } from './BaseRealtedObjectMigration';
 
-const LWC_DIR_PATH = 'main/default/lwc';
-const LWCTYPE = 'lwc';
+const LWC_DIR_PATH = '/force-app/main/default/lwc';
+const LWCTYPE = 'LightningComponentBundle';
 const XML_TAG_TO_REMOVE = 'runtimeNamespace';
-const NAMESPACE = 'vlocity_cmt';
+const NAMESPACE = 'vlocity_ins';
 
 export class LwcMigration extends BaseRelatedObjectMigration {
   public identifyObjects(migrationResults: MigrationResult[]): Promise<JSON[]> {
@@ -37,7 +37,8 @@ export class LwcMigration extends BaseRelatedObjectMigration {
   public processLwcFiles(dir: string): File[] {
     dir += LWC_DIR_PATH;
     let files: File[] = [];
-    files = fileutil.readFilesSync(dir);
+    // files = fileutil.readFilesSync(dir);
+    files = fileutil.readAllFiles(dir);
     // TODO: Add logging
     for (const file of files) {
       if (file.ext === '.js') {
@@ -64,6 +65,7 @@ export class LwcMigration extends BaseRelatedObjectMigration {
     const parse = new HTMLParser(filePath);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
     parse.replaceTags(NAMESPACE);
+    parse.saveToFile(filePath);
   }
 
   processXMLFile(file: File): void {

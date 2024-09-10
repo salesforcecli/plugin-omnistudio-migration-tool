@@ -11,7 +11,6 @@ import * as os from 'os';
 import { flags } from '@salesforce/command';
 import { Messages } from '@salesforce/core';
 import '../../../utils/prototypes';
-import * as shell from 'shelljs';
 import OmniStudioBaseCommand from '../../basecommand';
 import { DataRaptorMigrationTool } from '../../../migration/dataraptor';
 import { DebugTimer, MigratedObject, MigratedRecordInfo } from '../../../utils';
@@ -19,9 +18,8 @@ import { MigrationResult, MigrationTool } from '../../../migration/interfaces';
 import { ResultsBuilder } from '../../../utils/resultsbuilder';
 import { CardMigrationTool } from '../../../migration/flexcard';
 import { OmniScriptExportType, OmniScriptMigrationTool } from '../../../migration/omniscript';
-import { cli } from '../../../utils/shell/cli';
 import { Logger } from '../../../utils/logger';
-import { sfProject } from '../../../utils/sfcli/project/sfProject';
+import OmnistudioRelatedObjectMigrationFacade from './OmnistudioRelatedObjectMigrationFacade';
 
 // Initialize Messages with the current plugin directory
 Messages.importMessagesDirectory(__dirname);
@@ -61,7 +59,7 @@ export default class Migrate extends OmniStudioBaseCommand {
     const allVersions = this.flags.allversions || false;
     // await sfcclicommand.fetchApexClasses(this.org, '/Users/abhinavkumar2/company/mywork');
     // await sfcclicommand.deployApexClasses(this.org, '/Users/abhinavkumar2/company/mywork/main/default/classes');
-    sfProject.create('omnistudio_migration', '/Users/abhinavkumar2/company/new');
+    /* sfProject.create('omnistudio_migration', '/Users/abhinavkumar2/company/new');
     this.ux.log('creating project');
     const pwd = shell.pwd();
     shell.cd('/Users/abhinavkumar2/company/new/omnistudio_migration');
@@ -69,6 +67,7 @@ export default class Migrate extends OmniStudioBaseCommand {
     this.ux.log('retrieving apex classes');
     cli.exec(`sf project deploy start --metadata Apexclass --target-org ${this.org.getUsername()}`);
     shell.cd(pwd);
+    */
 
     Logger.initialiseLogger(this.ux, this.logger);
     this.logger = Logger.logger;
@@ -137,6 +136,13 @@ export default class Migrate extends OmniStudioBaseCommand {
     // Migrate individual objects
     const debugTimer = DebugTimer.getInstance();
     let objectMigrationResults: MigratedObject[] = [];
+    const omnistudioRelatedObjectsMig = new OmnistudioRelatedObjectMigrationFacade(
+      namespace,
+      migrateOnly,
+      allVersions,
+      this.org
+    );
+    omnistudioRelatedObjectsMig.migrateAll(objectMigrationResults, ['lwc']);
 
     // We need to truncate the standard objects first
     let allTruncateComplete = true;
@@ -182,6 +188,13 @@ export default class Migrate extends OmniStudioBaseCommand {
     // Stop the debug timer
     const timer = DebugTimer.getInstance().stop();
 
+    const omnistudioRelatedObjectsMigration = new OmnistudioRelatedObjectMigrationFacade(
+      namespace,
+      migrateOnly,
+      allVersions,
+      this.org
+    );
+    omnistudioRelatedObjectsMigration.migrateAll(objectMigrationResults, ['lwc']);
     await ResultsBuilder.generate(objectMigrationResults, conn.instanceUrl);
 
     // save timer to debug logger

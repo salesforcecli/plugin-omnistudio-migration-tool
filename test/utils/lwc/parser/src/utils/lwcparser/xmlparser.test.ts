@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import { expect } from 'chai';
-import { XmlParser } from '../../../../../../../src/utils/lwcparser/xmlparser/XmlParser';
+import { XmlParser } from '../../../../../../../src/utils/lwcparser/xmlParser/XmlParser';
 
 describe('XmlParser', () => {
   const filePath = 'src/utils/lwcparser/input/test.xml';

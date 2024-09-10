@@ -5,9 +5,9 @@ import { Org } from '@salesforce/core';
 import { fileutil, File } from '../../utils/file/fileutil';
 import { MigrationResult } from '../interfaces';
 import { sfProject } from '../../utils/sfcli/project/sfProject';
-import { JavaScriptParser } from '../../utils/lwcparser/jsparser/JavaScriptParser';
-import { HTMLParser } from '../../utils/lwcparser/htmlparser/HTMLParser';
-import { XmlParser } from '../../utils/lwcparser/xmlparser/XmlParser';
+import { JavaScriptParser } from '../../utils/lwcparser/jsParser/JavaScriptParser';
+import { HTMLParser } from '../../utils/lwcparser/htmlParser/HTMLParser';
+import { XmlParser } from '../../utils/lwcparser/xmlParser/XmlParser';
 import { BaseRelatedObjectMigration } from './BaseRealtedObjectMigration';
 
 const LWC_DIR_PATH = '/force-app/main/default/lwc';

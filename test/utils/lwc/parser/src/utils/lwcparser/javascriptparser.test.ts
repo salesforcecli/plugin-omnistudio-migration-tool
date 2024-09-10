@@ -3,7 +3,7 @@
 import * as fs from 'fs';
 import { expect } from 'chai';
 import * as sinon from 'sinon';
-import { JavaScriptParser } from '../../../../../../../src/utils/lwcparser/jsparser/JavaScriptParser'; // Adjust the path as necessary
+import { JavaScriptParser } from '../../../../../../../src/utils/lwcparser/jsParser/JavaScriptParser'; // Adjust the path as necessary
 
 const mockFilePath = 'src/utils/lwcparser/input/test.js';
 

@@ -1,5 +1,5 @@
 import { expect } from '@salesforce/command/lib/test';
-import { ApexASTParser } from '../../../../src/utils/apex/parser/apexparser';
+import { ApexASTParser, MethodCall } from '../../../../src/utils/apex/parser/apexparser';
 
 describe('ApexASTParser', () => {
   it('should parse the Apex file and collect interface implementations, method calls, and class names', () => {
@@ -11,22 +11,24 @@ describe('ApexASTParser', () => {
         /* Populate the input JSON */ 
         Map<String, Object> myTransformData = new Map<String, Object>{'MyKey'=>'MyValue'}; 
         /* Call the Data Mapper */ 
-        omnistudio.DRProcessResult result1 = omnistudio.DRGlobal.process(myTransformData, DRName);
+        vlocity_ins.DRProcessResult result1 = vlocity_ins.DRGlobal.process(myTransformData, 'DRName');
     }
     }`;
-    const interfaceName = 'Callable';
-    const methodName = 'yourMethod';
-
-    const apexParser = new ApexASTParser(apexFileContent, interfaceName, methodName);
+    const callable = 'Callable';
+    const interfaceName = new Set<string>(['Callable']);
+    const methodCalls = new Set<MethodCall>();
+    methodCalls.add(new MethodCall('process', 'DRGlobal', 'vlocity_ins'));
+    methodCalls.add(new MethodCall('processObjectsJSON', 'DRGlobal', 'vlocity_ins'));
+    const apexParser = new ApexASTParser(apexFileContent, interfaceName, methodCalls, 'vlocity_ins');
     apexParser.parse();
-    const implementsInterface = apexParser.implemementsInterface;
+    const implementsInterface = apexParser.implementsInterfaces;
     // const callsMethods = apexParser.getCallsMethods();
     // const className = apexParser.getClassName();
 
     // Add your assertions here based on the expected results
     // implementsInterface.get(interfaceName);
-    expect(implementsInterface.get(interfaceName).charPositionInLine).to.be.equal(58);
-    expect(implementsInterface.get(interfaceName).line).to.be.equal(1);
+    expect(implementsInterface.get(callable).charPositionInLine).to.be.equal(58);
+    expect(implementsInterface.get(callable).line).to.be.equal(1);
     // expect(callsMethods).to.not.be.empty;
     // expect(className).to.equal('YourClass');
   });

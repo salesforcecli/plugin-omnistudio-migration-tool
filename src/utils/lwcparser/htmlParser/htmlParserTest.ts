@@ -1,4 +1,4 @@
-import { HTMLParser } from '../htmlparser/HTMLParser'; // Adjust the path as needed
+import { HTMLParser } from '../../../utils/lwcparser/htmlparser/HTMLParser'; // Adjust the path as needed
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
 const parse = new HTMLParser(

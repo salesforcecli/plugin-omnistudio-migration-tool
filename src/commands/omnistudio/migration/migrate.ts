@@ -57,17 +57,6 @@ export default class Migrate extends OmniStudioBaseCommand {
     const apiVersion = (this.flags.apiversion || '55.0') as string;
     const migrateOnly = (this.flags.only || '') as string;
     const allVersions = this.flags.allversions || false;
-    // await sfcclicommand.fetchApexClasses(this.org, '/Users/abhinavkumar2/company/mywork');
-    // await sfcclicommand.deployApexClasses(this.org, '/Users/abhinavkumar2/company/mywork/main/default/classes');
-    /* sfProject.create('omnistudio_migration', '/Users/abhinavkumar2/company/new');
-    this.ux.log('creating project');
-    const pwd = shell.pwd();
-    shell.cd('/Users/abhinavkumar2/company/new/omnistudio_migration');
-    cli.exec(`sf project retrieve start --metadata Apexclass --target-org ${this.org.getUsername()}`);
-    this.ux.log('retrieving apex classes');
-    cli.exec(`sf project deploy start --metadata Apexclass --target-org ${this.org.getUsername()}`);
-    shell.cd(pwd);
-    */
 
     Logger.initialiseLogger(this.ux, this.logger);
     this.logger = Logger.logger;
@@ -136,14 +125,6 @@ export default class Migrate extends OmniStudioBaseCommand {
     // Migrate individual objects
     const debugTimer = DebugTimer.getInstance();
     let objectMigrationResults: MigratedObject[] = [];
-    const omnistudioRelatedObjectsMig = new OmnistudioRelatedObjectMigrationFacade(
-      namespace,
-      migrateOnly,
-      allVersions,
-      this.org
-    );
-    omnistudioRelatedObjectsMig.migrateAll(objectMigrationResults, ['apex']);
-
     // We need to truncate the standard objects first
     let allTruncateComplete = true;
     for (const cls of migrationObjects.reverse()) {
@@ -194,7 +175,7 @@ export default class Migrate extends OmniStudioBaseCommand {
       allVersions,
       this.org
     );
-    omnistudioRelatedObjectsMigration.migrateAll(objectMigrationResults, ['Apex']);
+    omnistudioRelatedObjectsMigration.migrateAll(objectMigrationResults, []);
     await ResultsBuilder.generate(objectMigrationResults, conn.instanceUrl);
 
     // save timer to debug logger

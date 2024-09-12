@@ -6,6 +6,7 @@
   "bugs": "https://github.com/forcedotcom/cli/issues",
   "dependencies": {
     "@apexdevtools/apex-parser": "^4.1.0",
+    "@babel/generator": "^7.25.6",
     "@babel/parser": "^7.25.4",
     "@oclif/command": "^1",
     "@oclif/config": "^1",

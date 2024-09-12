@@ -1,3 +1,18 @@
+# [1.5.0](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.4.0...1.5.0) (2024-08-26)
+
+
+### Features
+
+* apex parser ([0d86090](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/0d86090ebd4531123a78c81b86fa92635b82ec0c))
+* parser unit tests ([5d901d7](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/5d901d76dbc8fe7c84273da8f3aa7525810b4e22))
+* parser unit tests ([f66f169](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/f66f1698f053a998403349f536e5cccb6846c98e))
+* parser unit tests ([b6ddf4f](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/b6ddf4fc927ec8a8a50a410beeed2ae1c234525d))
+* parser unit tests ([4b6d636](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/4b6d63640250c959073244896cf82eb20fa9d7f2))
+* parser unit tests ([bb844c3](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/bb844c3e04857a5f5061730b9d70e868db85c5c0))
+* parser unit tests ([ef8dae0](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/ef8dae0498499111cfa582c1b0e4ba3d6d6c36da))
+
+
+
 # [1.4.0](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.3.1-dev.0...1.4.0) (2024-01-03)
 
 

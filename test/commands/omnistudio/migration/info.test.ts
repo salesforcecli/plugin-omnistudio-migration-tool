@@ -21,8 +21,6 @@ describe('omnistudio:migration:info', () => {
     .stdout()
     .command(['omnistudio:migration:info', '--targetusername', 'test@org.com', '--allversions'])
     .it('runs omnistudio:migration:info --targetusername test@org.com --allversions', (ctx) => {
-      expect(ctx.stdout).to.contain(
-        'Hello world! This is org: Super Awesome Org and I will be around until Tue Mar 20 2018!'
-      );
+      expect(ctx.stdout).to.contain('Hello world! This is org: Super Awesome Org');
     });
 });

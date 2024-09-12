@@ -1,11 +1,9 @@
 /* eslint-disable */
-
 import { AnyJson } from '@salesforce/ts-types';
 import FDefFields from '../../mappings/FuncDefMetadataFields';
 import Stack from './Stack';
 import { DebugTimer } from '../logging/debugtimer';
 import { QueryTools } from '../query';
-import { DataRaptorMigrationTool } from '../../migration/dataraptor';
 import { Connection } from '@salesforce/core';
 
 export function getReplacedformulaString(

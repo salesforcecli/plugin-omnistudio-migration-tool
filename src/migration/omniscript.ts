@@ -657,7 +657,6 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     }
 
     mappedObject[ElementMappings.PropertySet__c] = JSON.stringify(propertySet);
-    mappedObject['Name'] = mappedObject['Name'];
 
     // BATCH framework requires that each record has an "attributes" property
     mappedObject['attributes'] = {

@@ -11,6 +11,7 @@ import { ObjectMapping } from './interfaces';
 import { NetUtils, RequestMethod } from '../utils/net';
 import { Connection, Logger, Messages } from '@salesforce/core';
 import { UX } from '@salesforce/command';
+import getReplacedformulaString, { getAllFunctionMetadata } from '../utils/formula/FormulaUtil';
 
 export class OmniScriptMigrationTool extends BaseMigrationTool implements MigrationTool {
   private readonly exportType: OmniScriptExportType;
@@ -163,6 +164,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
   async migrate(): Promise<MigrationResult[]> {
     // Get All Records from OmniScript__c (IP & OS Parent Records)
     const omniscripts = await this.getAllOmniScripts();
+    const functionDefinitionMetadata = await getAllFunctionMetadata(this.namespace, this.connection);
     const duplicatedNames = new Set<string>();
 
     // Variables to be returned After Migration
@@ -187,6 +189,37 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
       // Get All elements for each OmniScript__c record(i.e IP/OS)
       const elements = await this.getAllElementsForOmniScript(recordId);
+      if (omniscript[`${this.namespacePrefix}IsProcedure__c`] === true) {
+        // do the formula replacement from custom to standard notation
+        if (functionDefinitionMetadata.length > 0 && elements.length > 0) {
+          for (let ipElement of elements) {
+            if (ipElement[`${this.namespacePrefix}PropertySet__c`] != null) {
+              let formulaSyntax = ipElement[`${this.namespacePrefix}PropertySet__c`];
+              for (let functionDefMd of functionDefinitionMetadata) {
+                const FormulaName = functionDefMd['DeveloperName'];
+                const regExStr = new RegExp('\\b' + FormulaName + '\\b', 'g');
+                const numberOfOccurances: number =
+                  formulaSyntax.match(regExStr) !== null ? formulaSyntax.match(regExStr).length : 0;
+                if (numberOfOccurances > 0) {
+                  for (var count: number = 1; count <= numberOfOccurances; count++) {
+                    formulaSyntax = getReplacedformulaString(
+                      formulaSyntax,
+                      functionDefMd['DeveloperName'],
+                      functionDefMd[this.namespacePrefix + 'ClassName__c'],
+                      functionDefMd[this.namespacePrefix + 'MethodName__c']
+                    );
+                    console.log(formulaSyntax);
+                  }
+
+                  if (formulaSyntax !== ipElement[`${this.namespacePrefix}PropertySet__c`]) {
+                    ipElement[`${this.namespacePrefix}PropertySet__c`] = formulaSyntax;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
 
       // Perform the transformation for OS/IP Parent Record from OmniScript__c
       const mappedOmniScript = this.mapOmniScriptRecord(omniscript);

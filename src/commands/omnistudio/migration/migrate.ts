@@ -18,6 +18,7 @@ import { MigrationResult, MigrationTool } from '../../../migration/interfaces';
 import { ResultsBuilder } from '../../../utils/resultsbuilder';
 import { CardMigrationTool } from '../../../migration/flexcard';
 import { OmniScriptExportType, OmniScriptMigrationTool } from '../../../migration/omniscript';
+import { Logger } from '../../../utils/logger';
 
 // Initialize Messages with the current plugin directory
 Messages.importMessagesDirectory(__dirname);
@@ -42,6 +43,11 @@ export default class Migrate extends OmniStudioBaseCommand {
       char: 'o',
       description: messages.getMessage('onlyFlagDescription'),
     }),
+    allversions: flags.boolean({
+      char: 'a',
+      description: messages.getMessage('allVersionsDescription'),
+      required: false,
+    }),
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -49,7 +55,9 @@ export default class Migrate extends OmniStudioBaseCommand {
     const namespace = (this.flags.namespace || 'vlocity_ins') as string;
     const apiVersion = (this.flags.apiversion || '55.0') as string;
     const migrateOnly = (this.flags.only || '') as string;
-
+    const allVersions = this.flags.allversions || false;
+    Logger.initialiseLogger(this.ux, this.logger);
+    this.logger = Logger.logger;
     // this.org is guaranteed because requiresUsername=true, as opposed to supportsUsername
     const conn = this.org.getConnection();
     conn.setApiVersion(apiVersion);
@@ -62,23 +70,47 @@ export default class Migrate extends OmniStudioBaseCommand {
     if (!migrateOnly) {
       migrationObjects = [
         new DataRaptorMigrationTool(namespace, conn, this.logger, messages, this.ux),
-        new OmniScriptMigrationTool(OmniScriptExportType.All, namespace, conn, this.logger, messages, this.ux),
-        new CardMigrationTool(namespace, conn, this.logger, messages, this.ux),
+        new OmniScriptMigrationTool(
+          OmniScriptExportType.All,
+          namespace,
+          conn,
+          this.logger,
+          messages,
+          this.ux,
+          allVersions
+        ),
+        new CardMigrationTool(namespace, conn, this.logger, messages, this.ux, allVersions),
       ];
     } else {
       switch (migrateOnly) {
         case 'os':
           migrationObjects.push(
-            new OmniScriptMigrationTool(OmniScriptExportType.OS, namespace, conn, this.logger, messages, this.ux)
+            new OmniScriptMigrationTool(
+              OmniScriptExportType.OS,
+              namespace,
+              conn,
+              this.logger,
+              messages,
+              this.ux,
+              allVersions
+            )
           );
           break;
         case 'ip':
           migrationObjects.push(
-            new OmniScriptMigrationTool(OmniScriptExportType.IP, namespace, conn, this.logger, messages, this.ux)
+            new OmniScriptMigrationTool(
+              OmniScriptExportType.IP,
+              namespace,
+              conn,
+              this.logger,
+              messages,
+              this.ux,
+              allVersions
+            )
           );
           break;
         case 'fc':
-          migrationObjects.push(new CardMigrationTool(namespace, conn, this.logger, messages, this.ux));
+          migrationObjects.push(new CardMigrationTool(namespace, conn, this.logger, messages, this.ux, allVersions));
           break;
         case 'dr':
           migrationObjects.push(new DataRaptorMigrationTool(namespace, conn, this.logger, messages, this.ux));
@@ -96,7 +128,7 @@ export default class Migrate extends OmniStudioBaseCommand {
     let allTruncateComplete = true;
     for (const cls of migrationObjects.reverse()) {
       try {
-        this.ux.log('Cleaning: ' + cls.getName());
+        Logger.ux.log('Cleaning: ' + cls.getName());
         debugTimer.lap('Cleaning: ' + cls.getName());
         await cls.truncate();
       } catch (ex: any) {

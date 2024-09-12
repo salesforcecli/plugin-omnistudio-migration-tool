@@ -1,3 +1,36 @@
+# [1.6.0](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.5.0...1.6.0) (2024-09-12)
+
+
+### Bug Fixes
+
+* element renaming issue ([f6d9fe7](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/f6d9fe75609272772546d7d2b88cdb7a4971a96d))
+
+
+### Features
+
+* add type/node to exlude node modules ([456cda2](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/456cda291e6c6fbff41f339625a3458ad231bbbd))
+* fix build errors ([acdcc69](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/acdcc693adeb239f04548b68f71876d49760e28b))
+* fix errors ([6ea66cd](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/6ea66cd73acc3d0f13468b8f55f9b847438af981))
+* fix link errors ([0576b4e](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/0576b4eda7c885ea9501b3b949adf3899d712c57))
+* fix lint error ([110ea6b](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/110ea6b43cef10a37b23d0e5044d1e9a3885daf0))
+* fix the build error ([5bb6f48](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/5bb6f48f7bc9d8a359630bd00257b3282e68cea2))
+* lwc parser include html, xml and js ([574def5](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/574def57f197a71e9794e8a8ca94bfa72b771876))
+* refactor file path ([1cd5e66](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/1cd5e6637c37d1a19f2e731af67b14544ed47442))
+* refactor file path ([40e2da5](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/40e2da51e8dd4de1a9f9b3708efd2824a714ce62))
+* refactor package json ([597a0a7](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/597a0a7f0951641b23849082b4ac0cfa76d3fc7f))
+* remove jest dependecies ([6f37f34](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/6f37f340a54a3486457e544647ef6ac7fba90f7e))
+* remove node to fix build error ([79a8637](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/79a8637da6070d8e9b93283d84e5728a196f0fbd))
+* remove test file ([ff63f73](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/ff63f738b225100a4c34121243debddee47d5e85))
+* remove test files to fix lint error ([c87ff7b](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/c87ff7bfbcbd87a2cc8dea5918f0e16370736cae))
+* resolve the conflicts ([02fac1f](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/02fac1f9d5050368741b5f936377c3864a119996))
+* revert yarn.lock ([ab5ce2d](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/ab5ce2d67fbaeafefa1ba0edee2c31921bf6e29d))
+* update jsdom ([10a6bb7](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/10a6bb7aa65365ef3c156a355b1489f1d267c6ab))
+* update the version ([d6203e2](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/d6203e273f78c70076bbaae0b55a9d09dafea550))
+* update the version ([1db2132](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/1db2132b870e5deb1971655b534ce481f25459fa))
+* update the version ([0ad7c6c](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/commit/0ad7c6c8843ce84210b3bd02fca56e4939d8d80a))
+
+
+
 # [1.5.0](https://github.com/salesforcecli/plugin-omnistudio-migration-tool/compare/1.4.0...1.5.0) (2024-08-26)
 
 

@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as parser from '@babel/parser';
 import traverse from '@babel/traverse';
 import generate from '@babel/generator';
-import t from '@babel/types';
+import * as t from '@babel/types';
 
 const NAMESPACE = 'c';
 

@@ -1,49 +1,47 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable no-console */
-/* eslint-disable @typescript-eslint/explicit-member-accessibility */
-// import * as fs from 'fs';
-// import { parse, type ParseResult } from '@babel/parser'; // Import all types from @babel/types
+import * as fs from 'fs';
+import * as parser from '@babel/parser';
+import traverse from '@babel/traverse';
+import generate from '@babel/generator';
+import * as t from '@babel/types';
 
-class JavaScriptParser {
-  // private fileContent: string;
-  private ast: File | null = null; // Specify the generic type argument
+const NAMESPACE = 'c';
 
-  constructor(filePath: string) {
-    // this.fileContent = fs.readFileSync(filePath, 'utf-8');
-    this.ast = null;
-  }
+export class JavaScriptParser {
+  // Function to replace strings in import declarations and write back to file
+  public replaceImportSource(filePath: string, oldSource: string): void {
+    // Read the JavaScript file
+    const code = fs.readFileSync(filePath, 'utf-8');
 
-  // public parseCode(): void {
-  //   const parseResult: File = parse(this.fileContent, {
-  //     sourceType: 'module', // Use 'script' if you're parsing non-module code
-  //     plugins: ['jsx', 'typescript'], // Add plugins as needed
-  //   });
+    // Parse the code into an AST (Abstract Syntax Tree)
+    const ast = parser.parse(code, {
+      sourceType: 'module', // Specify that we are parsing an ES module
+      plugins: ['decorators'], // Include any relevant plugins if necessary (e.g., 'jsx', 'flow', etc.)
+    });
 
-  //   if (parseResult.type === 'File') {
-  //     this.ast = parseResult;
-  //   } else {
-  //     throw new Error("Parsing did not return a 'File' node as expected.");
-  //   }
-  // }
+    // Traverse the AST and modify import declarations
+    traverse(ast, {
+      ImportDeclaration(path) {
+        const importSource = path.node.source.value;
 
-  // Method to get the AST as a string
-  getAST(): string | null {
-    if (!this.ast) {
-      console.error('AST is not available. Please parse the code first.');
-      return null;
-    }
-    return JSON.stringify(this.ast, null, 2);
-  }
+        // Check if the import source contains the old substring
+        if (importSource.includes(oldSource + '/')) {
+          // Replace the old substring with the new substring
+          const updatedSource = importSource.replace(oldSource, NAMESPACE);
+          // Update the AST with the new source
+          path.node.source = t.stringLiteral(updatedSource);
+        }
+      },
+    });
 
-  // Main method to process the file
-  processFile(): void {
-    // this.parseCode(); // Parse the JavaScript code
-    const astString = this.getAST(); // Get the AST as a string
-    if (astString) {
-      console.log(astString); // Output the AST
-    }
+    // Generate the updated code from the modified AST
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+    const output = generate(ast, {}, code);
+
+    // Write the modified code back to the file
+    fs.writeFileSync(filePath, output.code, 'utf-8');
+
+    console.log(`Replaced import '${oldSource}' with '${NAMESPACE}' in file: ${filePath}`);
   }
 }
-
-export default JavaScriptParser;

@@ -6,7 +6,7 @@ import { DebugTimer, QueryTools } from '../utils';
 import { NetUtils } from '../utils/net';
 import { BaseMigrationTool } from './base';
 import { MigrationResult, MigrationTool, ObjectMapping, TransformData, UploadRecordResult } from './interfaces';
-import getReplacedformulaString, { getAllFunctionMetadata } from '../utils/formula/FormulaUtil';
+import { getAllFunctionMetadata, getReplacedString } from '../utils/formula/FormulaUtil';
 
 export class DataRaptorMigrationTool extends BaseMigrationTool implements MigrationTool {
   static readonly DRBUNDLE_NAME = 'DRBundle__c';
@@ -54,7 +54,6 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
     const dataRaptors = await this.getAllDataRaptors();
     const dataRaptorItemsData = await this.getAllItems();
     const functionDefinitionMetadata = await getAllFunctionMetadata(this.namespace, this.connection);
-
     // Start transforming each dataRaptor
     DebugTimer.getInstance().lap('Transform Data Raptor');
     let done = 0;
@@ -64,28 +63,11 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
       // do the formula updation in the DR items
       for (let drItem of dataRaptorItemsData) {
         if (drItem[this.namespacePrefix + 'Formula__c'] != null) {
-          let formulaSyntax = drItem[this.namespacePrefix + 'Formula__c'];
-          for (let functionDefMd of functionDefinitionMetadata) {
-            const FormulaName = functionDefMd['DeveloperName'];
-            const regExStr = new RegExp('\\b' + FormulaName + '\\b', 'g');
-            const numberOfOccurances: number =
-              formulaSyntax.match(regExStr) !== null ? formulaSyntax.match(regExStr).length : 0;
-            if (numberOfOccurances > 0) {
-              for (var count: number = 1; count <= numberOfOccurances; count++) {
-                formulaSyntax = getReplacedformulaString(
-                  formulaSyntax,
-                  functionDefMd['DeveloperName'],
-                  functionDefMd[this.namespacePrefix + 'ClassName__c'],
-                  functionDefMd[this.namespacePrefix + 'MethodName__c']
-                );
-                //console.log(formulaSyntax);
-              }
-
-              if (formulaSyntax !== drItem[this.namespacePrefix + 'Formula__c']) {
-                drItem[this.namespacePrefix + 'Formula__c'] = formulaSyntax;
-              }
-            }
-          }
+          drItem[this.namespacePrefix + 'Formula__c'] = getReplacedString(
+            this.namespacePrefix,
+            drItem[this.namespacePrefix + 'Formula__c'],
+            functionDefinitionMetadata
+          );
         }
       }
     }

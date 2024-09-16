@@ -6,7 +6,7 @@ import { DebugTimer } from '../logging/debugtimer';
 import { QueryTools } from '../query';
 import { Connection } from '@salesforce/core';
 
-export function getReplacedformulaString(
+function getReplacedformulaString(
   formulaExpression: string,
   formulaName: string,
   className: string,
@@ -76,6 +76,31 @@ export function getFunctionDefinitionFields(): string[] {
 export async function getAllFunctionMetadata(namespace: string, connection: Connection): Promise<AnyJson[]> {
   DebugTimer.getInstance().lap('Query FunctionDefinition__mdt');
   return await QueryTools.queryAll(connection, namespace, 'FunctionDefinition__mdt', getFunctionDefinitionFields());
+}
+
+export function getReplacedString(
+  namespacePrefix: string,
+  inputString: string,
+  functionDefinitionMetadata: AnyJson[]
+): string {
+  let formulaSyntax = inputString;
+  for (let functionDefMd of functionDefinitionMetadata) {
+    const FormulaName = functionDefMd['DeveloperName'];
+    const regExStr = new RegExp('\\b' + FormulaName + '\\b', 'g');
+    const numberOfOccurances: number =
+      formulaSyntax.match(regExStr) !== null ? formulaSyntax.match(regExStr).length : 0;
+    if (numberOfOccurances > 0) {
+      for (var count: number = 1; count <= numberOfOccurances; count++) {
+        formulaSyntax = getReplacedformulaString(
+          formulaSyntax,
+          functionDefMd['DeveloperName'],
+          functionDefMd[namespacePrefix + 'ClassName__c'],
+          functionDefMd[namespacePrefix + 'MethodName__c']
+        );
+      }
+    }
+  }
+  return formulaSyntax;
 }
 
 export default getReplacedformulaString;

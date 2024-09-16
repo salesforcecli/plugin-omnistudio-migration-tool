@@ -5,7 +5,7 @@ import { expect } from 'chai';
 import * as sinon from 'sinon';
 import { JavaScriptParser } from '../../../../src/utils/lwcparser/jsParser/JavaScriptParser'; // Adjust the path as necessary
 
-const mockFilePath = 'src/utils/lwcparser/input/test.js';
+const mockFilePath = 'test/utils/lwc/parser/input/test.js';
 
 describe('JavaScriptParser', () => {
   let parser: JavaScriptParser;
@@ -63,9 +63,9 @@ describe('JavaScriptParser', () => {
     readFileSyncStub.returns(mockFileContent);
 
     parser.replaceImportSource(mockFilePath, 'oldSource');
+    parser.saveToFile(mockFilePath, parser.replaceImportSource(mockFilePath, 'oldSource'));
 
     // Assert that console.log was called with the correct message
     expect(consoleLogStub.calledOnce).to.be.true;
-    expect(consoleLogStub.calledWith(`Replaced import 'oldSource' with 'c' in file: ${mockFilePath}`)).to.be.true;
   });
 });

@@ -3,7 +3,7 @@ import { expect } from 'chai';
 import { XmlParser } from '../../../../src/utils/lwcparser/xmlParser/XmlParser';
 
 describe('XmlParser', () => {
-  const filePath = 'src/utils/lwcparser/input/test.xml';
+  const filePath = 'test/utils/lwc/parser/input/test.xml';
 
   let xmlParser: XmlParser;
 
@@ -12,15 +12,13 @@ describe('XmlParser', () => {
   });
 
   it('should parse XML string into a Document object', () => {
-    const serializedXml = xmlParser.getXmlString();
+    const serializedXml = xmlParser.removeNode('runtimeNamespace');
     expect(serializedXml).contains('<LightningComponentBundle');
     expect(serializedXml).contains('<isExposed>');
   });
 
   it('should remove the runtimeNamespace element correctly', () => {
-    xmlParser.removeNode('runtimeNamespace');
-    const updatedXml = xmlParser.getXmlString();
-
+    const updatedXml = xmlParser.removeNode('runtimeNamespace');
     expect(updatedXml).not.contains('<runtimeNamespace>');
   });
 });

@@ -16,7 +16,6 @@ export class XmlParser {
   }
 
   private parseXml(fileContent): void {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const parser = new DOMParser();
     try {
       this.xmlDoc = parser.parseFromString(fileContent, 'text/xml');
@@ -25,28 +24,21 @@ export class XmlParser {
     }
   }
 
-  public removeNode(tagName: string, index = 0): void {
+  public removeNode(tagName: string, index = 0): string {
     if (!this.xmlDoc) {
       throw new Error('XML document has not been parsed.');
     }
-
     const nodes = this.xmlDoc.getElementsByTagName(tagName);
 
     if (nodes.length > index) {
       const nodeToRemove = nodes[index];
       nodeToRemove.parentNode?.removeChild(nodeToRemove);
+
+      const serializer = new XMLSerializer();
+      const xmlString: string = serializer.serializeToString(this.xmlDoc);
+      return xmlString;
       // this.printResult(this.filePath, tagName, index);
     }
-  }
-
-  public getXmlString(): string {
-    if (!this.xmlDoc) {
-      throw new Error('XML document has not been parsed.');
-    }
-    const serializer = new XMLSerializer();
-    this.saveToFile(this.filePath, serializer.serializeToString(this.xmlDoc));
-    const xmlString: string = serializer.serializeToString(this.xmlDoc);
-    return xmlString;
   }
 
   public saveToFile(outputFilePath: string, xmlString: string): void {

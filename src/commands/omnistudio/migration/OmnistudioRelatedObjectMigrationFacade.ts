@@ -45,7 +45,7 @@ export default class OmnistudioRelatedObjectMigrationFacade {
     debugTimer.start();
     // Initialize migration tools based on the relatedObjects parameter
     if (relatedObjects.includes('lwc')) {
-      migrationTools.push(this.createLWCComponentMigrationTool(projectDirectory));
+      migrationTools.push(this.createLWCComponentMigrationTool(this.namespace, projectDirectory));
     }
     if (relatedObjects.includes('labels')) {
       migrationTools.push(this.createCustomLabelMigrationTool(this.namespace, this.org));
@@ -76,7 +76,7 @@ export default class OmnistudioRelatedObjectMigrationFacade {
   }
 
   // Factory methods to create instances of specific tools
-  private createLWCComponentMigrationTool(projectPath: string): LwcMigration {
+  private createLWCComponentMigrationTool(namespace: string, projectPath: string): LwcMigration {
     // Return an instance of LWCComponentMigrationTool when implemented
     return new LwcMigration(projectPath, this.namespace, this.org);
   }

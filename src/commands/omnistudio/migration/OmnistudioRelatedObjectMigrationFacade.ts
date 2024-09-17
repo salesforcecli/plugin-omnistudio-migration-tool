@@ -8,6 +8,7 @@ import { RelatedObjectsMigrate } from '../../../migration/interfaces';
 import { sfProject } from '../../../utils/sfcli/project/sfProject';
 import { Logger } from '../../../utils/logger';
 import { ApexMigration } from '../../../migration/related/ApexMigration';
+import { LwcMigration } from '../../../migration/related/LwcMigration';
 
 // Initialize Messages with the current plugin directory
 // Messages.importMessagesDirectory(__dirname);
@@ -44,7 +45,7 @@ export default class OmnistudioRelatedObjectMigrationFacade {
     debugTimer.start();
     // Initialize migration tools based on the relatedObjects parameter
     if (relatedObjects.includes('lwc')) {
-      migrationTools.push(this.createLWCComponentMigrationTool(this.namespace, this.org));
+      migrationTools.push(this.createLWCComponentMigrationTool(this.namespace, projectDirectory));
     }
     if (relatedObjects.includes('labels')) {
       migrationTools.push(this.createCustomLabelMigrationTool(this.namespace, this.org));
@@ -75,9 +76,9 @@ export default class OmnistudioRelatedObjectMigrationFacade {
   }
 
   // Factory methods to create instances of specific tools
-  private createLWCComponentMigrationTool(namespace: string, org: Org): RelatedObjectsMigrate {
+  private createLWCComponentMigrationTool(namespace: string, projectPath: string): LwcMigration {
     // Return an instance of LWCComponentMigrationTool when implemented
-    throw new Error('LWCComponentMigrationTool implementation is not provided yet.');
+    return new LwcMigration(projectPath, this.namespace, this.org);
   }
 
   private createCustomLabelMigrationTool(namespace: string, org: Org): RelatedObjectsMigrate {

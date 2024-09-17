@@ -5,7 +5,10 @@
 import * as fs from 'fs';
 import * as cheerio from 'cheerio';
 
-class HTMLParser {
+const DEFAULT_NAMESPACE = 'c';
+const TAG = 'tag';
+
+export class HTMLParser {
   private parser: cheerio.CheerioAPI;
 
   // eslint-disable-next-line @typescript-eslint/explicit-member-accessibility
@@ -26,11 +29,27 @@ class HTMLParser {
   }
 
   // Method to replace custom tags
-  public replaceCustomTag(oldTag: string, newTag: string): void {
-    this.parser(oldTag).each((_, element) => {
-      const newElement = this.parser(`<${newTag}></${newTag}>`).html(this.parser(element).html());
-      this.parser(element).replaceWith(newElement);
+  public replaceTags(namespaceTag: string): string {
+    // Load the HTML into cheerio
+    const $ = this.parser;
+
+    // Find all tags that contain the substring "omnistudio" in their tag name
+    $('*').each((i, element) => {
+      if (element.type === TAG && element.name && element.name.includes(namespaceTag + '-')) {
+        // Create a new tag with the same content and attributes as the old tag
+        const newTag = DEFAULT_NAMESPACE + element.name.substring(element.name.indexOf('-'));
+        const newElement = $(`<${newTag}>`).html($(element).html());
+
+        // Copy all attributes from the old element to the new one
+        Object.keys(element.attribs).forEach((attr) => {
+          newElement.attr(attr, $(element).attr(attr));
+        });
+
+        // Replace the old element with the new one
+        $(element).replaceWith(newElement);
+      }
     });
+    return $.html();
   }
 
   // Method to save modified HTML back to a file
@@ -50,5 +69,3 @@ class HTMLParser {
     return this.parser.html();
   }
 }
-
-export default HTMLParser;

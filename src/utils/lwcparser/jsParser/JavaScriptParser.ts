@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/explicit-member-accessibility */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // import * as fs from 'fs';
 // import { parse, type ParseResult } from '@babel/parser'; // Import all types from @babel/types
 

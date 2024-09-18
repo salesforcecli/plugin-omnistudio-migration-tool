@@ -20,6 +20,8 @@ import { CardMigrationTool } from '../../../migration/flexcard';
 import { OmniScriptExportType, OmniScriptMigrationTool } from '../../../migration/omniscript';
 import { Logger } from '../../../utils/logger';
 import { RemoteActionMigration } from '../../../migration/remoteActionParser';
+import OmnistudioRelatedObjectMigrationFacade from './OmnistudioRelatedObjectMigrationFacade';
+
 
 // Initialize Messages with the current plugin directory
 Messages.importMessagesDirectory(__dirname);
@@ -57,6 +59,7 @@ export default class Migrate extends OmniStudioBaseCommand {
     const apiVersion = (this.flags.apiversion || '55.0') as string;
     const migrateOnly = (this.flags.only || '') as string;
     const allVersions = this.flags.allversions || false;
+
     Logger.initialiseLogger(this.ux, this.logger);
     this.logger = Logger.logger;
     // this.org is guaranteed because requiresUsername=true, as opposed to supportsUsername
@@ -131,7 +134,6 @@ export default class Migrate extends OmniStudioBaseCommand {
     // Migrate individual objects
     const debugTimer = DebugTimer.getInstance();
     let objectMigrationResults: MigratedObject[] = [];
-
     // We need to truncate the standard objects first
     let allTruncateComplete = true;
     for (const cls of migrationObjects.reverse()) {
@@ -176,6 +178,13 @@ export default class Migrate extends OmniStudioBaseCommand {
     // Stop the debug timer
     const timer = DebugTimer.getInstance().stop();
 
+    const omnistudioRelatedObjectsMigration = new OmnistudioRelatedObjectMigrationFacade(
+      namespace,
+      migrateOnly,
+      allVersions,
+      this.org
+    );
+    omnistudioRelatedObjectsMigration.migrateAll(objectMigrationResults, []);
     await ResultsBuilder.generate(objectMigrationResults, conn.instanceUrl);
 
     // save timer to debug logger

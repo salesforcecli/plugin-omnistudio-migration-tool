@@ -82,3 +82,27 @@ export interface NameTransformData {
   dupNameSet: Set<string>;
   nameWithSepcialCharactorSet: Set<string>;
 }
+
+export interface RelatedObjectsMigrate {
+  /**
+   * Identifies migration candidates based on the provided migration results and namespace.
+   *
+   * @param migrationResults List of migration results to identify objects from.
+   * @param namespace The namespace used to identify objects.
+   * @returns List of identified migration candidates as strings.
+   */
+  identifyObjects(migrationResults: MigrationResult[]): Promise<JSON[]>;
+
+  /**
+   * Private method to perform the migration of related objects based on the provided candidates.
+   *
+   * @param migrationResults List of migration results to use for migration.
+   * @param namespace The namespace used to perform the migration.
+   * @param migrationCandidates List of candidates to migrate.
+   */
+  migrateRelatedObjects(migrationResults: MigrationResult[], migrationCandidates: JSON[]): void;
+}
+
+export type LWCComponentMigrationTool = MigrationTool;
+
+export type CustomLabelMigrationTool = MigrationTool;

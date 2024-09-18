@@ -3,7 +3,7 @@ import * as fs from 'fs';
 // import { sfcclicommand } from '../../utils/sfcli/commands/sfclicommand';
 import * as shell from 'shelljs';
 import { Org } from '@salesforce/core';
-import { ApexASTParser, MethodCall } from '../../utils/apex/parser/apexparser';
+import { ApexASTParser, InterfaceImplements, MethodCall } from '../../utils/apex/parser/apexparser';
 import { MigrationResult, RelatedObjectsMigrate } from '../interfaces';
 import { sfProject } from '../../utils/sfcli/project/sfProject';
 import { fileutil, File } from '../../utils/file/fileutil';
@@ -39,7 +39,13 @@ export class ApexMigration extends BaseRelatedObjectMigration implements Related
 
   public processApexFile(file: File): void {
     const fileContent = fs.readFileSync(file.location, 'utf8');
-    const interfaces = new Set<string>(['VlocityOpenInterface', 'VlocityOpenInterface2', 'Callable']);
+    const interfaces: InterfaceImplements[] = [];
+    interfaces.push(
+      new InterfaceImplements('VlocityOpenInterface', this.namespace),
+      new InterfaceImplements('VlocityOpenInterface2', this.namespace),
+      new InterfaceImplements('Callable')
+    );
+    // const interfaces = new Set<string>(['VlocityOpenInterface', 'VlocityOpenInterface2', 'Callable']);
     const methodCalls = new Set<MethodCall>();
     methodCalls.add(new MethodCall('process', 'DRGlobal', this.namespace));
     methodCalls.add(new MethodCall('processObjectsJSON', 'DRGlobal', this.namespace));

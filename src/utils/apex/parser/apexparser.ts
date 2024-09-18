@@ -14,22 +14,22 @@ import {
   CompilationUnitContext,
   TypeRefContext,
 } from '@apexdevtools/apex-parser';
-import { CharStreams, Token } from 'antlr4ts';
+import { CharStreams, Token, TokenStreamRewriter } from 'antlr4ts';
 import { ParseTreeWalker } from 'antlr4ts/tree/ParseTreeWalker';
 
 export class ApexASTParser {
   private apexFileContent: string;
-  private implementsInterface: Map<string, Token> = new Map();
+  private implementsInterface: Map<InterfaceImplements, Token[]> = new Map();
   private methodParameter: Map<string, Token> = new Map();
   private namespaceChange: Map<string, Token[]> = new Map();
   private namespace: string;
   // private callsMethods: Map<string, Token[]>;
-  private interfaceNames: Set<string>;
+  private interfaceNames: InterfaceImplements[];
   // private className: string;
   private astListener: ApexParserListener;
   private methodCalls: Set<MethodCall>;
 
-  public get implementsInterfaces(): Map<string, Token> {
+  public get implementsInterfaces(): Map<InterfaceImplements, Token[]> {
     return this.implementsInterface;
   }
 
@@ -42,7 +42,7 @@ export class ApexASTParser {
 
   public constructor(
     apexFileContent: string,
-    interfaceNames: Set<string>,
+    interfaceNames: InterfaceImplements[],
     methodCalls: Set<MethodCall>,
     namespace: string
   ) {
@@ -63,6 +63,15 @@ export class ApexASTParser {
     return context;
   }
 
+  public rewrite(): string {
+    const lexer = new ApexLexer(new CaseInsensitiveInputStream(CharStreams.fromString(this.apexFileContent)));
+    const tokens = new CommonTokenStream(lexer);
+    const rewriter = new TokenStreamRewriter(tokens);
+    const parser = new ApexParser(tokens);
+    parser.compilationUnit();
+    return rewriter.getText();
+  }
+
   private createASTListener(): ApexParserListener {
     class ApexMigrationListener implements ApexParserListener {
       public constructor(private parser: ApexASTParser) {
@@ -73,15 +82,23 @@ export class ApexASTParser {
         if (!interfaceToBeSearched) return;
         if (!ctx.typeList() || !ctx.typeList().typeRef()) return;
         for (const typeRefContext of ctx.typeList().typeRef())
-          for (const typeNameContext of typeRefContext.typeName()) {
-            if (!typeNameContext.id() || !typeNameContext.id().Identifier()) continue;
-            if (interfaceToBeSearched.has(typeNameContext.id().Identifier().symbol.text)) {
-              this.parser.implementsInterface.set(
-                typeNameContext.id().Identifier().symbol.text,
-                typeNameContext.id().Identifier().symbol
-              );
-            }
+          for (const toSearch of this.parser.interfaceNames) {
+            const matchingTokens = InterfaceMatcher.getMatchingTokens(toSearch, typeRefContext);
+            if (matchingTokens.length === 0) continue;
+            this.parser.implementsInterface.set(toSearch, matchingTokens);
+            // Logger.logger.info('For interface ${toSearch.name} found tokens ${matchingTokens}');
           }
+        /*  
+        for (const typeNameContext of typeRefContext.typeName()) {
+          if (!typeNameContext.id() || !typeNameContext.id().Identifier()) continue;
+          if (interfaceToBeSearched.has(typeNameContext.id().Identifier().symbol.text)) {
+            this.parser.implementsInterface.set(
+              typeNameContext.id().Identifier().symbol.text,
+              typeNameContext.id().Identifier().symbol
+            );
+          }
+        }
+          */
       }
       public enterDotExpression(ctx: DotExpressionContext): void {
         // console.log('*********');
@@ -148,5 +165,38 @@ export class MethodCall {
   public getExpression(): string {
     if (this.namespace) return `${this.namespace}.${this.className}.${this.methodName}()`;
     else return `${this.className}.${this.methodName}()`;
+  }
+}
+
+export class InterfaceImplements {
+  public name: string;
+  public namespace: string;
+
+  public constructor(name: string, namespace?: string) {
+    this.name = name;
+    if (namespace) this.namespace = namespace;
+  }
+}
+export class InterfaceMatcher {
+  public static getMatchingTokens(checkFor: InterfaceImplements, ctx: TypeRefContext): Token[] {
+    const tokens: Token[] = [];
+    const typeNameContexts = ctx.typeName();
+    if (!typeNameContexts) return tokens;
+    if (
+      !checkFor.namespace &&
+      typeNameContexts.length === 1 &&
+      checkFor.name === typeNameContexts[0]?.id()?.Identifier()?.symbol?.text
+    ) {
+      tokens.push(typeNameContexts[0].id().Identifier().symbol);
+    } else if (
+      checkFor.namespace &&
+      typeNameContexts.length === 2 &&
+      checkFor.namespace === typeNameContexts[0]?.id()?.Identifier()?.symbol?.text &&
+      checkFor.name === typeNameContexts[1]?.id()?.Identifier()?.symbol?.text
+    ) {
+      tokens.push(typeNameContexts[0].id().Identifier().symbol);
+      tokens.push(typeNameContexts[1].id().Identifier().symbol);
+    }
+    return tokens;
   }
 }

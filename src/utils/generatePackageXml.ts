@@ -68,3 +68,13 @@ function backupChangeList(apexClasses: string[], lwcComponents: string[]): void 
   const filePath = path.join(__dirname, 'backup-package.xml');
   fs.writeFileSync(filePath, packageXmlContent.trim());
 }
+
+// remove all this code later --- only for testing 
+const apexClasses = ['MyApexClass1', 'MyApexClass2'];
+const lwcComponents = ['MyLwcComponent1', 'MyLwcComponent2'];
+
+// creating normal package.xml with additional types
+createChangeList(apexClasses, lwcComponents);
+
+// creating backup-package.xml without additional types
+backupChangeList(apexClasses, lwcComponents);

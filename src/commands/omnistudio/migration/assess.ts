@@ -3,7 +3,7 @@ import { flags } from '@salesforce/command';
 import { Messages } from '@salesforce/core';
 import OmniStudioBaseCommand from '../../basecommand';
 import { AssessmentInfo } from '../../../utils/interfaces';
-import { AssessmentReporter } from '../../../utils/resultsbuilder/assessmentreporter';
+import { AssessmentReporter } from '../../../utils/resultsbuilder/assessmentReporter';
 
 Messages.importMessagesDirectory(__dirname);
 const messages = Messages.loadMessages('@salesforce/plugin-omnistudio-migration-tool', 'assess');

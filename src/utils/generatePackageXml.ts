@@ -69,7 +69,7 @@ function backupChangeList(apexClasses: string[], lwcComponents: string[]): void 
   fs.writeFileSync(filePath, packageXmlContent.trim());
 }
 
-// remove all this code later --- only for testing 
+// remove all this code later --- only for testing
 const apexClasses = ['MyApexClass1', 'MyApexClass2'];
 const lwcComponents = ['MyLwcComponent1', 'MyLwcComponent2'];
 

@@ -1,5 +1,11 @@
 import { expect } from '@salesforce/command/lib/test';
-import { ApexASTParser, InterfaceImplements, MethodCall } from '../../../../src/utils/apex/parser/apexparser';
+import {
+  ApexASTParser,
+  InterfaceImplements,
+  MethodCall,
+  MethodParameter,
+  ParameterType,
+} from '../../../../src/utils/apex/parser/apexparser';
 
 describe('ApexASTParser', () => {
   it('should parse the Apex file and collect interface implementations, method calls, and class names', () => {
@@ -22,11 +28,16 @@ describe('ApexASTParser', () => {
     const vlocityOpenInterface2 = new InterfaceImplements('VlocityOpenInterface2', namespace);
     interfaces.push(vlocityOpenInterface, vlocityOpenInterface2, new InterfaceImplements('Callable'));
     const methodCalls = new Set<MethodCall>();
-    methodCalls.add(new MethodCall('process', 'DRGlobal', namespace));
-    methodCalls.add(new MethodCall('processObjectsJSON', 'DRGlobal', namespace));
+    const drNameParameter = new MethodParameter(2, ParameterType.DR_NAME);
+    const ipNameParameter = new MethodParameter(1, ParameterType.IP_NAME);
+    methodCalls.add(new MethodCall('DRGlobal', 'process', namespace, drNameParameter));
+    methodCalls.add(new MethodCall('DRGlobal', 'processObjectsJSON', namespace, drNameParameter));
+    methodCalls.add(new MethodCall('DRGlobal', 'processString', namespace, drNameParameter));
+    methodCalls.add(new MethodCall('DRGlobal', 'processFromApex', namespace, drNameParameter));
+    methodCalls.add(new MethodCall('IntegrationProcedureService', 'runIntegrationService', namespace, ipNameParameter));
+
     const apexParser = new ApexASTParser(apexFileContent, interfaces, methodCalls, namespace);
     apexParser.parse();
-    apexParser.rewrite();
     const implementsInterface = apexParser.implementsInterfaces;
     // const callsMethods = apexParser.getCallsMethods();
     // const className = apexParser.getClassName();

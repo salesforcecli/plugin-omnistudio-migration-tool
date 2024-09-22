@@ -33,13 +33,22 @@ export default class OmnistudioRelatedObjectMigrationFacade {
     this.allversions = allversions;
     this.org = org;
   }
+  public static intializeProject(projectPath?: string): string {
+    if (projectPath) {
+      sfProject.create(defaultProjectName, projectPath);
+      return projectPath + '/' + defaultProjectName;
+    } else {
+      sfProject.create(defaultProjectName);
+      return process.cwd() + '/' + defaultProjectName;
+    }
+  }
   public migrateAll(migrationResult: MigratedObject[], relatedObjects: string[]): any {
     // Start the debug timer
     DebugTimer.getInstance().start();
 
     // Declare an array of MigrationTool
     const migrationTools: RelatedObjectsMigrate[] = [];
-    const projectDirectory: string = this.intializeProject();
+    const projectDirectory: string = OmnistudioRelatedObjectMigrationFacade.intializeProject();
     const debugTimer = DebugTimer.getInstance();
     debugTimer.start();
     // Initialize migration tools based on the relatedObjects parameter
@@ -59,6 +68,7 @@ export default class OmnistudioRelatedObjectMigrationFacade {
         migrationTool.migrateRelatedObjects(null, null);
       } catch (Error) {
         // Log the error
+        Logger.ux.error(Error.message);
         Logger.logger.error(Error.message);
         return { migrationResult };
       }
@@ -88,14 +98,5 @@ export default class OmnistudioRelatedObjectMigrationFacade {
   private createApexClassMigrationTool(projectPath: string): ApexMigration {
     // Return an instance of ApexClassMigrationTool when implemented
     return new ApexMigration(projectPath, this.namespace, this.org);
-  }
-  private intializeProject(projectPath?: string): string {
-    if (projectPath) {
-      sfProject.create(defaultProjectName, projectPath);
-      return projectPath + '/' + defaultProjectName;
-    } else {
-      sfProject.create(defaultProjectName);
-      return process.cwd() + '/' + defaultProjectName;
-    }
   }
 }

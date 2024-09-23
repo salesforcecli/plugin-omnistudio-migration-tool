@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/member-ordering */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -69,7 +70,6 @@ export default class OmnistudioRelatedObjectMigrationFacade {
         migrationTool.migrateRelatedObjects(null, null);
       } catch (Error) {
         // Log the error
-        Logger.ux.error(Error.message);
         Logger.logger.error(Error.message);
         return { migrationResult };
       }

@@ -5,8 +5,10 @@
     "outDir": "lib",
     "rootDir": "./src",
     "esModuleInterop": true,
-    "types": ["node", "mocha"],
-    "skipLibCheck": true
+    "types": ["node"],
+    "skipLibCheck": true,
+    "module": "ESNext", // Or "ES6" depending on setup
+    "target": "ESNext"
   },
   "include": ["./src/**/*.ts"]
 }

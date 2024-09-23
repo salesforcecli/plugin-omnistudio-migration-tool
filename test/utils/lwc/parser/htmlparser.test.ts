@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-import { expect } from '@salesforce/command/lib/test';
+import { expect } from 'chai';
 import { HTMLParser } from '../../../../src/utils/lwcparser/htmlParser/HTMLParser';
 import { FileDiffUtil } from '../../../../src/utils/lwcparser/fileutils/FileDiffUtil';
 

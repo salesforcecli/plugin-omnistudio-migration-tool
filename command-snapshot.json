@@ -1,20 +1,55 @@
 [
-  {
-    "command": "basecommand",
-    "plugin": "@salesforce/plugin-omnistudio-migration-tool",
-    "flags": ["apiversion", "json", "loglevel", "targetusername"],
-    "alias": []
-  },
-  {
-    "command": "omnistudio:migration:info",
-    "plugin": "@salesforce/plugin-omnistudio-migration-tool",
-    "flags": ["allversions", "apiversion", "json", "loglevel", "name", "targetdevhubusername", "targetusername"],
-    "alias": []
-  },
-  {
-    "command": "omnistudio:migration:migrate",
-    "plugin": "@salesforce/plugin-omnistudio-migration-tool",
-    "flags": ["allversions", "apiversion", "json", "loglevel", "namespace", "only", "targetusername"],
-    "alias": []
-  }
+    {
+        "command": "basecommand",
+        "plugin": "@salesforce/plugin-omnistudio-migration-tool",
+        "flags": [
+            "apiversion",
+            "json",
+            "loglevel",
+            "targetusername"
+        ],
+        "alias": []
+    },
+    {
+        "command": "omnistudio:migration:assess",
+        "plugin": "@salesforce/plugin-omnistudio-migration-tool",
+        "flags": [
+            "allversions",
+            "apiversion",
+            "json",
+            "loglevel",
+            "namespace",
+            "only",
+            "targetusername"
+        ],
+        "alias": []
+    },
+    {
+        "command": "omnistudio:migration:info",
+        "plugin": "@salesforce/plugin-omnistudio-migration-tool",
+        "flags": [
+            "allversions",
+            "apiversion",
+            "json",
+            "loglevel",
+            "name",
+            "targetdevhubusername",
+            "targetusername"
+        ],
+        "alias": []
+    },
+    {
+        "command": "omnistudio:migration:migrate",
+        "plugin": "@salesforce/plugin-omnistudio-migration-tool",
+        "flags": [
+            "allversions",
+            "apiversion",
+            "json",
+            "loglevel",
+            "namespace",
+            "only",
+            "targetusername"
+        ],
+        "alias": []
+    }
 ]

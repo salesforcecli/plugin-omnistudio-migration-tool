@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { createPatch } from 'diff';
-import * as chalk from 'chalk';
+import chalk from 'chalk';
 
 export class FileDiffUtil {
   public getFileDiff(originalFileContent: string, modifiedFileContent: string): string {

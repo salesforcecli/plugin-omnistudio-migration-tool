@@ -5,5 +5,25 @@
     "omnistudio:migration:assess -u orguser@domain.com --namespace=YOUR_PACKAGE_NAMESPACE --only=ip",
     "omnistudio:migration:assess -u orguser@domain.com --namespace=YOUR_PACKAGE_NAMESPACE --only=os",
     "omnistudio:migration:assess -u orguser@domain.com --namespace=YOUR_PACKAGE_NAMESPACE --only=fc"
-  ]
+  ],
+  "commandDescription": "print a greeting and your org IDs",
+  "namespaceFlagDescription": "The namespaced of the package",
+  "apiVersionFlagDescription": "The Salesforce API version to use",
+  "errorNoOrgResults": "No results found for the org '%s'.",
+  "onlyFlagDescription": "Migrate a single element: osip | fc | dr",
+  "invalidOnlyFlag": "Invalid flag, valid options are: osip | fc | dr",
+  "couldNotDeactivateOmniProcesses": "Could not deactivate current OmniProcesses",
+  "couldNotTruncate": "Could not truncate {0}",
+  "couldNotTruncateOmnniProcess": "Could not truncate OmniProcess. Please make sure your OS/IP is not referenced in an OmniScrirpt or Flex Card.",
+  "invalidNameTypeSubtypeOrLanguage": "Not a valid Name, Type, SubType or Language",
+  "invalidOrRepeatingOmniscriptElementNames": "Invalid or Repeating Element Names for Same OmniScript",
+  "invalidDataRaptorName": "Invalid name, can not have special characters",
+  "duplicatedCardName": "Duplicated Flex Card name",
+  "duplicatedDrName": "Duplicated DataRaptor name",
+  "duplicatedOSName": "Duplicated OmniScript name",
+  "errorWhileActivatingOs": "Could not activate OmniScript / Integration Procedure: ",
+  "errorWhileActivatingCard": "Could not activate Card: ",
+  "errorWhileUploadingCard": "An error ocurred while uploading Card: ",
+  "errorWhileCreatingElements": "An error ocurred while saving OmniScript elements: ",
+  "allVersionsDescription": "Migrate all versions of a component"
 }

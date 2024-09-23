@@ -4,7 +4,7 @@
 import { FileProcessor } from '../../../utils';
 import { File } from '../../file/fileutil';
 import { Logger } from '../../../utils/logger';
-import { JavaScriptParser } from '../../lwcparser/jsparser/JavaScriptParser';
+import { JavaScriptParser } from '../../lwcparser/jsParser/JavaScriptParser';
 import { FileConstant } from '../fileutils/FileConstant';
 import { FileDiffUtil } from './FileDiffUtil';
 

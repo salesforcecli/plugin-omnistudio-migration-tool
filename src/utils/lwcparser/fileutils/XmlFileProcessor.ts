@@ -3,7 +3,7 @@
 import { FileProcessor } from '../../../utils';
 import { File } from '../../file/fileutil';
 import { Logger } from '../../../utils/logger';
-import { XmlParser } from '../../lwcparser/xmlparser/XmlParser';
+import { XmlParser } from '../../lwcparser/xmlParser/XmlParser';
 import { FileConstant } from '../fileutils/FileConstant';
 import { FileDiffUtil } from './FileDiffUtil';
 

@@ -2,7 +2,7 @@
 import { FileProcessor } from '../../../utils';
 import { File } from '../../file/fileutil';
 import { Logger } from '../../../utils/logger';
-import { HTMLParser } from '../../lwcparser/htmlparser/HTMLParser';
+import { HTMLParser } from '../../lwcparser/htmlParser/HTMLParser';
 import { FileConstant } from '../fileutils/FileConstant';
 import { FileDiffUtil } from './FileDiffUtil';
 

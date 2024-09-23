@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/explicit-member-accessibility */
 import { FileParser } from '../../../utils';
-import { HTMLParser } from '../htmlparser/HTMLParser';
+import { HTMLParser } from '../htmlParser/HTMLParser';
 
 export class HtmlFileParser implements FileParser {
   parse(filePath: string, namespace: string): Map<string, string> {

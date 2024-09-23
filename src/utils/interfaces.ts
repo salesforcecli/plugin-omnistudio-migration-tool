@@ -29,6 +29,7 @@ export interface FileChangeInfo {
   name: string;
   diff: string;
 }
-export interface ApexAssessmentInfo {
-  name: string;
+export interface ApexAssessmentInfo extends FileChangeInfo {
+  warnings: string[];
+  infos: string[];
 }

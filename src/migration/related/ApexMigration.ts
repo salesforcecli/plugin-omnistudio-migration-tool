@@ -16,6 +16,7 @@ import { MigrationResult, RelatedObjectsMigrate } from '../interfaces';
 import { sfProject } from '../../utils/sfcli/project/sfProject';
 import { fileutil, File } from '../../utils/file/fileutil';
 import { Logger } from '../../utils/logger';
+import { ApexAssessmentInfo } from '../../utils';
 import { BaseRelatedObjectMigration } from './BaseRealtedObjectMigration';
 
 const APEXCLASS = 'Apexclass';
@@ -50,23 +51,35 @@ export class ApexMigration extends BaseRelatedObjectMigration implements Related
     sfProject.deploy(APEXCLASS, targetOrg.getUsername());
     shell.cd(pwd);
   }
-  public processApexFiles(dir: string): File[] {
+
+  public assess(): ApexAssessmentInfo[] {
+    const pwd = shell.pwd();
+    shell.cd(this.projectPath);
+    const targetOrg: Org = this.org;
+    sfProject.retrieve(APEXCLASS, targetOrg.getUsername());
+    const apexAssessmentInfos = this.processApexFiles(this.projectPath);
+    shell.cd(pwd);
+    return apexAssessmentInfos;
+  }
+  public processApexFiles(dir: string): ApexAssessmentInfo[] {
     dir += APEX_CLASS_PATH;
     let files: File[] = [];
     files = fileutil.readFilesSync(dir);
+    const fileAssessmentInfo: ApexAssessmentInfo[] = [];
     for (const file of files) {
       if (file.ext !== '.cls') continue;
       try {
-        this.processApexFile(file);
+        const apexAssementInfo = this.processApexFile(file);
+        if (apexAssementInfo) fileAssessmentInfo.push(apexAssementInfo);
       } catch (err) {
         Logger.logger.error(`Error processing ${file.name}`);
         Logger.logger.error(err);
       }
     }
-    return files;
+    return fileAssessmentInfo;
   }
 
-  public processApexFile(file: File): void {
+  public processApexFile(file: File): ApexAssessmentInfo {
     const fileContent = fs.readFileSync(file.location, 'utf8');
     const interfaces: InterfaceImplements[] = [];
     interfaces.push(this.vlocityOpenInterface, this.vlocityOpenInterface2, this.callableInterface);
@@ -100,6 +113,13 @@ export class ApexMigration extends BaseRelatedObjectMigration implements Related
     }
     const warningMessage: string[] = this.processNonReplacableMethodCalls(file, parser);
     Logger.logger.warn(warningMessage);
+    return {
+      name: file.name,
+      warnings: warningMessage,
+      infos: updateMessages,
+      path: file.location,
+      diff: '',
+    };
   }
 
   private processApexFileForRemotecalls(file: File, parser: ApexASTParser): TokenUpdater[] {

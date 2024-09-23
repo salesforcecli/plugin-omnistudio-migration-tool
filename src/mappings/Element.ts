@@ -7,6 +7,7 @@ const mappings = {
   OmniScriptId__c: 'OmniProcessId',
   Order__c: 'SequenceNumber',
   ParentElementId__c: 'ParentElementId',
+  PropertySet: 'PropertySet',
   PropertySet__c: 'PropertySetConfig',
   SearchKey__c: 'EmbeddedOmniScriptKey',
   Type__c: 'Type',

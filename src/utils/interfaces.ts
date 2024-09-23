@@ -1,3 +1,5 @@
+import { File } from '../utils/file/fileutil';
+
 export interface MigratedObject {
   name: string;
   data?: MigratedRecordInfo[];
@@ -31,4 +33,13 @@ export interface FileChangeInfo {
 }
 export interface ApexAssessmentInfo {
   name: string;
+}
+
+export interface FileParser {
+  parse(filePath: string, namespace: string): Map<string, string>;
+  saveToFile(filePath: string, content: string | undefined): void;
+}
+
+export interface FileProcessor {
+  process(file: File, type: string, namespace: string): void;
 }

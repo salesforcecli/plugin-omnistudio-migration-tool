@@ -1,64 +1,69 @@
-/* eslint-disable @typescript-eslint/member-ordering */
-/* eslint-disable @typescript-eslint/explicit-function-return-type */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/explicit-member-accessibility */
+/* eslint-disable @typescript-eslint/member-ordering */
 import * as shell from 'shelljs';
 import { Org } from '@salesforce/core';
 import { fileutil, File } from '../../utils/file/fileutil';
 import { MigrationResult } from '../interfaces';
 import { sfProject } from '../../utils/sfcli/project/sfProject';
-import { JavaScriptParser } from '../../utils/lwcparser/jsParser/JavaScriptParser';
-import { HTMLParser } from '../../utils/lwcparser/htmlParser/HTMLParser';
-import { XmlParser } from '../../utils/lwcparser/xmlParser/XmlParser';
 import { Logger } from '../../utils/logger';
+import { FileProcessorFactory } from '../../utils/lwcparser/fileutils/FileProcessorFactory';
+import { LWCAssessmentInfo } from '../../utils';
 import { BaseRelatedObjectMigration } from './BaseRealtedObjectMigration';
 
 const LWC_DIR_PATH = '/force-app/main/default/lwc';
 const LWCTYPE = 'LightningComponentBundle';
-const XML_TAG_TO_REMOVE = 'runtimeNamespace';
 
 export class LwcMigration extends BaseRelatedObjectMigration {
   public identifyObjects(migrationResults: MigrationResult[]): Promise<JSON[]> {
+    this.assessment();
     throw new Error('Method not implemented.');
   }
   public migrateRelatedObjects(migrationResults: MigrationResult[], migrationCandidates: JSON[]): void {
     this.migrate();
+    const type = 'assessment';
+    this.processLwcFiles(this.projectPath, type);
   }
-  // eslint-disable-next-line @typescript-eslint/member-ordering
+  public assessment(): LWCAssessmentInfo[] {
+    const type = 'assessment';
+    const pwd = shell.pwd();
+    shell.cd(this.projectPath);
+    this.processLwcFiles(this.projectPath, type);
+    shell.cd(pwd);
+    return this.getJsonObject();
+  }
 
   public migrate(): void {
+    const type = 'migrate';
     const pwd = shell.pwd();
     shell.cd(this.projectPath);
     const targetOrg: Org = this.org;
     sfProject.retrieve(LWCTYPE, targetOrg.getUsername());
-    this.processLwcFiles(this.projectPath);
-    sfProject.deploy(LWCTYPE, targetOrg.getUsername());
+    this.processLwcFiles(this.projectPath, type);
+    // sfProject.deploy(LWCTYPE, targetOrg.getUsername());
     shell.cd(pwd);
   }
 
-  public processLwcFiles(dir: string): File[] {
+  private processLwcFiles(dir: string, type: string): File[] {
     dir += LWC_DIR_PATH;
     let files: File[] = [];
     try {
       files = fileutil.readAllFiles(dir);
-      this.processFile(files);
+      this.processFiles(files, type);
     } catch (error) {
       Logger.logger.error('Error in reading files', error);
     }
     return files;
   }
 
-  private processFile(files: File[]) {
+  public processFiles(files: File[], type: string): void {
     try {
       for (const file of files) {
-        Logger.logger.info(file.location + ' files is Processing');
-        if (file.ext === '.js') {
-          this.processJavascriptFile(file);
-        } else if (file.ext === '.html') {
-          this.processHtmlFile(file);
-        } else if (file.ext === '.xml') {
-          this.processXMLFile(file);
+        const processor = FileProcessorFactory.getFileProcessor(file.ext);
+        if (processor) {
+          processor.process(file, type, this.namespace);
+        } else {
+          Logger.logger.error('Unsupported file type: ' + file.ext);
         }
       }
     } catch (error) {
@@ -66,24 +71,22 @@ export class LwcMigration extends BaseRelatedObjectMigration {
     }
   }
 
-  processJavascriptFile(file: File): void {
-    const jsParser = new JavaScriptParser();
-    const filePath = file.location;
-    const output = jsParser.replaceImportSource(filePath, this.namespace);
-    jsParser.saveToFile(filePath, output);
-  }
+  getJsonObject(): LWCAssessmentInfo[] {
+    try {
+      // Mock data (replace with actual fetch or database call)
+      const assessmentInfo: LWCAssessmentInfo = {
+        name: '',
+        changeInfos: [],
+        errors: [],
+      };
 
-  processHtmlFile(file: File): void {
-    const filePath: string = file.location;
-    const parse = new HTMLParser(filePath);
-    parse.replaceTags(this.namespace);
-    parse.saveToFile(filePath);
-  }
-
-  processXMLFile(file: File): void {
-    const filePath: string = file.location;
-    const parser = new XmlParser(filePath);
-    const xmlString = parser.removeNode(XML_TAG_TO_REMOVE);
-    parser.saveToFile(filePath, xmlString);
+      // Combine all the info into a JSON array
+      const jsonData: LWCAssessmentInfo[] = [];
+      jsonData.push(assessmentInfo);
+      return jsonData;
+    } catch (error) {
+      Logger.logger.error('Error fetching or processing assessment data:', error);
+      throw error;
+    }
   }
 }

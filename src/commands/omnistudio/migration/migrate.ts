@@ -12,12 +12,12 @@ import { flags } from '@salesforce/command';
 import { Messages } from '@salesforce/core';
 import '../../../utils/prototypes';
 import OmniStudioBaseCommand from '../../basecommand';
-import { DataRaptorMigrationTool } from '../../../migration/dataraptor';
+// import { DataRaptorMigrationTool } from '../../../migration/dataraptor';
 import { DebugTimer, MigratedObject, MigratedRecordInfo } from '../../../utils';
 import { MigrationResult, MigrationTool } from '../../../migration/interfaces';
 import { ResultsBuilder } from '../../../utils/resultsbuilder';
-import { CardMigrationTool } from '../../../migration/flexcard';
-import { OmniScriptExportType, OmniScriptMigrationTool } from '../../../migration/omniscript';
+// import { CardMigrationTool } from '../../../migration/flexcard';
+// import { OmniScriptExportType, OmniScriptMigrationTool } from '../../../migration/omniscript';
 import { Logger } from '../../../utils/logger';
 import OmnistudioRelatedObjectMigrationFacade from './OmnistudioRelatedObjectMigrationFacade';
 
@@ -68,59 +68,59 @@ export default class Migrate extends OmniStudioBaseCommand {
     DebugTimer.getInstance().start();
 
     // Register the migration objects
-    let migrationObjects: MigrationTool[] = [];
-    if (!migrateOnly) {
-      migrationObjects = [
-        new DataRaptorMigrationTool(namespace, conn, this.logger, messages, this.ux),
-        new OmniScriptMigrationTool(
-          OmniScriptExportType.All,
-          namespace,
-          conn,
-          this.logger,
-          messages,
-          this.ux,
-          allVersions
-        ),
-        new CardMigrationTool(namespace, conn, this.logger, messages, this.ux, allVersions),
-      ];
-    } else {
-      switch (migrateOnly) {
-        case 'os':
-          migrationObjects.push(
-            new OmniScriptMigrationTool(
-              OmniScriptExportType.OS,
-              namespace,
-              conn,
-              this.logger,
-              messages,
-              this.ux,
-              allVersions
-            )
-          );
-          break;
-        case 'ip':
-          migrationObjects.push(
-            new OmniScriptMigrationTool(
-              OmniScriptExportType.IP,
-              namespace,
-              conn,
-              this.logger,
-              messages,
-              this.ux,
-              allVersions
-            )
-          );
-          break;
-        case 'fc':
-          migrationObjects.push(new CardMigrationTool(namespace, conn, this.logger, messages, this.ux, allVersions));
-          break;
-        case 'dr':
-          migrationObjects.push(new DataRaptorMigrationTool(namespace, conn, this.logger, messages, this.ux));
-          break;
-        default:
-          throw new Error(messages.getMessage('invalidOnlyFlag'));
-      }
-    }
+    const migrationObjects: MigrationTool[] = [];
+    // if (!migrateOnly) {
+    //   migrationObjects = [
+    //     new DataRaptorMigrationTool(namespace, conn, this.logger, messages, this.ux),
+    //     new OmniScriptMigrationTool(
+    //       OmniScriptExportType.All,
+    //       namespace,
+    //       conn,
+    //       this.logger,
+    //       messages,
+    //       this.ux,
+    //       allVersions
+    //     ),
+    //     new CardMigrationTool(namespace, conn, this.logger, messages, this.ux, allVersions),
+    //   ];
+    // } else {
+    //   switch (migrateOnly) {
+    //     case 'os':
+    //       migrationObjects.push(
+    //         new OmniScriptMigrationTool(
+    //           OmniScriptExportType.OS,
+    //           namespace,
+    //           conn,
+    //           this.logger,
+    //           messages,
+    //           this.ux,
+    //           allVersions
+    //         )
+    //       );
+    //       break;
+    //     case 'ip':
+    //       migrationObjects.push(
+    //         new OmniScriptMigrationTool(
+    //           OmniScriptExportType.IP,
+    //           namespace,
+    //           conn,
+    //           this.logger,
+    //           messages,
+    //           this.ux,
+    //           allVersions
+    //         )
+    //       );
+    //       break;
+    //     case 'fc':
+    //       migrationObjects.push(new CardMigrationTool(namespace, conn, this.logger, messages, this.ux, allVersions));
+    //       break;
+    //     case 'dr':
+    //       migrationObjects.push(new DataRaptorMigrationTool(namespace, conn, this.logger, messages, this.ux));
+    //       break;
+    //     default:
+    //       throw new Error(messages.getMessage('invalidOnlyFlag'));
+    //   }
+    // }
 
     // Migrate individual objects
     const debugTimer = DebugTimer.getInstance();

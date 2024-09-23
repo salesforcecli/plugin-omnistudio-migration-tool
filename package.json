@@ -12,14 +12,14 @@
     "@oclif/errors": "^1",
     "@salesforce/command": "^4.2.1",
     "@salesforce/core": "^2.37.1",
-    "@types/jsdom": "^21.1.7",
+    "@salesforce/sf-plugins-core": "^11.3.6",
+    "@salesforce/source-deploy-retrieve": "^12.6.0",
     "@types/lodash.chunk": "^4.2.9",
-    "cheerio": "^1.0.0",
-    "jsdom": "^25.0.0",
+    "@types/shelljs": "^0.8.15",
     "lodash.chunk": "^4.2.0",
     "open": "^8.4.2",
-    "tslib": "^2",
-    "xmldom": "^0.6.0"
+    "shelljs": "^0.8.5",
+    "tslib": "^2"
   },
   "devDependencies": {
     "@babel/parser": "^7.25.4",

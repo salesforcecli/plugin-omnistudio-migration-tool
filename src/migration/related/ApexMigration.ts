@@ -55,3 +55,6 @@ export class ApexMigration extends BaseRelatedObjectMigration implements Related
   }
 */
 }
+export class ApexMigration {
+  private remoteApexClasses: Map<string, JSON>;
+}

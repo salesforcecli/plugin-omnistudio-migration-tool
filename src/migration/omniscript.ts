@@ -409,7 +409,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
   }
 
   // Get All Elements w.r.t OmniScript__c i.e Elements tagged to passed in IP/OS
-  private async getAllElementsForOmniScript(recordId: string): Promise<AnyJson[]> {
+  public async getAllElementsForOmniScript(recordId: string): Promise<AnyJson[]> {
     // Query all Elements for an OmniScript
     const filters = new Map<string, any>();
     filters.set(this.namespacePrefix + 'OmniScriptId__c', recordId);

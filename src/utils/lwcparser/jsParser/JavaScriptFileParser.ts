@@ -8,8 +8,8 @@ export class JavaScriptFileParser implements FileParser {
     return jsParser.replaceImportSource(filePath, namespace);
   }
 
-  saveToFile(filePath: string, content: string | undefined): void {
-    const jsParser = new JavaScriptParser();
-    jsParser.saveToFile(filePath, content);
-  }
+  // saveToFile(filePath: string, content: string | undefined): void {
+  //   const jsParser = new JavaScriptParser();
+  //   jsParser.saveToFile(filePath, content);
+  // }
 }

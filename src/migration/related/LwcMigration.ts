@@ -1,6 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/explicit-member-accessibility */
-/* eslint-disable @typescript-eslint/member-ordering */
 import * as shell from 'shelljs';
 import { Org } from '@salesforce/core';
 import { fileutil, File } from '../../utils/file/fileutil';
@@ -8,7 +6,7 @@ import { MigrationResult } from '../interfaces';
 import { sfProject } from '../../utils/sfcli/project/sfProject';
 import { Logger } from '../../utils/logger';
 import { FileProcessorFactory } from '../../utils/lwcparser/fileutils/FileProcessorFactory';
-import { LWCAssessmentInfo } from '../../utils';
+import { FileChangeInfo, LWCAssessmentInfo } from '../../utils';
 import { BaseRelatedObjectMigration } from './BaseRealtedObjectMigration';
 
 const LWC_DIR_PATH = '/force-app/main/default/lwc';
@@ -21,72 +19,73 @@ export class LwcMigration extends BaseRelatedObjectMigration {
   }
   public migrateRelatedObjects(migrationResults: MigrationResult[], migrationCandidates: JSON[]): void {
     this.migrate();
-    const type = 'assessment';
-    this.processLwcFiles(this.projectPath, type);
+    this.processLwcFiles(this.projectPath);
   }
   public assessment(): LWCAssessmentInfo[] {
     const type = 'assessment';
     const pwd = shell.pwd();
     shell.cd(this.projectPath);
-    this.processLwcFiles(this.projectPath, type);
+    const filesMap = this.processLwcFiles(this.projectPath);
     shell.cd(pwd);
-    return this.getJsonObject();
+    return this.processFiles(filesMap, type);
   }
 
   public migrate(): void {
-    const type = 'migrate';
     const pwd = shell.pwd();
     shell.cd(this.projectPath);
     const targetOrg: Org = this.org;
     sfProject.retrieve(LWCTYPE, targetOrg.getUsername());
-    this.processLwcFiles(this.projectPath, type);
+    this.processLwcFiles(this.projectPath);
     // sfProject.deploy(LWCTYPE, targetOrg.getUsername());
     shell.cd(pwd);
   }
 
-  private processLwcFiles(dir: string, type: string): File[] {
+  // This method is returning a Map of directory and list of file in directory
+  private processLwcFiles(dir: string): Map<string, File[]> {
     dir += LWC_DIR_PATH;
-    let files: File[] = [];
+    let filesMap: Map<string, File[]>;
     try {
-      files = fileutil.readAllFiles(dir);
-      this.processFiles(files, type);
+      filesMap = fileutil.readAllFiles(dir);
     } catch (error) {
       Logger.logger.error('Error in reading files', error);
     }
-    return files;
+    return filesMap;
   }
 
-  public processFiles(files: File[], type: string): void {
+  // This method to process the parsing and return the LWCAssessmentInfo[]
+  private processFiles(fileMap: Map<string, File[]>, type: string): LWCAssessmentInfo[] {
     try {
-      for (const file of files) {
-        const processor = FileProcessorFactory.getFileProcessor(file.ext);
-        if (processor) {
-          processor.process(file, type, this.namespace);
-        } else {
-          Logger.logger.error('Unsupported file type: ' + file.ext);
-        }
-      }
-    } catch (error) {
-      Logger.logger.error(error.message);
-    }
-  }
-
-  getJsonObject(): LWCAssessmentInfo[] {
-    try {
-      // Mock data (replace with actual fetch or database call)
-      const assessmentInfo: LWCAssessmentInfo = {
-        name: '',
-        changeInfos: [],
-        errors: [],
-      };
-
-      // Combine all the info into a JSON array
       const jsonData: LWCAssessmentInfo[] = [];
-      jsonData.push(assessmentInfo);
+      fileMap.forEach((fileList, dir) => {
+        const changeInfos: FileChangeInfo[] = [];
+        if (dir !== 'lwc') {
+          for (const file of fileList) {
+            const processor = FileProcessorFactory.getFileProcessor(file.ext);
+            if (processor != null) {
+              const path = file.location;
+              const name = file.name;
+              const diff = processor.process(file, type, this.namespace);
+              const fileInfo: FileChangeInfo = {
+                path,
+                name,
+                diff,
+              };
+              changeInfos.push(fileInfo);
+            }
+          }
+          const name = dir;
+          const errors: string[] = [];
+          const assesmentInfo: LWCAssessmentInfo = {
+            name,
+            changeInfos,
+            errors,
+          };
+          jsonData.push(assesmentInfo);
+        }
+      });
       return jsonData;
     } catch (error) {
-      Logger.logger.error('Error fetching or processing assessment data:', error);
-      throw error;
+      Logger.logger.error(error.message);
     }
   }
 }

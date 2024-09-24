@@ -1,21 +1,22 @@
+/* eslint-disable @typescript-eslint/explicit-member-accessibility */
+/* eslint-disable no-console */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { createPatch } from 'diff';
-import chalk from 'chalk';
 
 export class FileDiffUtil {
-  public getFileDiff(originalFileContent: string, modifiedFileContent: string): string {
-    const patch: string = createPatch('file.txt', originalFileContent, modifiedFileContent);
+  public getFileDiff(filename: string, originalFileContent: string, modifiedFileContent: string): string {
+    const patch: string = createPatch(filename, originalFileContent, modifiedFileContent);
 
     // Split the patch into lines
     const patchLines = patch.split('\n');
 
-    // Initialize arrays to store the added and removed lines
-    const changes: Array<{ type: string; lineNumber: number; content: string }> = [];
-
     // Initialize variables to track line numbers
-    let oldLineNumber = 0;
-    let newLineNumber = 0;
+    let oldLineNumber = 1;
+    let newLineNumber = 1;
+
+    // Initialize result as HTML string
+    let result = '';
 
     patchLines.forEach((line) => {
       // Parse the hunk header (e.g., @@ -2,3 +2,3 @@)
@@ -25,39 +26,30 @@ export class FileDiffUtil {
       if (match) {
         oldLineNumber = parseInt(match[1], 10);
         newLineNumber = parseInt(match[2], 10);
+        result += `<div>${this.escapeHtml(line)}</div>`;
       } else if (line.startsWith('-')) {
-        // Line was removed from the original text, store it with red color
-        changes.push({
-          type: 'removed',
-          lineNumber: oldLineNumber,
-          content: chalk.red(`- Line ${oldLineNumber}: ${line.slice(1)}`),
-        });
+        result += `<div style="color: red;">- Line ${oldLineNumber}: ${this.escapeHtml(line.slice(1))}</div>`;
         oldLineNumber++;
       } else if (line.startsWith('+')) {
-        // Line was added to the new text, store it with green color
-        changes.push({
-          type: 'added',
-          lineNumber: newLineNumber,
-          content: chalk.green(`+ Line ${newLineNumber}: ${line.slice(1)}`),
-        });
+        result += `<div style="color: green;">+ Line ${newLineNumber}: ${this.escapeHtml(line.slice(1))}</div>`;
         newLineNumber++;
       } else if (line.startsWith(' ')) {
         // Unchanged line, just increment both line counters
+        result += `<div>${this.escapeHtml(line)}</div>`;
         oldLineNumber++;
         newLineNumber++;
       }
     });
-
-    // Sort changes by line number
-    changes.sort((a, b) => a.lineNumber - b.lineNumber);
-
-    // Concatenate the sorted changes into a string
-    let result = '';
-    changes.forEach((change) => {
-      result += change.content + '\n';
-    });
-
     // Return the result string with color codes
     return result;
+  }
+
+  escapeHtml(text: string): string {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 }

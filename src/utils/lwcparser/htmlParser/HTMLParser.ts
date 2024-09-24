@@ -60,14 +60,12 @@ export class HTMLParser {
     });
     $.html().replace(/\n\s*/g, '');
     htmlContentMap.set(FileConstant.MODIFIED_CONTENT, $.html());
-    this.printDiff();
     return htmlContentMap;
   }
 
   // Method to save modified HTML back to a file
-  public saveToFile(outputFilePath: string): void {
+  public saveToFile(outputFilePath: string, modifiedHtml: string): void {
     try {
-      const modifiedHtml = this.parser.html();
       fs.writeFileSync(outputFilePath, modifiedHtml);
       console.log(`Modified HTML saved to ${outputFilePath}`);
     } catch (error) {
@@ -79,13 +77,5 @@ export class HTMLParser {
   // Optional: Method to get the modified HTML as a string
   public getModifiedHTML(): string {
     return this.parser.html();
-  }
-
-  private printDiff(): void {
-    // const diff = diffLines(this.html, this.getModifiedHTML(), { ignoreWhitespace: false });
-    // const original = diff.map((part) => (!part.added ? part.value : '')).join('');
-    // const modified = diff.map((part) => (!part.removed ? part.value : '')).join('');
-    // const patch = createPatch('string_diff', original, modified);
-    // console.log(patch);
   }
 }

@@ -1,15 +1,12 @@
 /* eslint-disable @typescript-eslint/explicit-member-accessibility */
 import { FileProcessor } from '../../../utils';
-import { File } from '../../file/fileutil';
-import { Logger } from '../../../utils/logger';
+import { File, fileutil } from '../../file/fileutil';
 import { HTMLParser } from '../../lwcparser/htmlParser/HTMLParser';
 import { FileConstant } from '../fileutils/FileConstant';
 import { FileDiffUtil } from './FileDiffUtil';
 
 export class HtmlFileProcessor implements FileProcessor {
   process(file: File, type: string, namespace: string): string {
-    Logger.logger.info(file.location + ' HTML file is Processing');
-    // Logic to process HTML file
     return this.processHtmlFile(file, type, namespace);
   }
 
@@ -20,9 +17,10 @@ export class HtmlFileProcessor implements FileProcessor {
     const fileContent: Map<string, string> = parse.replaceTags(namespace);
     if (fileContent) {
       if (type != null && type === 'migration') {
-        parse.saveToFile(filePath);
+        fileutil.saveToFile(filePath, fileContent.get(FileConstant.MODIFIED_CONTENT));
       } else {
         const diff = fileDiffUtil.getFileDiff(
+          file.name + file.ext,
           fileContent.get(FileConstant.BASE_CONTENT),
           fileContent.get(FileConstant.MODIFIED_CONTENT)
         );

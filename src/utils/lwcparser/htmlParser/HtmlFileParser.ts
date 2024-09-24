@@ -8,8 +8,8 @@ export class HtmlFileParser implements FileParser {
     return htmlParser.replaceTags(namespace);
   }
 
-  saveToFile(filePath: string, content: string | undefined): void {
-    const htmlParser = new HTMLParser(filePath);
-    htmlParser.saveToFile(filePath);
-  }
+  // saveToFile(filePath: string, content: string | undefined): void {
+  //   const htmlParser = new HTMLParser(filePath);
+  //   htmlParser.saveToFile(filePath);
+  // }
 }

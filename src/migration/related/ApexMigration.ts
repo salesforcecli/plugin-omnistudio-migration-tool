@@ -17,6 +17,7 @@ import { sfProject } from '../../utils/sfcli/project/sfProject';
 import { fileutil, File } from '../../utils/file/fileutil';
 import { Logger } from '../../utils/logger';
 import { ApexAssessmentInfo } from '../../utils';
+import { FileDiffUtil } from '../../utils/lwcparser/fileutils/FileDiffUtil';
 import { BaseRelatedObjectMigration } from './BaseRealtedObjectMigration';
 
 const APEXCLASS = 'Apexclass';
@@ -70,7 +71,8 @@ export class ApexMigration extends BaseRelatedObjectMigration implements Related
       if (file.ext !== '.cls') continue;
       try {
         const apexAssementInfo = this.processApexFile(file);
-        if (apexAssementInfo) fileAssessmentInfo.push(apexAssementInfo);
+        if (apexAssementInfo && apexAssementInfo.diff && apexAssementInfo.diff.length === 0) continue;
+        fileAssessmentInfo.push(apexAssementInfo);
       } catch (err) {
         Logger.logger.error(`Error processing ${file.name}`);
         Logger.logger.error(err);
@@ -108,8 +110,16 @@ export class ApexMigration extends BaseRelatedObjectMigration implements Related
       updateMessages.push('File has been updated to allow calls to Omnistudio components');
       tokenUpdates.push(...tokeUpdatesForMethodCalls);
     }
+    let difference = '';
     if (tokenUpdates && tokenUpdates.length > 0) {
+      const updatedContent = parser.rewrite(tokenUpdates);
       fs.writeFileSync(file.location, parser.rewrite(tokenUpdates));
+      difference = new FileDiffUtil().getFileDiff(fileContent, updatedContent);
+    }
+    if (updateMessages.length === 0) {
+      Logger.logger.info(
+        `File ${file.name} does not have any omnistudio calls or remote calls. No changes will be applied.`
+      );
     }
     const warningMessage: string[] = this.processNonReplacableMethodCalls(file, parser);
     Logger.logger.warn(warningMessage);
@@ -118,7 +128,7 @@ export class ApexMigration extends BaseRelatedObjectMigration implements Related
       warnings: warningMessage,
       infos: updateMessages,
       path: file.location,
-      diff: '',
+      diff: difference,
     };
   }
 

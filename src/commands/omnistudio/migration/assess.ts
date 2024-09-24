@@ -5,6 +5,8 @@ import OmniStudioBaseCommand from '../../basecommand';
 import { AssessmentInfo } from '../../../utils/interfaces';
 import { AssessmentReporter } from '../../../utils/resultsbuilder/assessmentReporter';
 import { LwcMigration } from '../../../migration/related/LwcMigration';
+import { ApexMigration } from '../../../migration/related/ApexMigration';
+import { Logger } from '../../../utils/logger';
 import OmnistudioRelatedObjectMigrationFacade from './OmnistudioRelatedObjectMigrationFacade';
 
 Messages.importMessagesDirectory(__dirname);
@@ -38,14 +40,16 @@ export default class Assess extends OmniStudioBaseCommand {
     const namespace = (this.flags.namespace || 'vlocity_ins') as string;
     const apiVersion = (this.flags.apiversion || '55.0') as string;
     const conn = this.org.getConnection();
+    Logger.initialiseLogger(this.ux, this.logger);
     const projectDirectory = OmnistudioRelatedObjectMigrationFacade.intializeProject();
     conn.setApiVersion(apiVersion);
     const lwcparser = new LwcMigration(projectDirectory, namespace, this.org);
+    const apexMigrator = new ApexMigration(projectDirectory, namespace, this.org);
     this.logger.info(namespace);
-    this.ux.log('Using Namespace: ${namespace}');
+    this.ux.log(`Using Namespace: ${namespace}`);
     const assesmentInfo: AssessmentInfo = {
       lwcAssessmentInfos: lwcparser.assessment(),
-      apexAssessmentInfos: [],
+      apexAssessmentInfos: apexMigrator.assess(),
     };
     await AssessmentReporter.generate(assesmentInfo, conn.instanceUrl);
     return assesmentInfo;

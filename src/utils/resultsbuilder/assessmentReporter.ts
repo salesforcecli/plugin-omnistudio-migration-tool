@@ -41,7 +41,7 @@ export class AssessmentReporter {
                                     ${changeInfoRows}
                                 </table>`;
       const row = `<tr class="slds-hint_parent">
-                            <td><div class="slds-truncate" title="${lwcAssessmentInfo.name}">${lwcAssessmentInfo.name}</div></td>
+                            <td><div class="slds-truncate slds-text-title_bold" title="${lwcAssessmentInfo.name}">${lwcAssessmentInfo.name}</div></td>
                             <td>${changeInfoTable}</td>
                         </tr>`;
       tableBody += row;
@@ -102,7 +102,7 @@ export class AssessmentReporter {
 
   private static getApexAssessmentReport(tableContent: string): string {
     const tableBody = `
-      <div style="margin-block:15px">        
+      <div style="margin-block:15px">
         <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped slds-table_col-bordered" aria-label="Results for Apex updates">
         <thead>
             <tr class="slds-line-height_reset">

@@ -18,6 +18,9 @@ export class JavaScriptParser {
     const jsContentMap = new Map<string, string>();
     // Read the JavaScript file
     const code = fs.readFileSync(filePath, 'utf-8');
+    if (code.includes('Generated class DO NOT MODIFY')) {
+      return null;
+    }
     jsContentMap.set(FileConstant.BASE_CONTENT, code);
     // Parse the code into an AST (Abstract Syntax Tree)
     const ast = parser.parse(code, {

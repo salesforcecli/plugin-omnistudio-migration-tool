@@ -21,7 +21,7 @@ export class XmlParser {
   private parseXml(fileContent): void {
     const parser = new DOMParser();
     try {
-      this.xmlDoc = parser.parseFromString(fileContent, 'text/xml');
+      this.xmlDoc = parser.parseFromString(fileContent, 'application/xml');
     } catch (error) {
       throw new Error('Error in xml parsing');
     }
@@ -29,7 +29,7 @@ export class XmlParser {
 
   public removeNode(tagName: string, index = 0): Map<string, string> {
     const xmlContentMap = new Map<string, string>();
-    xmlContentMap.set(FileConstant.BASE_CONTENT, this.fileContent);
+    xmlContentMap.set(FileConstant.BASE_CONTENT, this.fileContent.replace('(/(<[^>]+?)/>/g', '$1 />'));
     if (!this.xmlDoc) {
       throw new Error('XML document has not been parsed.');
     }
@@ -41,6 +41,7 @@ export class XmlParser {
 
       const serializer = new XMLSerializer();
       const xmlString: string = serializer.serializeToString(this.xmlDoc);
+      xmlString.replace(/(<[^>]+?)\/>/g, '$1 />');
       xmlContentMap.set(FileConstant.MODIFIED_CONTENT, xmlString);
       return xmlContentMap;
     }

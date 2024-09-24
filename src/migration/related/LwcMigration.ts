@@ -25,7 +25,7 @@ export class LwcMigration extends BaseRelatedObjectMigration {
     const type = 'assessment';
     const pwd = shell.pwd();
     shell.cd(this.projectPath);
-    sfProject.retrieve(LWCTYPE, this.org.getUsername());
+    // sfProject.retrieve(LWCTYPE, this.org.getUsername());
     const filesMap = this.processLwcFiles(this.projectPath);
     shell.cd(pwd);
     return this.processFiles(filesMap, type);
@@ -61,17 +61,21 @@ export class LwcMigration extends BaseRelatedObjectMigration {
         const changeInfos: FileChangeInfo[] = [];
         if (dir !== 'lwc') {
           for (const file of fileList) {
-            const processor = FileProcessorFactory.getFileProcessor(file.ext);
-            if (processor != null) {
-              const path = file.location;
-              const name = file.name;
-              const diff = processor.process(file, type, this.namespace);
-              const fileInfo: FileChangeInfo = {
-                path,
-                name,
-                diff,
-              };
-              changeInfos.push(fileInfo);
+            if (this.isValideFile(file.name)) {
+              const processor = FileProcessorFactory.getFileProcessor(file.ext);
+              if (processor != null) {
+                const path = file.location;
+                const name = file.name + file.ext;
+                const diff = processor.process(file, type, this.namespace);
+                if (diff != null) {
+                  const fileInfo: FileChangeInfo = {
+                    path,
+                    name,
+                    diff,
+                  };
+                  changeInfos.push(fileInfo);
+                }
+              }
             }
           }
           const name = dir;
@@ -88,5 +92,9 @@ export class LwcMigration extends BaseRelatedObjectMigration {
     } catch (error) {
       Logger.logger.error(error.message);
     }
+  }
+
+  private isValideFile(filename: string): boolean {
+    return !filename.includes('_def') && !filename.includes('styleDefinition') && !filename.includes('definition');
   }
 }

@@ -8,15 +8,20 @@ import * as parser from '@babel/parser';
 import traverse from '@babel/traverse';
 import generate from '@babel/generator';
 import * as t from '@babel/types';
+import { FileConstant } from '../fileutils/FileConstant';
 
 const DEFAULT_NAMESPACE = 'c';
 
 export class JavaScriptParser {
   // Function to replace strings in import declarations and write back to file
-  public replaceImportSource(filePath: string, oldSource: string): string {
+  public replaceImportSource(filePath: string, oldSource: string): Map<string, string> {
+    const jsContentMap = new Map<string, string>();
     // Read the JavaScript file
     const code = fs.readFileSync(filePath, 'utf-8');
-
+    if (code.includes('Generated class DO NOT MODIFY')) {
+      return null;
+    }
+    jsContentMap.set(FileConstant.BASE_CONTENT, code);
     // Parse the code into an AST (Abstract Syntax Tree)
     const ast = parser.parse(code, {
       sourceType: 'module', // Specify that we are parsing an ES module
@@ -37,14 +42,16 @@ export class JavaScriptParser {
         }
       },
     });
-    return generate(ast, {}, code).code;
+    jsContentMap.set(FileConstant.MODIFIED_CONTENT, generate(ast, {}, code).code);
+    // return generate(ast, {}, code).code;
+    return jsContentMap;
   }
 
   // Method to save modified HTML back to a file
   public saveToFile(filePath: string, output: string): void {
     try {
       fs.writeFileSync(filePath, output, 'utf-8');
-      console.log(`Replaced import 'oldSource' with 'c' in file: ${filePath}`);
+      console.log(`Replaced import in file: ${filePath}`);
     } catch (error) {
       console.error(`Error writing file to disk: ${error}`);
       throw error;

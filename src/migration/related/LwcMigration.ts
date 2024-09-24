@@ -1,31 +1,35 @@
-/* eslint-disable @typescript-eslint/member-ordering */
-/* eslint-disable @typescript-eslint/explicit-function-return-type */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/explicit-member-accessibility */
 import * as shell from 'shelljs';
 import { Org } from '@salesforce/core';
 import { fileutil, File } from '../../utils/file/fileutil';
 import { MigrationResult } from '../interfaces';
 import { sfProject } from '../../utils/sfcli/project/sfProject';
-import { JavaScriptParser } from '../../utils/lwcparser/jsParser/JavaScriptParser';
-import { HTMLParser } from '../../utils/lwcparser/htmlParser/HTMLParser';
-import { XmlParser } from '../../utils/lwcparser/xmlParser/XmlParser';
 import { Logger } from '../../utils/logger';
+import { FileProcessorFactory } from '../../utils/lwcparser/fileutils/FileProcessorFactory';
+import { FileChangeInfo, LWCAssessmentInfo } from '../../utils';
 import { BaseRelatedObjectMigration } from './BaseRealtedObjectMigration';
 
 const LWC_DIR_PATH = '/force-app/main/default/lwc';
 const LWCTYPE = 'LightningComponentBundle';
-const XML_TAG_TO_REMOVE = 'runtimeNamespace';
 
 export class LwcMigration extends BaseRelatedObjectMigration {
   public identifyObjects(migrationResults: MigrationResult[]): Promise<JSON[]> {
+    this.assessment();
     throw new Error('Method not implemented.');
   }
   public migrateRelatedObjects(migrationResults: MigrationResult[], migrationCandidates: JSON[]): void {
     this.migrate();
+    this.processLwcFiles(this.projectPath);
   }
-  // eslint-disable-next-line @typescript-eslint/member-ordering
+  public assessment(): LWCAssessmentInfo[] {
+    const type = 'assessment';
+    const pwd = shell.pwd();
+    shell.cd(this.projectPath);
+    // sfProject.retrieve(LWCTYPE, this.org.getUsername());
+    const filesMap = this.processLwcFiles(this.projectPath);
+    shell.cd(pwd);
+    return this.processFiles(filesMap, type);
+  }
 
   public migrate(): void {
     const pwd = shell.pwd();
@@ -33,57 +37,64 @@ export class LwcMigration extends BaseRelatedObjectMigration {
     const targetOrg: Org = this.org;
     sfProject.retrieve(LWCTYPE, targetOrg.getUsername());
     this.processLwcFiles(this.projectPath);
-    sfProject.deploy(LWCTYPE, targetOrg.getUsername());
+    // sfProject.deploy(LWCTYPE, targetOrg.getUsername());
     shell.cd(pwd);
   }
 
-  public processLwcFiles(dir: string): File[] {
+  // This method is returning a Map of directory and list of file in directory
+  private processLwcFiles(dir: string): Map<string, File[]> {
     dir += LWC_DIR_PATH;
-    let files: File[] = [];
+    let filesMap: Map<string, File[]>;
     try {
-      files = fileutil.readAllFiles(dir);
-      this.processFile(files);
+      filesMap = fileutil.readAllFiles(dir);
     } catch (error) {
       Logger.logger.error('Error in reading files', error);
     }
-    return files;
+    return filesMap;
   }
 
-  private processFile(files: File[]) {
+  // This method to process the parsing and return the LWCAssessmentInfo[]
+  private processFiles(fileMap: Map<string, File[]>, type: string): LWCAssessmentInfo[] {
     try {
-      for (const file of files) {
-        Logger.logger.info(file.location + ' files is Processing');
-        if (file.ext === '.js') {
-          this.processJavascriptFile(file);
-        } else if (file.ext === '.html') {
-          this.processHtmlFile(file);
-        } else if (file.ext === '.xml') {
-          this.processXMLFile(file);
+      const jsonData: LWCAssessmentInfo[] = [];
+      fileMap.forEach((fileList, dir) => {
+        const changeInfos: FileChangeInfo[] = [];
+        if (dir !== 'lwc') {
+          for (const file of fileList) {
+            if (this.isValideFile(file.name)) {
+              const processor = FileProcessorFactory.getFileProcessor(file.ext);
+              if (processor != null) {
+                const path = file.location;
+                const name = file.name + file.ext;
+                const diff = processor.process(file, type, this.namespace);
+                if (diff != null) {
+                  const fileInfo: FileChangeInfo = {
+                    path,
+                    name,
+                    diff,
+                  };
+                  changeInfos.push(fileInfo);
+                }
+              }
+            }
+          }
+          const name = dir;
+          const errors: string[] = [];
+          const assesmentInfo: LWCAssessmentInfo = {
+            name,
+            changeInfos,
+            errors,
+          };
+          jsonData.push(assesmentInfo);
         }
-      }
+      });
+      return jsonData;
     } catch (error) {
       Logger.logger.error(error.message);
     }
   }
 
-  processJavascriptFile(file: File): void {
-    const jsParser = new JavaScriptParser();
-    const filePath = file.location;
-    const output = jsParser.replaceImportSource(filePath, this.namespace);
-    jsParser.saveToFile(filePath, output);
-  }
-
-  processHtmlFile(file: File): void {
-    const filePath: string = file.location;
-    const parse = new HTMLParser(filePath);
-    parse.replaceTags(this.namespace);
-    parse.saveToFile(filePath);
-  }
-
-  processXMLFile(file: File): void {
-    const filePath: string = file.location;
-    const parser = new XmlParser(filePath);
-    const xmlString = parser.removeNode(XML_TAG_TO_REMOVE);
-    parser.saveToFile(filePath, xmlString);
+  private isValideFile(filename: string): boolean {
+    return !filename.includes('_def') && !filename.includes('styleDefinition') && !filename.includes('definition');
   }
 }

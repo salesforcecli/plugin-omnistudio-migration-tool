@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/restrict-template-expressions */
+/* eslint-disable no-console */
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -16,9 +18,19 @@ export class fileutil {
     return files;
   }
 
-  public static readAllFiles(dirPath: string, fileList: File[] = []): File[] {
+  public static readAllFiles(
+    dirPath: string,
+    fileMap: Map<string, File[]> = new Map<string, File[]>()
+  ): Map<string, File[]> {
+    if (!fs.existsSync(dirPath)) {
+      console.error(`Directory does not exist: ${dirPath}`);
+      return fileMap; // Return the map as is
+    }
     // Read the directory contents
     const files = fs.readdirSync(dirPath);
+
+    // Initialize the list of files for the current directory
+    const currentDirFiles: File[] = [];
 
     files.forEach((filename) => {
       // Construct the full file/directory path
@@ -27,19 +39,37 @@ export class fileutil {
       // Check if the current path is a directory or a file
       if (fs.statSync(filePath).isDirectory()) {
         // If it's a directory, recurse into it
-        fileutil.readAllFiles(filePath, fileList);
+        this.readAllFiles(filePath, fileMap);
       } else {
         const name = path.parse(filename).name;
         const ext = path.parse(filename).ext;
         const filepath = path.resolve(dirPath, filename);
         const stat = fs.statSync(filepath);
         const isFile = stat.isFile();
-        // If it's a file, add it to the fileList
-        if (isFile) fileList.push(new File(name, filepath, ext));
+
+        // If it's a file, add it to the current directory's file list
+        if (isFile) {
+          currentDirFiles.push(new File(name, filepath, ext));
+        }
       }
     });
 
-    return fileList;
+    // Add the current directory and its files to the map
+    if (currentDirFiles.length > 0) {
+      fileMap.set(path.basename(dirPath), currentDirFiles);
+    }
+    return fileMap;
+  }
+
+  // Method to save modified HTML back to a file
+  public static saveToFile(outputFilePath: string, modifiedHtml: string): void {
+    try {
+      fs.writeFileSync(outputFilePath, modifiedHtml);
+      console.log(`Modified HTML saved to ${outputFilePath}`);
+    } catch (error) {
+      console.error(`Error writing file to disk: ${error}`);
+      throw error;
+    }
   }
 }
 

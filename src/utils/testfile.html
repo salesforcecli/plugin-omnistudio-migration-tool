@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>String Diff Example</title>
+  </head>
+  <body>
+    <div id="display"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/diff@5.0.0/dist/diff.min.js"></script>
+    <script>
+      const one = `
+        <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Replace Tags Example</title>
+  </head>
+  <body>
+    <template>
+      <omnistudio-input>Hello Shailesh</omnistudio-input>
+      <omnistudio-input>Another Input</omnistudio-input>
+    </template>
+  </body>
+</html>`,
+        other = `
+            <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Replace Tags Example</title>
+  </head>
+  <body>
+    <template>
+      <c-input>Hello Shailesh</c-input>
+      <c-input>Another Input</c-input>
+    </template>
+  </body>
+</html>`;
+
+      let span = null;
+
+      const diff = Diff.diffWordsWithSpace(one, other),
+        display = document.getElementById('display'),
+        fragment = document.createDocumentFragment();
+
+      diff.forEach((part) => {
+        // green for additions, red for deletions
+        // grey for common parts
+        const color = part.added ? 'green' : part.removed ? 'red' : 'grey';
+        span = document.createElement('span');
+        span.style.color = color;
+        span.appendChild(document.createTextNode(part.value));
+        fragment.appendChild(span);
+      });
+
+      display.appendChild(fragment);
+    </script>
+  </body>
+</html>

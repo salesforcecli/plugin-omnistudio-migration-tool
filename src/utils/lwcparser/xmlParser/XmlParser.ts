@@ -1,3 +1,5 @@
+/* eslint-disable no-console */
+/* eslint-disable @typescript-eslint/restrict-template-expressions */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/member-ordering */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
@@ -5,6 +7,7 @@
 /* eslint-disable @typescript-eslint/explicit-member-accessibility */
 import * as fs from 'fs';
 import { DOMParser, XMLSerializer } from 'xmldom';
+import { FileConstant } from '../fileutils/FileConstant';
 
 export class XmlParser {
   private xmlDoc: Document | null = null;
@@ -18,13 +21,15 @@ export class XmlParser {
   private parseXml(fileContent): void {
     const parser = new DOMParser();
     try {
-      this.xmlDoc = parser.parseFromString(fileContent, 'text/xml');
+      this.xmlDoc = parser.parseFromString(fileContent, 'application/xml');
     } catch (error) {
       throw new Error('Error in xml parsing');
     }
   }
 
-  public removeNode(tagName: string, index = 0): string {
+  public removeNode(tagName: string, index = 0): Map<string, string> {
+    const xmlContentMap = new Map<string, string>();
+    xmlContentMap.set(FileConstant.BASE_CONTENT, this.fileContent.replace('(/(<[^>]+?)/>/g', '$1 />'));
     if (!this.xmlDoc) {
       throw new Error('XML document has not been parsed.');
     }
@@ -36,26 +41,19 @@ export class XmlParser {
 
       const serializer = new XMLSerializer();
       const xmlString: string = serializer.serializeToString(this.xmlDoc);
-      return xmlString;
-      // this.printResult(this.filePath, tagName, index);
+      xmlString.replace(/(<[^>]+?)\/>/g, '$1 />');
+      xmlContentMap.set(FileConstant.MODIFIED_CONTENT, xmlString);
+      return xmlContentMap;
     }
   }
 
   public saveToFile(outputFilePath: string, xmlString: string): void {
     try {
       fs.writeFileSync(outputFilePath, xmlString);
-      // eslint-disable-next-line no-console
       console.log(`Modified HTML saved to ${outputFilePath}`);
     } catch (error) {
-      // eslint-disable-next-line no-console, @typescript-eslint/restrict-template-expressions
       console.error(`Error writing file to disk: ${error}`);
       throw error;
     }
   }
-
-  // protected printResult(fileName: string, xmlTag: string, lineNumber: number): void {
-  //   console.log('FileName :' + fileName);
-  //   console.log('Tag to remove :' + xmlTag);
-  //   console.log('Line Number :', lineNumber);
-  // }
 }

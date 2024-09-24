@@ -8,8 +8,8 @@ export class XmlFileParser implements FileParser {
     return xmlParser.removeNode(namespace);
   }
 
-  saveToFile(filePath: string, content: string | undefined): void {
-    const xmlParser = new XmlParser(filePath);
-    xmlParser.saveToFile(filePath, content);
-  }
+  // saveToFile(filePath: string, content: string | undefined): void {
+  //   const xmlParser = new XmlParser(filePath);
+  //   xmlParser.saveToFile(filePath, content);
+  // }
 }

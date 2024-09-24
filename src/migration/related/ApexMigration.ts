@@ -114,7 +114,7 @@ export class ApexMigration extends BaseRelatedObjectMigration implements Related
     if (tokenUpdates && tokenUpdates.length > 0) {
       const updatedContent = parser.rewrite(tokenUpdates);
       fs.writeFileSync(file.location, parser.rewrite(tokenUpdates));
-      difference = new FileDiffUtil().getFileDiff(fileContent, updatedContent);
+      difference = new FileDiffUtil().getFileDiff(file.name, fileContent, updatedContent);
     }
     if (updateMessages.length === 0) {
       Logger.logger.info(

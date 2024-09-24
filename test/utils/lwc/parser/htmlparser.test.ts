@@ -9,8 +9,9 @@ describe('HTMLParser test class', () => {
   it('should read file content correctly', () => {
     const htmlParser = new HTMLParser(mockFilePath);
     const html: Map<string, string> = htmlParser.replaceTags('omnistudio');
-    new FileDiffUtil().getFileDiff(html.get('original'), html.get('modified'));
-    htmlParser.saveToFile('test/utils/lwc/parser/output/test.html');
+    // eslint-disable-next-line no-console
+    console.log(new FileDiffUtil().getFileDiff('file.txt', html.get('original'), html.get('modified')));
+    htmlParser.saveToFile('test/utils/lwc/parser/output/test.html', html.get('modified'));
     expect(htmlParser.getModifiedHTML()).contains('c-input');
   });
 });

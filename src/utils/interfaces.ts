@@ -38,9 +38,9 @@ export interface ApexAssessmentInfo extends FileChangeInfo {
 
 export interface FileParser {
   parse(filePath: string, namespace: string): Map<string, string>;
-  saveToFile(filePath: string, content: string | undefined): void;
+  // saveToFile(filePath: string, content: string | undefined): void;
 }
 
 export interface FileProcessor {
-  process(file: File, type: string, namespace: string): void;
+  process(file: File, type: string, namespace: string): string;
 }

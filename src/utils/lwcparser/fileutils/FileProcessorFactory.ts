@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/explicit-member-accessibility */
-import { Logger } from '../../../utils/logger';
+// import { Logger } from '../../../utils/logger';
 import { FileProcessor } from '../../../utils/';
 import { HtmlFileProcessor } from '../fileutils/HtmlFileProcessor';
 import { JavascriptFileProcessor } from '../fileutils/JavascriptFileProcessor';
@@ -15,7 +15,7 @@ export class FileProcessorFactory {
       case '.xml':
         return new XmlFileProcessor();
       default:
-        Logger.logger.error('No processor found for file extension: ' + extension);
+        // Logger.logger.error('No processor found for file extension: ' + extension);
         return null;
     }
   }

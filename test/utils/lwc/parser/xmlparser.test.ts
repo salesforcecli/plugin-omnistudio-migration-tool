@@ -12,7 +12,7 @@ describe('XmlParser', () => {
   });
 
   it('should parse XML string into a Document object', () => {
-    const serializedXml = xmlParser.removeNode('runtimeNamespace');
+    const serializedXml = xmlParser.removeNode('runtimeNamespace').get('modified');
     expect(serializedXml).contains('<LightningComponentBundle');
     expect(serializedXml).contains('<isExposed>');
   });

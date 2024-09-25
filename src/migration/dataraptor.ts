@@ -8,7 +8,9 @@ import { BaseMigrationTool } from './base';
 import { MigrationResult, MigrationTool, ObjectMapping, TransformData, UploadRecordResult } from './interfaces';
 import { getAllFunctionMetadata, getReplacedString } from '../utils/formula/FormulaUtil';
 
+
 export class DataRaptorMigrationTool extends BaseMigrationTool implements MigrationTool {
+
 	static readonly DRBUNDLE_NAME = 'DRBundle__c';
 	static readonly DRMAPITEM_NAME = 'DRMapItem__c';
 
@@ -16,7 +18,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 	static readonly OMNIDATATRANSFORMITEM_NAME = 'OmniDataTransformItem';
 
 	getName(): string {
-		return 'DataRaptor';
+		return "DataRaptor";
 	}
 
 	getRecordName(record: string) {
@@ -24,20 +26,17 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 	}
 
 	getMappings(): ObjectMapping[] {
-		return [
-			{
+		return [{
 				source: DataRaptorMigrationTool.DRBUNDLE_NAME,
 				target: DataRaptorMigrationTool.OMNIDATATRANSFORM_NAME,
-			},
-			{
+		}, {
 				source: DataRaptorMigrationTool.DRMAPITEM_NAME,
 				target: DataRaptorMigrationTool.OMNIDATATRANSFORMITEM_NAME,
-			},
-		];
+		}];
 	}
 
 	async truncate(): Promise<void> {
-		await super.truncate(DataRaptorMigrationTool.OMNIDATATRANSFORM_NAME);
+		await super.truncate(DataRaptorMigrationTool.OMNIDATATRANSFORM_NAME)
 	}
 
 	async migrate(): Promise<MigrationResult[]> {
@@ -53,6 +52,8 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 		DebugTimer.getInstance().lap('Query data raptors');
 		const dataRaptors = await this.getAllDataRaptors();
 		const dataRaptorItemsData = await this.getAllItems();
+
+		// Query all the functionMetadata with all required fields
 		const functionDefinitionMetadata = await getAllFunctionMetadata(this.namespace, this.connection);
 		// Start transforming each dataRaptor
 		DebugTimer.getInstance().lap('Transform Data Raptor');
@@ -106,8 +107,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 					if (targetOutputDocumentIdentifier !== null) {
 						dr[this.namespacePrefix + 'OutputType__c'] = 'DocuSign';
 					} else if (
-						targetOutputFileName !== null &&
-						(outputTypeKey !== 'PDF' || outputTypeKey !== 'Document Template')
+						targetOutputFileName !== null && (outputTypeKey !== 'PDF' || outputTypeKey !== 'Document Template')
 					) {
 						dr[this.namespacePrefix + 'OutputType__c'] = 'PDF';
 					} else {
@@ -148,12 +148,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 
 			// Save the data raptors
 			// const drUploadResponse = await this.uploadTransformedData(DataRaptorMigrationTool.OMNIDATATRANSFORM_NAME, { mappedRecords, originalRecords });
-			const drUploadResponse = await NetUtils.createOne(
-				this.connection,
-				DataRaptorMigrationTool.OMNIDATATRANSFORM_NAME,
-				recordId,
-				transformedDataRaptor
-			);
+			const drUploadResponse = await NetUtils.createOne(this.connection, DataRaptorMigrationTool.OMNIDATATRANSFORM_NAME, recordId, transformedDataRaptor);
 
 			if (drUploadResponse && drUploadResponse.success === true) {
 				const items = await this.getItemsForDataRaptor(dataRaptorItemsData, name, drUploadResponse.id);
@@ -170,48 +165,36 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 			}
 
 			done++;
-		}
+		};
 
 		return {
 			name: 'Data Raptor',
 			results: drUploadInfo,
-			records: originalDrRecords,
+			records: originalDrRecords
 		};
 	}
 
+	
 	// Get All DRBundle__c records
 	private async getAllDataRaptors(): Promise<AnyJson[]> {
 		DebugTimer.getInstance().lap('Query DRBundle');
-		return await QueryTools.queryAll(
-			this.connection,
-			this.namespace,
-			DataRaptorMigrationTool.DRBUNDLE_NAME,
-			this.getDRBundleFields()
-		);
+		return await QueryTools.queryAll(this.connection, this.namespace, DataRaptorMigrationTool.DRBUNDLE_NAME, this.getDRBundleFields());
 	}
 
 	// Get All Items
 	private async getAllItems(): Promise<AnyJson[]> {
 		//Query all Elements
-		return await QueryTools.queryAll(
-			this.connection,
-			this.namespace,
-			DataRaptorMigrationTool.DRMAPITEM_NAME,
-			this.getDRMapItemFields()
-		);
+		return await QueryTools.queryAll(this.connection, this.namespace, DataRaptorMigrationTool.DRMAPITEM_NAME, this.getDRMapItemFields());
 	}
 
 	// Get All Items for one DataRaptor
-	private async getItemsForDataRaptor(
-		dataRaptorItems: AnyJson[],
-		drName: string,
-		drId: string
-	): Promise<TransformData> {
+	private async getItemsForDataRaptor(dataRaptorItems: AnyJson[], drName: string, drId: string): Promise<TransformData> {
 		//Query all Elements
 		const mappedRecords = [],
 			originalRecords = new Map<string, AnyJson>();
 
-		dataRaptorItems.forEach((drItem) => {
+		dataRaptorItems.forEach(drItem => {
+
 			const recordId = drItem['Id'];
 			// const itemParentId = drItem[nsPrefix + 'OmniDataTransformationId__c']
 			if (drItem['Name'] === drName) {
@@ -225,12 +208,13 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 		return { originalRecords, mappedRecords };
 	}
 
-  /**
+	/**
 	 * Maps an indivitdual DRBundle__c record to an OmniDataTransform record.
 	 * @param dataRaptorRecord
 	 * @returns
 	*/
 	private mapDataRaptorRecord(dataRaptorRecord: AnyJson): AnyJson {
+		
 		// Transformed object
 		const mappedObject = {};
 
@@ -238,8 +222,8 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 		const recordFields = Object.keys(dataRaptorRecord);
 
 		// Map individual fields
-		recordFields.forEach((recordField) => {
-		const cleanFieldName = this.getCleanFieldName(recordField);
+		recordFields.forEach(recordField => {
+			const cleanFieldName = this.getCleanFieldName(recordField);
 
 			if (DRBundleMappings.hasOwnProperty(cleanFieldName)) {
 				mappedObject[DRBundleMappings[cleanFieldName]] = dataRaptorRecord[recordField];
@@ -252,7 +236,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 		// BATCH framework requires that each record has an "attributes" property
 		mappedObject['attributes'] = {
 			type: DataRaptorMigrationTool.OMNIDATATRANSFORM_NAME,
-			referenceId: dataRaptorRecord['Id'],
+			referenceId: dataRaptorRecord['Id']
 		};
 
 		return mappedObject;
@@ -260,8 +244,8 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 
 	/**
 	 * Maps an individual DRMapItem__c into an OmniDataTransformId record
-	 * @param dataRaptorItemRecord
-	 * @returns
+	 * @param dataRaptorItemRecord 
+	 * @returns 
 	 */
 	private mapDataRaptorItemData(dataRaptorItemRecord: AnyJson, omniDataTransformationId: string) {
 		// Transformed object
@@ -271,7 +255,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 		const recordFields = Object.keys(dataRaptorItemRecord);
 
 		// Map individual fields
-		recordFields.forEach((recordField) => {
+		recordFields.forEach(recordField => {
 			const cleanFieldName = this.getCleanFieldName(recordField);
 
 			if (DRMapItemMappings.hasOwnProperty(cleanFieldName)) {
@@ -286,7 +270,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 		// BATCH framework requires that each record has an "attributes" property
 		mappedObject['attributes'] = {
 			type: DataRaptorMigrationTool.OMNIDATATRANSFORMITEM_NAME,
-			referenceId: dataRaptorItemRecord['Id'],
+			referenceId: dataRaptorItemRecord['Id']
 		};
 
 		return mappedObject;

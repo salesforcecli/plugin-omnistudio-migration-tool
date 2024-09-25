@@ -27,11 +27,11 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 
 	getMappings(): ObjectMapping[] {
 		return [{
-				source: DataRaptorMigrationTool.DRBUNDLE_NAME,
-				target: DataRaptorMigrationTool.OMNIDATATRANSFORM_NAME,
+			source: DataRaptorMigrationTool.DRBUNDLE_NAME,
+			target: DataRaptorMigrationTool.OMNIDATATRANSFORM_NAME
 		}, {
-				source: DataRaptorMigrationTool.DRMAPITEM_NAME,
-				target: DataRaptorMigrationTool.OMNIDATATRANSFORMITEM_NAME,
+			source: DataRaptorMigrationTool.DRMAPITEM_NAME,
+			target: DataRaptorMigrationTool.OMNIDATATRANSFORMITEM_NAME
 		}];
 	}
 
@@ -106,9 +106,8 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 					dr[this.namespacePrefix + 'InputType__c'] = 'JSON';
 					if (targetOutputDocumentIdentifier !== null) {
 						dr[this.namespacePrefix + 'OutputType__c'] = 'DocuSign';
-					} else if (
-						targetOutputFileName !== null && (outputTypeKey !== 'PDF' || outputTypeKey !== 'Document Template')
-					) {
+					} else if (targetOutputFileName !== null && 
+						(outputTypeKey !== 'PDF' || outputTypeKey !== 'Document Template')) {
 						dr[this.namespacePrefix + 'OutputType__c'] = 'PDF';
 					} else {
 						dr[this.namespacePrefix + 'OutputType__c'] = 'JSON';
@@ -174,18 +173,20 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 		};
 	}
 
-	
-	// Get All DRBundle__c records
+
+	// Get All DRBundle__c records 
 	private async getAllDataRaptors(): Promise<AnyJson[]> {
 		DebugTimer.getInstance().lap('Query DRBundle');
 		return await QueryTools.queryAll(this.connection, this.namespace, DataRaptorMigrationTool.DRBUNDLE_NAME, this.getDRBundleFields());
 	}
+
 
 	// Get All Items
 	private async getAllItems(): Promise<AnyJson[]> {
 		//Query all Elements
 		return await QueryTools.queryAll(this.connection, this.namespace, DataRaptorMigrationTool.DRMAPITEM_NAME, this.getDRMapItemFields());
 	}
+
 
 	// Get All Items for one DataRaptor
 	private async getItemsForDataRaptor(dataRaptorItems: AnyJson[], drName: string, drId: string): Promise<TransformData> {
@@ -210,11 +211,11 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 
 	/**
 	 * Maps an indivitdual DRBundle__c record to an OmniDataTransform record.
-	 * @param dataRaptorRecord
-	 * @returns
-	*/
+	 * @param dataRaptorRecord 
+	 * @returns 
+	 */
 	private mapDataRaptorRecord(dataRaptorRecord: AnyJson): AnyJson {
-		
+
 		// Transformed object
 		const mappedObject = {};
 
@@ -283,4 +284,5 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 	private getDRMapItemFields(): string[] {
 		return Object.keys(DRMapItemMappings);
 	}
+
 }

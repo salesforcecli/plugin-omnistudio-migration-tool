@@ -194,11 +194,21 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
         if (functionDefinitionMetadata.length > 0 && elements.length > 0) {
           for (let ipElement of elements) {
             if (ipElement[`${this.namespacePrefix}PropertySet__c`] != null) {
-              ipElement[`${this.namespacePrefix}PropertySet__c`] = getReplacedString(
-                this.namespacePrefix,
-                ipElement[`${this.namespacePrefix}PropertySet__c`],
-                functionDefinitionMetadata
-              );
+              var originalString = ipElement[`${this.namespacePrefix}PropertySet__c`];
+              try {
+                originalString = getReplacedString(
+                  this.namespacePrefix,
+                  ipElement[`${this.namespacePrefix}PropertySet__c`],
+                  functionDefinitionMetadata
+                );
+                ipElement[`${this.namespacePrefix}PropertySet__c`] = originalString;
+              } catch (ex) {
+                this.logger.error(JSON.stringify(ex));
+                console.log(
+                  "There was some problem while updating the formula syntax, please check the all the formula's syntax once : " +
+                    ipElement[`${this.namespacePrefix}PropertySet__c`]
+                );
+              }
             }
           }
         }

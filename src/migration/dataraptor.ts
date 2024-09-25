@@ -106,7 +106,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 					dr[this.namespacePrefix + 'InputType__c'] = 'JSON';
 					if (targetOutputDocumentIdentifier !== null) {
 						dr[this.namespacePrefix + 'OutputType__c'] = 'DocuSign';
-					} else if (targetOutputFileName !== null && 
+					} else if (targetOutputFileName !== null &&
 						(outputTypeKey !== 'PDF' || outputTypeKey !== 'Document Template')) {
 						dr[this.namespacePrefix + 'OutputType__c'] = 'PDF';
 					} else {

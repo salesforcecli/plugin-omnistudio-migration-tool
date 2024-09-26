@@ -9,8 +9,10 @@ import { BaseMigrationTool } from './base';
 import { MigrationResult, MigrationTool, TransformData, UploadRecordResult } from './interfaces';
 import { ObjectMapping } from './interfaces';
 import { NetUtils, RequestMethod } from '../utils/net';
-import { Connection, Logger, Messages } from '@salesforce/core';
+import { Connection, Messages } from '@salesforce/core';
 import { UX } from '@salesforce/command';
+import { OSAssessmentInfo } from '../../src/utils';
+import { Logger } from '../utils/logger';
 
 export class OmniScriptMigrationTool extends BaseMigrationTool implements MigrationTool {
   private readonly exportType: OmniScriptExportType;
@@ -159,6 +161,74 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
       },
     };
   }
+
+  public async assess(): Promise<OSAssessmentInfo[]> {
+    try {
+      const omniscripts = await this.getAllOmniScripts();
+      const osAssessmentInfos = this.processOSComponents(omniscripts);
+    return osAssessmentInfos;
+    } catch (err) {
+      //Logger.logger.error(`Error processing ${file.name}`);
+      Logger.logger.error(err);
+      this.ux.log(err);
+      this.ux.log(err.getMessage());
+    }
+    
+    
+    //const osAssessmentInfos: OSAssessmentInfo[] = [];
+    //return osAssessmentInfos;
+  }
+
+  public async processOSComponents(omniscripts: AnyJson[]): Promise<OSAssessmentInfo[]> {
+    const osAssessmentInfos: OSAssessmentInfo[] = [];
+
+    const limitedOmniscripts = omniscripts.slice(0, 200);
+
+    for (const omniscript of limitedOmniscripts) {
+        // Await here since processOSComponents is now async
+        const elements = await this.getAllElementsForOmniScript(omniscript['Id']);
+
+        const dependencyIds: string[] = [];
+
+        for (const elem of elements) {
+          //this.ux.log(JSON.stringify(elem));
+          if (elem[this.namespacePrefix + 'Type__c'] == "OmniScript" || 
+            elem[this.namespacePrefix + 'Type__c'] == "Integration Procedure Action" ||
+            elem[this.namespacePrefix + 'Type__c'] == "DataRaptor Extract Action" ||
+            elem[this.namespacePrefix + 'Type__c'] == "DataRaptor Turbo Action" ||
+            elem[this.namespacePrefix + 'Type__c'] == "DataRaptor Post Action"
+          ) {
+            const nameVal = `${elem['Name']}_` +
+                           `${elem[this.namespacePrefix + 'Type__c']}`;
+            dependencyIds.push(nameVal);
+          }
+          
+        }
+        
+
+        const recordName = `${omniscript[this.namespacePrefix + 'Type__c']}_` +
+                           `${omniscript[this.namespacePrefix + 'SubType__c']}` +
+                           (omniscript[this.namespacePrefix + 'Language__c'] ? `_${omniscript[this.namespacePrefix + 'Language__c']}` : '') +
+                           `_${omniscript[this.namespacePrefix + 'Version__c']}`;
+
+        const omniProcessType = omniscript[this.namespacePrefix + 'IsProcedure__c'] ? 'Integration Procedure' : 'OmniScript';
+
+        const osAssessmentInfo: OSAssessmentInfo = {
+            name: recordName,
+            id: omniscript['Id'],
+            type: omniProcessType,
+            dependencies: dependencyIds,
+            infos: [],
+            warnings: [],
+            errors: [],
+            path: '',
+        };
+
+        osAssessmentInfos.push(osAssessmentInfo);
+    }
+
+    return osAssessmentInfos;
+}
 
   async migrate(): Promise<MigrationResult[]> {
     // Get All Records from OmniScript__c (IP & OS Parent Records)
@@ -372,7 +442,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
   // Get All OmniScript__c records i.e All IP & OS
   private async getAllOmniScripts(): Promise<AnyJson[]> {
-    DebugTimer.getInstance().lap('Query OmniScripts');
+    //DebugTimer.getInstance().lap('Query OmniScripts');
     this.logger.info('allVersions : ' + this.allVersions);
     const filters = new Map<string, any>();
 

@@ -16,9 +16,46 @@ export interface MigratedRecordInfo {
   warnings: string[];
 }
 
+export interface LWCAssessmentInfo {
+  name: string;
+  changeInfos: FileChangeInfo[];
+  errors: string[];
+}
+
+export interface OSAssessmentInfo {
+  name: string;
+  type: string;
+  id : string;
+  dependencies: AnyJson[];
+  infos: string[];
+  warnings: string[];
+  errors: string[];
+  path: string;
+}
+export interface FileChangeInfo {
+  path: string;
+  name: string;
+  diff: string;
+}
+export interface ApexAssessmentInfo extends FileChangeInfo {
+  warnings: string[];
+  infos: string[];
+}
+
+export interface FileParser {
+  parse(filePath: string, namespace: string): Map<string, string>;
+  saveToFile(filePath: string, content: string | undefined): void;
+}
+
+export interface FileProcessor {
+  process(file: File, type: string, namespace: string): void;
+}
+
 export interface AssessmentInfo {
-  lwcAssessmentInfos: LWCAssessmentInfo[];
+  //lwcAssessmentInfos: LWCAssessmentInfo[];
   apexAssessmentInfos: ApexAssessmentInfo[];
+  osAssessmentInfos: OSAssessmentInfo[];
+
 }
 
 export interface LWCAssessmentInfo {

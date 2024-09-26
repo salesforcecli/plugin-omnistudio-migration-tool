@@ -1,13 +1,15 @@
+
 import fs from 'fs';
 import open from 'open';
-import { ApexAssessmentInfo, AssessmentInfo, LWCAssessmentInfo } from '../interfaces';
+import { ApexAssessmentInfo, AssessmentInfo, LWCAssessmentInfo, OSAssessmentInfo } from '../interfaces';
 
 export class AssessmentReporter {
   public static async generate(result: AssessmentInfo, instanceUrl: string): Promise<void> {
     let htmlBody = '';
 
-    htmlBody += '<br />' + this.generateLwcAssesment(result.lwcAssessmentInfos);
+    //htmlBody += '<br />' + this.generateLwcAssesment(result.lwcAssessmentInfos);
     htmlBody += '<br />' + this.generateApexAssesment(result.apexAssessmentInfos);
+    htmlBody += '<br />' + this.generateOSAssesment(result.osAssessmentInfos);
 
     const doc = this.generateDocument(htmlBody);
     const fileUrl = process.cwd() + '/assessmentresults.html';
@@ -41,7 +43,7 @@ export class AssessmentReporter {
                                     ${changeInfoRows}
                                 </table>`;
       const row = `<tr class="slds-hint_parent">
-                            <td><div class="slds-truncate slds-text-title_bold" title="${lwcAssessmentInfo.name}">${lwcAssessmentInfo.name}</div></td>
+                            <td><div class="slds-truncate" title="${lwcAssessmentInfo.name}">${lwcAssessmentInfo.name}</div></td>
                             <td>${changeInfoTable}</td>
                         </tr>`;
       tableBody += row;
@@ -73,6 +75,23 @@ export class AssessmentReporter {
     return this.getApexAssessmentReport(tableBody);
   }
 
+  private static generateOSAssesment(osAssessmentInfos:OSAssessmentInfo[]): string {
+    let tableBody = '';
+    tableBody += '<div class="slds-text-heading_large">OS Components Assessment</div>';
+    for (const osAssessmentInfo of osAssessmentInfos) {
+      //const message = this.generateMessages(osAssessmentInfo.infos);
+      //const errors = this.generateMessages(osAssessmentInfo.warnings);
+      const row = `<tr class="slds-hint_parent">
+      <td><div class="slds-truncate" title="${osAssessmentInfo.name}">${osAssessmentInfo.name}</div></td>
+      <td><div class="slds-truncate" title="${osAssessmentInfo.type}">${osAssessmentInfo.type}</div></td>
+      <td><div class="slds-truncate" title="${osAssessmentInfo.id}">${osAssessmentInfo.id}</div></td>
+      <td style="width: 60%;overflow: hidden;"><div title="${osAssessmentInfo.dependencies}">${osAssessmentInfo.dependencies}</div></td>
+     </tr>`;
+      tableBody += row;
+    }
+    return this.getOSAssessmentReport(tableBody);
+  }
+
   private static generateMessages(messages: string[]): string {
     let messageBody = '';
     for (const message of messages) {
@@ -102,7 +121,7 @@ export class AssessmentReporter {
 
   private static getApexAssessmentReport(tableContent: string): string {
     const tableBody = `
-      <div style="margin-block:15px">
+      <div style="margin-block:15px">        
         <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped slds-table_col-bordered" aria-label="Results for Apex updates">
         <thead>
             <tr class="slds-line-height_reset">
@@ -120,6 +139,34 @@ export class AssessmentReporter {
                 </th>
                 <th class="" scope="col" style="width: 10%">
                     <div class="slds-truncate" title="Warnings">Errors</div>
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+        ${tableContent}
+        </tbody>
+        </table>
+      </div>`;
+    return tableBody;
+  }
+
+  private static getOSAssessmentReport(tableContent: string): string {
+    const tableBody = `
+      <div style="margin-block:15px">        
+        <table style="width: 100%;" class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped slds-table_col-bordered" aria-label="Results for OS updates">
+        <thead>
+            <tr class="slds-line-height_reset">
+                <th class="" scope="col" style="width: 20%">
+                    <div class="slds-truncate" title="Name">Name</div>
+                </th>
+                <th class="" scope="col" style="width: 10%">
+                    <div class="slds-truncate" title="Type">Type</div>
+                </th>
+                <th class="" scope="col" style="width: 10%">
+                    <div class="slds-truncate" title="ID">ID</div>
+                </th>
+                <th class="" scope="col" style="width: 60%">
+                    <div title="Dependencies">Dependencies</div>
                 </th>
             </tr>
         </thead>

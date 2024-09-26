@@ -6,6 +6,8 @@ import { AssessmentInfo } from '../../../utils/interfaces';
 import { AssessmentReporter } from '../../../utils/resultsbuilder/assessmentReporter';
 import { LwcMigration } from '../../../migration/related/LwcMigration';
 import { ApexMigration } from '../../../migration/related/ApexMigration';
+import { OmniScriptExportType,OmniScriptMigrationTool } from '../../../migration/omniscript';
+
 import { Logger } from '../../../utils/logger';
 import OmnistudioRelatedObjectMigrationFacade from './OmnistudioRelatedObjectMigrationFacade';
 
@@ -39,17 +41,26 @@ export default class Assess extends OmniStudioBaseCommand {
   public async run(): Promise<any> {
     const namespace = (this.flags.namespace || 'vlocity_ins') as string;
     const apiVersion = (this.flags.apiversion || '55.0') as string;
+    const allVersions = true;
     const conn = this.org.getConnection();
     Logger.initialiseLogger(this.ux, this.logger);
     const projectDirectory = OmnistudioRelatedObjectMigrationFacade.intializeProject();
     conn.setApiVersion(apiVersion);
     const lwcparser = new LwcMigration(projectDirectory, namespace, this.org);
     const apexMigrator = new ApexMigration(projectDirectory, namespace, this.org);
+    const osMigrator = new OmniScriptMigrationTool(OmniScriptExportType.All,
+                                                      namespace,
+                                                      conn,
+                                                      this.logger,
+                                                      messages,
+                                                      this.ux,
+                                                      allVersions);
     this.logger.info(namespace);
     this.ux.log(`Using Namespace: ${namespace}`);
     const assesmentInfo: AssessmentInfo = {
-      lwcAssessmentInfos: lwcparser.assessment(),
+      //lwcAssessmentInfos: lwcparser.assessment(),
       apexAssessmentInfos: apexMigrator.assess(),
+      osAssessmentInfos: await osMigrator.assess(),
     };
     await AssessmentReporter.generate(assesmentInfo, conn.instanceUrl);
     return assesmentInfo;

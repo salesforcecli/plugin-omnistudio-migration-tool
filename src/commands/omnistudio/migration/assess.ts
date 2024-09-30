@@ -60,7 +60,7 @@ export default class Assess extends OmniStudioBaseCommand {
     const assesmentInfo: AssessmentInfo = {
       //lwcAssessmentInfos: lwcparser.assessment(),
       apexAssessmentInfos: apexMigrator.assess(),
-      osAssessmentInfos: await osMigrator.assess(),
+      omniAssessmentInfo: await osMigrator.assess(),
     };
     await AssessmentReporter.generate(assesmentInfo, conn.instanceUrl);
     return assesmentInfo;

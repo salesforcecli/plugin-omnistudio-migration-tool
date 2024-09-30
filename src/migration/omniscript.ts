@@ -11,7 +11,7 @@ import { ObjectMapping } from './interfaces';
 import { NetUtils, RequestMethod } from '../utils/net';
 import { Connection, Messages } from '@salesforce/core';
 import { UX } from '@salesforce/command';
-import { OSAssessmentInfo } from '../../src/utils';
+import { OSAssessmentInfo, OmniAssessmentInfo, IPAssessmentInfo } from '../../src/utils';
 import { Logger } from '../utils/logger';
 
 export class OmniScriptMigrationTool extends BaseMigrationTool implements MigrationTool {
@@ -162,11 +162,11 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     };
   }
 
-  public async assess(): Promise<OSAssessmentInfo[]> {
+  public async assess(): Promise<OmniAssessmentInfo> {
     try {
       const omniscripts = await this.getAllOmniScripts();
-      const osAssessmentInfos = this.processOSComponents(omniscripts);
-    return osAssessmentInfos;
+      const omniAssessmentInfos = this.processOmniComponents(omniscripts);
+      return omniAssessmentInfos;
     } catch (err) {
       //Logger.logger.error(`Error processing ${file.name}`);
       Logger.logger.error(err);
@@ -179,56 +179,119 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     //return osAssessmentInfos;
   }
 
-  public async processOSComponents(omniscripts: AnyJson[]): Promise<OSAssessmentInfo[]> {
-    const osAssessmentInfos: OSAssessmentInfo[] = [];
+  public async processOmniComponents(omniscripts: AnyJson[]): Promise<OmniAssessmentInfo> {
+      const osAssessmentInfos: OSAssessmentInfo[] = [];
+      const ipAssessmentInfos: IPAssessmentInfo[] = [];
 
-    const limitedOmniscripts = omniscripts.slice(0, 200);
+      const limitedOmniscripts = omniscripts.slice(0, 200);
 
-    for (const omniscript of limitedOmniscripts) {
-        // Await here since processOSComponents is now async
-        const elements = await this.getAllElementsForOmniScript(omniscript['Id']);
+      // Create a set to store existing OmniScript names
+      const existingOmniscriptNames = new Set<string>();
 
-        const dependencyIds: string[] = [];
-
-        for (const elem of elements) {
-          //this.ux.log(JSON.stringify(elem));
-          if (elem[this.namespacePrefix + 'Type__c'] == "OmniScript" || 
-            elem[this.namespacePrefix + 'Type__c'] == "Integration Procedure Action" ||
-            elem[this.namespacePrefix + 'Type__c'] == "DataRaptor Extract Action" ||
-            elem[this.namespacePrefix + 'Type__c'] == "DataRaptor Turbo Action" ||
-            elem[this.namespacePrefix + 'Type__c'] == "DataRaptor Post Action"
-          ) {
-            const nameVal = `${elem['Name']}_` +
-                           `${elem[this.namespacePrefix + 'Type__c']}`;
-            dependencyIds.push(nameVal);
-          }
+      // First, collect all OmniScript names from the omniscripts array
+      for (const omniscript of limitedOmniscripts) {
+          const omniScriptName = `${omniscript[this.namespacePrefix + 'Type__c']}_` +
+                                `${omniscript[this.namespacePrefix + 'SubType__c']}` +
+                                (omniscript[this.namespacePrefix + 'Language__c'] ? `_${omniscript[this.namespacePrefix + 'Language__c']}` : '') +
+                                `_${omniscript[this.namespacePrefix + 'Version__c']}`;
           
-        }
-        
+          existingOmniscriptNames.add(omniScriptName);
+      }
 
-        const recordName = `${omniscript[this.namespacePrefix + 'Type__c']}_` +
-                           `${omniscript[this.namespacePrefix + 'SubType__c']}` +
-                           (omniscript[this.namespacePrefix + 'Language__c'] ? `_${omniscript[this.namespacePrefix + 'Language__c']}` : '') +
-                           `_${omniscript[this.namespacePrefix + 'Version__c']}`;
+      // Now process each OmniScript and its elements
+      for (const omniscript of limitedOmniscripts) {
+          // Await here since processOSComponents is now async
+          const elements = await this.getAllElementsForOmniScript(omniscript['Id']);
 
-        const omniProcessType = omniscript[this.namespacePrefix + 'IsProcedure__c'] ? 'Integration Procedure' : 'OmniScript';
+          const dependencyIP: string[] = [];
+          const dependencyDR: string[] = [];
+          const dependencyOS: string[] = [];
 
-        const osAssessmentInfo: OSAssessmentInfo = {
-            name: recordName,
-            id: omniscript['Id'],
-            type: omniProcessType,
-            dependencies: dependencyIds,
-            infos: [],
-            warnings: [],
-            errors: [],
-            path: '',
-        };
+          for (const elem of elements) {
+              const type = elem[this.namespacePrefix + 'Type__c'];
 
-        osAssessmentInfos.push(osAssessmentInfo);
-    }
+              // Check for OmniScript
+              if (type === "OmniScript") {
+                  const nameVal = `${elem['Name']}_OmniScript`;
 
-    return osAssessmentInfos;
-}
+                  // Only add if the name does not exist in existingOmniscriptNames
+                  if (!existingOmniscriptNames.has(nameVal)) {
+                      dependencyOS.push(nameVal);
+                      existingOmniscriptNames.add(nameVal); // Add to the set
+                  }
+              }
+
+              // Check for Integration Procedure Action
+              if (type === "Integration Procedure Action") {
+                  const nameVal = `${elem['Name']}_Integration Procedure Action`;
+
+                  // Only add if the name does not exist in existingOmniscriptNames
+                  if (!existingOmniscriptNames.has(nameVal)) {
+                      dependencyIP.push(nameVal);
+                      existingOmniscriptNames.add(nameVal); // Add to the set
+                  }
+              }
+
+              // Check for DataRaptor types
+              if (
+                  type === "DataRaptor Extract Action" || 
+                  type === "DataRaptor Turbo Action" || 
+                  type === "DataRaptor Post Action"
+              ) {
+                  const nameVal = `${elem['Name']}_${type}`;
+
+                  // Only add if the name does not exist in existingOmniscriptNames
+                  if (!existingOmniscriptNames.has(nameVal)) {
+                      dependencyDR.push(nameVal);
+                      existingOmniscriptNames.add(nameVal); // Add to the set
+                  }
+              }
+          }
+
+          const recordName = `${omniscript[this.namespacePrefix + 'Type__c']}_` +
+                            `${omniscript[this.namespacePrefix + 'SubType__c']}` +
+                            (omniscript[this.namespacePrefix + 'Language__c'] ? `_${omniscript[this.namespacePrefix + 'Language__c']}` : '') +
+                            `_${omniscript[this.namespacePrefix + 'Version__c']}`;
+
+          const omniProcessType = omniscript[this.namespacePrefix + 'IsProcedure__c'] ? 'Integration Procedure' : 'OmniScript';
+
+          if (omniProcessType == 'OmniScript') {
+              const osAssessmentInfo: OSAssessmentInfo = {
+                  name: recordName,
+                  id: omniscript['Id'],
+                  dependenciesIP: dependencyIP,
+                  dependenciesDR: dependencyDR,
+                  dependenciesOS: dependencyOS,
+                  infos: [],
+                  warnings: [],
+                  errors: [],
+                  path: '',
+              };
+              osAssessmentInfos.push(osAssessmentInfo);
+          } else {
+              const ipAssessmentInfo: IPAssessmentInfo = {
+                  name: recordName,
+                  id: omniscript['Id'],
+                  dependenciesIP: dependencyIP,
+                  dependenciesDR: dependencyDR,
+                  dependenciesOS: dependencyOS,
+                  infos: [],
+                  warnings: [],
+                  errors: [],
+                  path: '',
+              };
+              ipAssessmentInfos.push(ipAssessmentInfo);
+          }
+      }
+
+      const omniAssessmentInfo: OmniAssessmentInfo = {
+          osAssessmentInfos: osAssessmentInfos,
+          ipAssessmentInfos: ipAssessmentInfos
+      }
+
+      return omniAssessmentInfo;
+  }
+
 
   async migrate(): Promise<MigrationResult[]> {
     // Get All Records from OmniScript__c (IP & OS Parent Records)
@@ -440,7 +503,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     };
   }
 
-  // Get All OmniScript__c records i.e All IP & OS
+  // Get All OmniScript__c records i.e All IP & OS 
   private async getAllOmniScripts(): Promise<AnyJson[]> {
     //DebugTimer.getInstance().lap('Query OmniScripts');
     this.logger.info('allVersions : ' + this.allVersions);

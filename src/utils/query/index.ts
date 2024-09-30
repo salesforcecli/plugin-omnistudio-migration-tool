@@ -71,7 +71,7 @@ export class QueryTools {
     let allrecords = [];
 
     const query = QueryTools.buildCustomObjectQuery(namespace, objectName, fields, filters);
-
+    
     // Execute the query
     let results = await connection.query<AnyJson>(query);
 

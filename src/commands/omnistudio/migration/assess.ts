@@ -7,6 +7,8 @@ import { AssessmentReporter } from '../../../utils/resultsbuilder/assessmentRepo
 import { LwcMigration } from '../../../migration/related/LwcMigration';
 import { ApexMigration } from '../../../migration/related/ApexMigration';
 import { OmniScriptExportType,OmniScriptMigrationTool } from '../../../migration/omniscript';
+import { CardMigrationTool } from '../../../migration/flexcard';
+import { DataRaptorMigrationTool } from '../../../migration/dataraptor';
 
 import { Logger } from '../../../utils/logger';
 import OmnistudioRelatedObjectMigrationFacade from './OmnistudioRelatedObjectMigrationFacade';
@@ -55,12 +57,16 @@ export default class Assess extends OmniStudioBaseCommand {
                                                       messages,
                                                       this.ux,
                                                       allVersions);
+    const flexMigrator = new CardMigrationTool(namespace, conn, this.logger, messages, this.ux, allVersions);
+    const drMigrator = new DataRaptorMigrationTool(namespace, conn, this.logger, messages, this.ux);                                                 
     this.logger.info(namespace);
     this.ux.log(`Using Namespace: ${namespace}`);
     const assesmentInfo: AssessmentInfo = {
       //lwcAssessmentInfos: lwcparser.assessment(),
       apexAssessmentInfos: apexMigrator.assess(),
       omniAssessmentInfo: await osMigrator.assess(),
+      flexCardAssessmentInfos: await flexMigrator.assess(),
+      DdataRaptorAssessmentInfos: await drMigrator.assess()
     };
     await AssessmentReporter.generate(assesmentInfo, conn.instanceUrl);
     return assesmentInfo;

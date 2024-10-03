@@ -67,7 +67,27 @@ export interface FileProcessor {
 export interface AssessmentInfo {
   apexAssessmentInfos: ApexAssessmentInfo[];
   omniAssessmentInfo: OmniAssessmentInfo;  // Corrected to an array
+  flexCardAssessmentInfos: FlexCardAssessmentInfo[];
+  DdataRaptorAssessmentInfos: DataRaptorAssessmentInfo[];
 }
+
+export interface FlexCardAssessmentInfo {
+  name: string;
+  id: string;
+  dependenciesIP: AnyJson[];
+  dependenciesDR: AnyJson[];
+  dependenciesOS: AnyJson[];
+  infos: string[];
+  warnings: string[];
+}
+
+export interface DataRaptorAssessmentInfo {
+  name: string;
+  id: string;
+  infos: string[];
+  warnings: string[];
+}
+
 
 export interface OmniAssessmentInfo {
   osAssessmentInfos: OSAssessmentInfo[];

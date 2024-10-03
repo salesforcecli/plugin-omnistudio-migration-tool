@@ -6,7 +6,7 @@ import { DebugTimer, QueryTools } from '../utils';
 import { NetUtils } from '../utils/net';
 import { BaseMigrationTool } from './base';
 import { MigrationResult, MigrationTool, ObjectMapping, TransformData, UploadRecordResult } from './interfaces';
-
+import { DataRaptorAssessmentInfo } from '../../src/utils';
 
 export class DataRaptorMigrationTool extends BaseMigrationTool implements MigrationTool {
 
@@ -148,10 +148,41 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 		};
 	}
 
+	public async assess(): Promise<DataRaptorAssessmentInfo[]> {
+		try {
+		  const dataRaptors = await this.getAllDataRaptors();
+		  const dataRaptorAssessmentInfos = this.processDRComponents(dataRaptors);
+		  this.ux.log('dataRaptorAssessmentInfos');
+		  this.ux.log((dataRaptorAssessmentInfos).toString());
+		  return dataRaptorAssessmentInfos;
+		} catch (err) {
+		  this.ux.log(err);
+		  this.ux.log(err.getMessage());
+		}
+	  }
+	
+	  public async processDRComponents(dataRaptors: AnyJson[]): Promise<DataRaptorAssessmentInfo[]> {
+		const dataRaptorAssessmentInfos: DataRaptorAssessmentInfo[] = [];
+	
+		// Now process each OmniScript and its elements
+		for (const dataRaptor of dataRaptors) {
+			// Await here since processOSComponents is now async
+			this.ux.log(dataRaptor['Name']);
+			const dataRaptorAssessmentInfo: DataRaptorAssessmentInfo = {
+				name: dataRaptor['Name'],
+				id: '',
+				infos: [],
+				warnings: [],
+			};
+			dataRaptorAssessmentInfos.push(dataRaptorAssessmentInfo);
+		}
+		return dataRaptorAssessmentInfos;
+	}
+
 
 	// Get All DRBundle__c records 
 	private async getAllDataRaptors(): Promise<AnyJson[]> {
-		DebugTimer.getInstance().lap('Query DRBundle');
+		//DebugTimer.getInstance().lap('Query DRBundle');
 		return await QueryTools.queryAll(this.connection, this.namespace, DataRaptorMigrationTool.DRBUNDLE_NAME, this.getDRBundleFields());
 	}
 

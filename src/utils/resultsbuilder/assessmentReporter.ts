@@ -21,7 +21,6 @@ export class AssessmentReporter {
     htmlBody += '<br />' + this.generateCardAssesment(result.flexCardAssessmentInfos);
     htmlBody += '<br />' + this.generateDRAssesment(result.DdataRaptorAssessmentInfos);
 
-
     const doc = this.generateDocument(htmlBody);
     const fileUrl = process.cwd() + '/assessmentresults.html';
     fs.writeFileSync(fileUrl, doc);
@@ -112,10 +111,19 @@ export class AssessmentReporter {
                       <div title="${osAssessmentInfo.dependenciesOS}">${osAssessmentInfo.dependenciesOS}</div>
                   </td>
                   <td style="word-wrap: break-word; white-space: normal; max-width: 60%; overflow: hidden;">
+                      <div title="${osAssessmentInfo.missingOS}">${osAssessmentInfo.missingOS}</div>
+                  </td>
+                  <td style="word-wrap: break-word; white-space: normal; max-width: 60%; overflow: hidden;">
                       <div title="${osAssessmentInfo.dependenciesIP}">${osAssessmentInfo.dependenciesIP}</div>
                   </td>
                   <td style="word-wrap: break-word; white-space: normal; max-width: 60%; overflow: hidden;">
+                      <div title="${osAssessmentInfo.missingIP}">${osAssessmentInfo.missingIP}</div>
+                  </td>
+                  <td style="word-wrap: break-word; white-space: normal; max-width: 60%; overflow: hidden;">
                       <div title="${osAssessmentInfo.dependenciesDR}">${osAssessmentInfo.dependenciesDR}</div>
+                  </td>
+                  <td style="word-wrap: break-word; white-space: normal; max-width: 60%; overflow: hidden;">
+                      <div title="${osAssessmentInfo.missingDR}">${osAssessmentInfo.missingDR}</div>
                   </td>
               </tr>`;
       tableBody += row;
@@ -270,11 +278,20 @@ export class AssessmentReporter {
                 <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
                     <div title="Dependencies">Omniscript Dependencies</div>
                 </th>
+                 <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
+                    <div title="Dependencies">Omniscript Missing Dependencies</div>
+                </th>
                 <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
                     <div title="Dependencies">Integration Procedures Dependencies</div>
                 </th>
                 <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
-                    <div title="Dependencies">Data Raptor pendencies</div>
+                    <div title="Dependencies">Integration Procedures Missing Dependencies</div>
+                </th>
+                <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
+                    <div title="Dependencies">Data Raptor dependencies</div>
+                </th>
+                <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
+                    <div title="Dependencies">Data Raptor Missing dependencies</div>
                 </th>
             </tr>
         </thead>

@@ -4,7 +4,7 @@ import { AnyJson } from '@salesforce/ts-types';
 import OmniScriptMappings from '../mappings/OmniScript';
 import ElementMappings from '../mappings/Element';
 import OmniScriptDefinitionMappings from '../mappings/OmniScriptDefinition';
-import { DebugTimer, QueryTools, SortDirection } from '../utils';
+import { DataRaptorAssessmentInfo, DebugTimer, FlexCardAssessmentInfo, QueryTools, SortDirection } from '../utils';
 import { BaseMigrationTool } from './base';
 import { MigrationResult, MigrationTool, TransformData, UploadRecordResult } from './interfaces';
 import { ObjectMapping } from './interfaces';
@@ -162,7 +162,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     };
   }
 
-  public async assess(): Promise<OmniAssessmentInfo> {
+  public async assess(dataRaptorAssessmentInfos: DataRaptorAssessmentInfo[], flexCardAssessmentInfos: FlexCardAssessmentInfo[]): Promise<OmniAssessmentInfo> {
     try {
       const omniscripts = await this.getAllOmniScripts();
       const omniAssessmentInfos = this.processOmniComponents(omniscripts);
@@ -190,11 +190,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
       // First, collect all OmniScript names from the omniscripts array
       for (const omniscript of limitedOmniscripts) {
-          const omniScriptName = `${omniscript[this.namespacePrefix + 'Type__c']}_` +
-                                `${omniscript[this.namespacePrefix + 'SubType__c']}` +
-                                (omniscript[this.namespacePrefix + 'Language__c'] ? `_${omniscript[this.namespacePrefix + 'Language__c']}` : '') +
-                                `_${omniscript[this.namespacePrefix + 'Version__c']}`;
-          
+          const omniScriptName = `${omniscript[this.namespacePrefix + 'Name']}`;
           existingOmniscriptNames.add(omniScriptName);
       }
 
@@ -204,8 +200,11 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
           const elements = await this.getAllElementsForOmniScript(omniscript['Id']);
 
           const dependencyIP: string[] = [];
+          const missingIP: string[] = [];
           const dependencyDR: string[] = [];
+          const missingDR: string[] = [];
           const dependencyOS: string[] = [];
+          const missingOS: string[] = [];
 
           for (const elem of elements) {
               const type = elem[this.namespacePrefix + 'Type__c'];
@@ -213,7 +212,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
               // Check for OmniScript
               if (type === "OmniScript") {
                   const nameVal = `${elem['Name']}_OmniScript`;
-
+                  missingOS.push(nameVal);
                   // Only add if the name does not exist in existingOmniscriptNames
                   if (!existingOmniscriptNames.has(nameVal)) {
                       dependencyOS.push(nameVal);
@@ -224,10 +223,10 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
               // Check for Integration Procedure Action
               if (type === "Integration Procedure Action") {
                   const nameVal = `${elem['Name']}_Integration Procedure Action`;
-
+                  dependencyIP.push(nameVal);
                   // Only add if the name does not exist in existingOmniscriptNames
                   if (!existingOmniscriptNames.has(nameVal)) {
-                      dependencyIP.push(nameVal);
+                      missingIP.push(nameVal);
                       existingOmniscriptNames.add(nameVal); // Add to the set
                   }
               }
@@ -259,9 +258,12 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
               const osAssessmentInfo: OSAssessmentInfo = {
                   name: recordName,
                   id: omniscript['Id'],
-                  dependenciesIP: dependencyIP,
-                  dependenciesDR: dependencyDR,
-                  dependenciesOS: dependencyOS,
+                  dependenciesIP: [],
+                  missingIP: dependencyIP,
+                  dependenciesDR: [],
+                  missingDR: dependencyDR,
+                  dependenciesOS: [],
+                  missingOS: dependencyOS,
                   infos: [],
                   warnings: [],
                   errors: [],

@@ -24,10 +24,13 @@ export interface LWCAssessmentInfo {
 
 export interface OSAssessmentInfo {
   name: string;
-  id : string;
+  id: string;
   dependenciesIP: AnyJson[];
+  missingIP: AnyJson[];
   dependenciesDR: AnyJson[];
+  missingDR: AnyJson[];
   dependenciesOS: AnyJson[];
+  missingOS: AnyJson[];
   infos: string[];
   warnings: string[];
   errors: string[];
@@ -36,7 +39,7 @@ export interface OSAssessmentInfo {
 
 export interface IPAssessmentInfo {
   name: string;
-  id : string;
+  id: string;
   dependenciesIP: AnyJson[];
   dependenciesDR: AnyJson[];
   dependenciesOS: AnyJson[];
@@ -66,9 +69,9 @@ export interface FileProcessor {
 
 export interface AssessmentInfo {
   apexAssessmentInfos: ApexAssessmentInfo[];
-  omniAssessmentInfo: OmniAssessmentInfo;  // Corrected to an array
+  omniAssessmentInfo: OmniAssessmentInfo; // Corrected to an array
   flexCardAssessmentInfos: FlexCardAssessmentInfo[];
-  DdataRaptorAssessmentInfos: DataRaptorAssessmentInfo[];
+  dataRaptorAssessmentInfos: DataRaptorAssessmentInfo[];
 }
 
 export interface FlexCardAssessmentInfo {
@@ -87,7 +90,6 @@ export interface DataRaptorAssessmentInfo {
   infos: string[];
   warnings: string[];
 }
-
 
 export interface OmniAssessmentInfo {
   osAssessmentInfos: OSAssessmentInfo[];

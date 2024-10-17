@@ -31,7 +31,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     namespace: string,
     connection: Connection,
     logger: Logger,
-    messages: Messages,
+    messages: Messages<string>,
     ux: UX,
     allVersions: boolean
   ) {

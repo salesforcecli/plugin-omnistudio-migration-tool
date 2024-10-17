@@ -17,7 +17,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     namespace: string,
     connection: Connection,
     logger: Logger,
-    messages: Messages,
+    messages: Messages<string>,
     ux: UX,
     allVersions: boolean
   ) {

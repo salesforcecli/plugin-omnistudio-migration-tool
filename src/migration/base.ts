@@ -11,10 +11,10 @@ export class BaseMigrationTool {
   protected readonly connection: Connection;
   protected readonly namespacePrefix: string;
   protected readonly logger: Logger;
-  protected readonly messages: Messages;
+  protected readonly messages: Messages<string>;
   protected readonly ux: UX;
 
-  public constructor(namespace: string, connection: Connection, logger: Logger, messages: Messages, ux: UX) {
+  public constructor(namespace: string, connection: Connection, logger: Logger, messages: Messages<string>, ux: UX) {
     this.namespace = namespace;
     this.connection = connection;
     this.logger = logger;

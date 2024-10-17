@@ -2,6 +2,7 @@
 import { Connection } from '@salesforce/core';
 import chunk from 'lodash.chunk';
 import { UploadRecordResult } from '../../migration/interfaces';
+import { HttpRequest, HttpMethods } from 'jsforce';
 
 class NetUtils {
 
@@ -108,8 +109,9 @@ class NetUtils {
 
         const apiVersion = connection.getApiVersion();
         const metadataApiUrl = `/services/data/v${apiVersion}/${url}`;
-        const request = {
-            method: method,
+        const httpMethod: HttpMethods = 'GET';
+        const request: HttpRequest = {
+            method: httpMethod,
             url: metadataApiUrl,
             body: JSON.stringify(data)
         }

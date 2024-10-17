@@ -44,14 +44,14 @@ export class QueryTools {
     const query = QueryTools.buildCustomObjectQuery(namespace, objectName, fields);
 
     // Execute the query
-    let results = await connection.query<AnyJson>(query);
+    let results = await connection.query<Record<string, any>>(query);
 
     if (results && results.totalSize > 0) {
       allrecords = results.records;
 
       // Load more pages
       while (results.nextRecordsUrl) {
-        results = await connection.queryMore<AnyJson>(results.nextRecordsUrl);
+        results = await connection.queryMore<Record<string, any>>(results.nextRecordsUrl);
         results.records.forEach((row) => {
           allrecords.push(row);
         });
@@ -73,14 +73,14 @@ export class QueryTools {
     const query = QueryTools.buildCustomObjectQuery(namespace, objectName, fields, filters);
 
     // Execute the query
-    let results = await connection.query<AnyJson>(query);
+    let results = await connection.query<Record<string, any>>(query);
 
     if (results && results.totalSize > 0) {
       allrecords = results.records;
 
       // Load more pages
       while (results.nextRecordsUrl) {
-        results = await connection.queryMore<AnyJson>(results.nextRecordsUrl);
+        results = await connection.queryMore<Record<string, any>>(results.nextRecordsUrl);
         results.records.forEach((row) => {
           allrecords.push(row);
         });
@@ -110,14 +110,14 @@ export class QueryTools {
     }
 
     // Execute the query
-    let results = await connection.query<AnyJson>(query);
+    let results = await connection.query<Record<string, any>>(query);
 
     if (results && results.totalSize > 0) {
       allrecords = results.records;
 
       // Load more pages
       while (results.nextRecordsUrl) {
-        results = await connection.queryMore<AnyJson>(results.nextRecordsUrl);
+        results = await connection.queryMore<Record<string, any>>(results.nextRecordsUrl);
         results.records.forEach((row) => {
           allrecords.push(row);
         });
@@ -154,7 +154,7 @@ export class QueryTools {
     }
 
     // Execute the query
-    let results = await connection.query<AnyJson>(query);
+    let results = await connection.query<Record<string, any>>(query);
 
     let allrecords = [];
     if (results && results.totalSize > 0) {
@@ -162,7 +162,7 @@ export class QueryTools {
 
       // Load more pages
       while (results.nextRecordsUrl) {
-        results = await connection.queryMore<AnyJson>(results.nextRecordsUrl);
+        results = await connection.queryMore<Record<string, any>>(results.nextRecordsUrl);
         results.records.forEach((row) => {
           allrecords.push(row);
         });
@@ -191,14 +191,14 @@ export class QueryTools {
     }
 
     // Execute the query
-    let results = await connection.query<AnyJson>(query);
+    let results = await connection.query<Record<string, any>>(query);
 
     if (results && results.totalSize > 0) {
       allrecords = results.records;
 
       // Load more pages
       while (results.nextRecordsUrl) {
-        results = await connection.queryMore<AnyJson>(results.nextRecordsUrl);
+        results = await connection.queryMore<Record<string, any>>(results.nextRecordsUrl);
         results.records.forEach((row) => {
           allrecords.push(row);
         });

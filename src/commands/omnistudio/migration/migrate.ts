@@ -9,7 +9,7 @@
  */
 import * as os from 'os';
 import { flags } from '@salesforce/command';
-import { Messages } from '@salesforce/core';
+import { Messages, Org } from '@salesforce/core';
 import '../../../utils/prototypes';
 import OmniStudioBaseCommand from '../../basecommand';
 import { DataRaptorMigrationTool } from '../../../migration/dataraptor';
@@ -58,10 +58,12 @@ export default class Migrate extends OmniStudioBaseCommand {
     const migrateOnly = (this.flags.only || '') as string;
     const allVersions = this.flags.allversions || false;
 
-    Logger.initialiseLogger(this.ux, this.logger);
-    this.logger = Logger.logger;
+    Logger.initialiseLogger(this.ux, Logger.logger);
+    // this.logger = Logger.logger;
+    const logger = Logger.logger;
     // this.org is guaranteed because requiresUsername=true, as opposed to supportsUsername
-    const conn = this.org.getConnection();
+    const org = new Org();
+    const conn = org.getConnection();
     conn.setApiVersion(apiVersion);
 
     // Let's time every step
@@ -71,17 +73,9 @@ export default class Migrate extends OmniStudioBaseCommand {
     let migrationObjects: MigrationTool[] = [];
     if (!migrateOnly) {
       migrationObjects = [
-        new DataRaptorMigrationTool(namespace, conn, this.logger, messages, this.ux),
-        new OmniScriptMigrationTool(
-          OmniScriptExportType.All,
-          namespace,
-          conn,
-          this.logger,
-          messages,
-          this.ux,
-          allVersions
-        ),
-        new CardMigrationTool(namespace, conn, this.logger, messages, this.ux, allVersions),
+        new DataRaptorMigrationTool(namespace, conn, logger, messages, this.ux),
+        new OmniScriptMigrationTool(OmniScriptExportType.All, namespace, conn, logger, messages, this.ux, allVersions),
+        new CardMigrationTool(namespace, conn, logger, messages, this.ux, allVersions),
       ];
     } else {
       switch (migrateOnly) {
@@ -91,7 +85,7 @@ export default class Migrate extends OmniStudioBaseCommand {
               OmniScriptExportType.OS,
               namespace,
               conn,
-              this.logger,
+              logger,
               messages,
               this.ux,
               allVersions
@@ -104,7 +98,7 @@ export default class Migrate extends OmniStudioBaseCommand {
               OmniScriptExportType.IP,
               namespace,
               conn,
-              this.logger,
+              logger,
               messages,
               this.ux,
               allVersions
@@ -112,10 +106,10 @@ export default class Migrate extends OmniStudioBaseCommand {
           );
           break;
         case 'fc':
-          migrationObjects.push(new CardMigrationTool(namespace, conn, this.logger, messages, this.ux, allVersions));
+          migrationObjects.push(new CardMigrationTool(namespace, conn, logger, messages, this.ux, allVersions));
           break;
         case 'dr':
-          migrationObjects.push(new DataRaptorMigrationTool(namespace, conn, this.logger, messages, this.ux));
+          migrationObjects.push(new DataRaptorMigrationTool(namespace, conn, logger, messages, this.ux));
           break;
         default:
           throw new Error(messages.getMessage('invalidOnlyFlag'));
@@ -173,7 +167,7 @@ export default class Migrate extends OmniStudioBaseCommand {
       namespace,
       migrateOnly,
       allVersions,
-      this.org
+      org
     );
     omnistudioRelatedObjectsMigration.migrateAll(objectMigrationResults, []);
     await ResultsBuilder.generate(objectMigrationResults, conn.instanceUrl);

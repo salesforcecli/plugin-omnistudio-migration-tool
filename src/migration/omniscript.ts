@@ -11,8 +11,7 @@ import { ObjectMapping } from './interfaces';
 import { NetUtils, RequestMethod } from '../utils/net';
 import { Connection, Messages } from '@salesforce/core';
 import { UX } from '@salesforce/command';
-import { OSAssessmentInfo, OmniAssessmentInfo, IPAssessmentInfo } from '../../src/utils';
-import { Logger } from '../utils/logger';
+import { getAllFunctionMetadata, getReplacedString } from '../utils/formula/FormulaUtil';
 
 export class OmniScriptMigrationTool extends BaseMigrationTool implements MigrationTool {
   private readonly exportType: OmniScriptExportType;
@@ -298,6 +297,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
   async migrate(): Promise<MigrationResult[]> {
     // Get All Records from OmniScript__c (IP & OS Parent Records)
     const omniscripts = await this.getAllOmniScripts();
+    const functionDefinitionMetadata = await getAllFunctionMetadata(this.namespace, this.connection);
     const duplicatedNames = new Set<string>();
 
     // Variables to be returned After Migration
@@ -322,6 +322,30 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
       // Get All elements for each OmniScript__c record(i.e IP/OS)
       const elements = await this.getAllElementsForOmniScript(recordId);
+      if (omniscript[`${this.namespacePrefix}IsProcedure__c`] === true) {
+        // do the formula replacement from custom to standard notation
+        if (functionDefinitionMetadata.length > 0 && elements.length > 0) {
+          for (let ipElement of elements) {
+            if (ipElement[`${this.namespacePrefix}PropertySet__c`] != null) {
+              var originalString = ipElement[`${this.namespacePrefix}PropertySet__c`];
+              try {
+                originalString = getReplacedString(
+                  this.namespacePrefix,
+                  ipElement[`${this.namespacePrefix}PropertySet__c`],
+                  functionDefinitionMetadata
+                );
+                ipElement[`${this.namespacePrefix}PropertySet__c`] = originalString;
+              } catch (ex) {
+                this.logger.error(JSON.stringify(ex));
+                console.log(
+                  "There was some problem while updating the formula syntax, please check the all the formula's syntax once : " +
+                    ipElement[`${this.namespacePrefix}PropertySet__c`]
+                );
+              }
+            }
+          }
+        }
+      }
 
       // Perform the transformation for OS/IP Parent Record from OmniScript__c
       const mappedOmniScript = this.mapOmniScriptRecord(omniscript);

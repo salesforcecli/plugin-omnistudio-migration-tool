@@ -7,6 +7,7 @@ import { BaseMigrationTool } from './base';
 import { MigrationResult, MigrationTool, ObjectMapping, UploadRecordResult } from './interfaces';
 import { Connection, Logger, Messages } from '@salesforce/core';
 import { UX } from '@salesforce/command';
+import { FlexCardAssessmentInfo } from '../../src/utils';
 
 export class CardMigrationTool extends BaseMigrationTool implements MigrationTool {
   static readonly VLOCITYCARD_NAME = 'VlocityCard__c';
@@ -89,9 +90,45 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     ];
   }
 
+  public async assess(): Promise<FlexCardAssessmentInfo[]> {
+    try {
+      const flexCards = await this.getAllActiveCards();
+      const flexCardsAssessmentInfos = this.processCardComponents(flexCards);
+      this.ux.log('flexCardsAssessmentInfos');
+      this.ux.log((flexCardsAssessmentInfos).toString());
+      return flexCardsAssessmentInfos;
+    } catch (err) {
+      this.ux.log(err);
+      this.ux.log(err.getMessage());
+    }
+  }
+
+  public async processCardComponents(flexCards: AnyJson[]): Promise<FlexCardAssessmentInfo[]> {
+    const flexCardAssessmentInfos: FlexCardAssessmentInfo[] = [];
+
+    const limitedFlexCards = flexCards.slice(0, 200);
+
+    // Now process each OmniScript and its elements
+    for (const flexCard of limitedFlexCards) {
+        // Await here since processOSComponents is now async
+        //this.ux.log(flexCard['Name']);
+        const flexCardAssessmentInfo: FlexCardAssessmentInfo = {
+            name: flexCard['Name'],
+            id: '',
+            dependenciesIP: null,
+            dependenciesDR: [],
+            dependenciesOS: [],
+            infos: [],
+            warnings: [],
+        };
+        flexCardAssessmentInfos.push(flexCardAssessmentInfo);
+    }
+    return flexCardAssessmentInfos;
+}
+
   // Query all cards that are active
   private async getAllActiveCards(): Promise<AnyJson[]> {
-    DebugTimer.getInstance().lap('Query Vlocity Cards');
+    //DebugTimer.getInstance().lap('Query Vlocity Cards');
     const filters = new Map<string, any>();
     filters.set(this.namespacePrefix + 'CardType__c', 'flex');
 

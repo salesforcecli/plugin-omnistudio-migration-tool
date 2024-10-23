@@ -63,7 +63,7 @@ describe('JavaScriptParser', () => {
     readFileSyncStub.returns(mockFileContent);
 
     parser.replaceImportSource(mockFilePath, 'oldSource');
-    parser.saveToFile(mockFilePath, parser.replaceImportSource(mockFilePath, 'oldSource'));
+    parser.saveToFile(mockFilePath, parser.replaceImportSource(mockFilePath, 'oldSource').get('modified'));
 
     // Assert that console.log was called with the correct message
     expect(consoleLogStub.calledOnce).to.be.true;

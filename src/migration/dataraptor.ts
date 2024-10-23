@@ -6,6 +6,7 @@ import { DebugTimer, QueryTools } from '../utils';
 import { NetUtils } from '../utils/net';
 import { BaseMigrationTool } from './base';
 import { MigrationResult, MigrationTool, ObjectMapping, TransformData, UploadRecordResult } from './interfaces';
+import { DataRaptorAssessmentInfo } from '../../src/utils';
 import { getAllFunctionMetadata, getReplacedString } from '../utils/formula/FormulaUtil';
 
 
@@ -173,10 +174,66 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 		};
 	}
 
+	public async assess(): Promise<DataRaptorAssessmentInfo[]> {
+		try {
+			DebugTimer.getInstance().lap('Query data raptors');
+			const dataRaptors = await this.getAllDataRaptors();
+			const dataRaptorAssessmentInfos = this.processDRComponents(dataRaptors);
+			this.ux.log('dataRaptorAssessmentInfos');
+			this.ux.log((dataRaptorAssessmentInfos).toString());
+			return dataRaptorAssessmentInfos;
+		} catch (err) {
+			this.ux.log(err);
+			this.ux.log(err.getMessage());
+		}
+	}
+	
+	public async processDRComponents(dataRaptors: AnyJson[]): Promise<DataRaptorAssessmentInfo[]> {
+		const dataRaptorAssessmentInfos: DataRaptorAssessmentInfo[] = [];
+		// Query all the functionMetadata with all required fields
+		const functionDefinitionMetadata = await getAllFunctionMetadata(this.namespace, this.connection);
+	
+		// Now process each OmniScript and its elements
+		for (const dataRaptor of dataRaptors) {
+			// Await here since processOSComponents is now async
+			this.ux.log(dataRaptor['Name']);
+			this.ux.log(dataRaptor[this.namespacePrefix + 'Formula__c']);
+			var customFunctionString = '';
+			if (dataRaptor[this.namespacePrefix + 'Formula__c'] != null) {
+				this.ux.log('formula');
+				customFunctionString = 'Original Formula :'+ dataRaptor[this.namespacePrefix + 'Formula__c'] + '\n\n' +
+					'Replaced Formula :Formula'
+				try {
+					customFunctionString += 'Replaced Formula :Formula \n\n' + getReplacedString(
+						this.namespacePrefix,
+						dataRaptor[this.namespacePrefix + 'Formula__c'],
+						functionDefinitionMetadata
+					);
+				} catch (ex) {
+					this.logger.error(JSON.stringify(ex));
+					console.log(
+						"There was some problem while updating the formula syntax, please check the all the formula's syntax once : " +
+						dataRaptor[this.namespacePrefix + 'Formula__c']
+					);
+				}
+			}
+
+			const dataRaptorAssessmentInfo: DataRaptorAssessmentInfo = {
+				name: dataRaptor['Name'],
+				customFunction: customFunctionString,
+				id: '',
+				infos: [],
+				warnings: [],
+			};
+			dataRaptorAssessmentInfos.push(dataRaptorAssessmentInfo);
+		}
+		return dataRaptorAssessmentInfos;
+	}
+
 
 	// Get All DRBundle__c records 
 	private async getAllDataRaptors(): Promise<AnyJson[]> {
-		DebugTimer.getInstance().lap('Query DRBundle');
+		//DebugTimer.getInstance().lap('Query DRBundle');
 		return await QueryTools.queryAll(this.connection, this.namespace, DataRaptorMigrationTool.DRBUNDLE_NAME, this.getDRBundleFields());
 	}
 

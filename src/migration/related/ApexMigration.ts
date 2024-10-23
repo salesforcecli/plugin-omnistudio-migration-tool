@@ -16,6 +16,8 @@ import { MigrationResult, RelatedObjectsMigrate } from '../interfaces';
 import { sfProject } from '../../utils/sfcli/project/sfProject';
 import { fileutil, File } from '../../utils/file/fileutil';
 import { Logger } from '../../utils/logger';
+import { ApexAssessmentInfo } from '../../utils';
+import { FileDiffUtil } from '../../utils/lwcparser/fileutils/FileDiffUtil';
 import { BaseRelatedObjectMigration } from './BaseRealtedObjectMigration';
 
 const APEXCLASS = 'Apexclass';
@@ -50,23 +52,36 @@ export class ApexMigration extends BaseRelatedObjectMigration implements Related
     sfProject.deploy(APEXCLASS, targetOrg.getUsername());
     shell.cd(pwd);
   }
-  public processApexFiles(dir: string): File[] {
+
+  public assess(): ApexAssessmentInfo[] {
+    const pwd = shell.pwd();
+    shell.cd(this.projectPath);
+    const targetOrg: Org = this.org;
+    sfProject.retrieve(APEXCLASS, targetOrg.getUsername());
+    const apexAssessmentInfos = this.processApexFiles(this.projectPath);
+    shell.cd(pwd);
+    return apexAssessmentInfos;
+  }
+  public processApexFiles(dir: string): ApexAssessmentInfo[] {
     dir += APEX_CLASS_PATH;
     let files: File[] = [];
     files = fileutil.readFilesSync(dir);
+    const fileAssessmentInfo: ApexAssessmentInfo[] = [];
     for (const file of files) {
       if (file.ext !== '.cls') continue;
       try {
-        this.processApexFile(file);
+        const apexAssementInfo = this.processApexFile(file);
+        if (apexAssementInfo && apexAssementInfo.diff && apexAssementInfo.diff.length === 0) continue;
+        fileAssessmentInfo.push(apexAssementInfo);
       } catch (err) {
         Logger.logger.error(`Error processing ${file.name}`);
         Logger.logger.error(err);
       }
     }
-    return files;
+    return fileAssessmentInfo;
   }
 
-  public processApexFile(file: File): void {
+  public processApexFile(file: File): ApexAssessmentInfo {
     const fileContent = fs.readFileSync(file.location, 'utf8');
     const interfaces: InterfaceImplements[] = [];
     interfaces.push(this.vlocityOpenInterface, this.vlocityOpenInterface2, this.callableInterface);
@@ -95,11 +110,26 @@ export class ApexMigration extends BaseRelatedObjectMigration implements Related
       updateMessages.push('File has been updated to allow calls to Omnistudio components');
       tokenUpdates.push(...tokeUpdatesForMethodCalls);
     }
+    let difference = '';
     if (tokenUpdates && tokenUpdates.length > 0) {
+      const updatedContent = parser.rewrite(tokenUpdates);
       fs.writeFileSync(file.location, parser.rewrite(tokenUpdates));
+      difference = new FileDiffUtil().getFileDiff(file.name, fileContent, updatedContent);
+    }
+    if (updateMessages.length === 0) {
+      Logger.logger.info(
+        `File ${file.name} does not have any omnistudio calls or remote calls. No changes will be applied.`
+      );
     }
     const warningMessage: string[] = this.processNonReplacableMethodCalls(file, parser);
     Logger.logger.warn(warningMessage);
+    return {
+      name: file.name,
+      warnings: warningMessage,
+      infos: updateMessages,
+      path: file.location,
+      diff: difference,
+    };
   }
 
   private processApexFileForRemotecalls(file: File, parser: ApexASTParser): TokenUpdater[] {

@@ -31,6 +31,8 @@ export interface OSAssessmentInfo {
   missingDR: AnyJson[];
   dependenciesOS: AnyJson[];
   missingOS: AnyJson[];
+  dependenciesRemoteAction: AnyJson[];
+  //missingRemoteAction: AnyJson[];
   infos: string[];
   warnings: string[];
   errors: string[];
@@ -43,6 +45,7 @@ export interface IPAssessmentInfo {
   dependenciesIP: AnyJson[];
   dependenciesDR: AnyJson[];
   dependenciesOS: AnyJson[];
+  dependenciesRemoteAction: AnyJson[];
   infos: string[];
   warnings: string[];
   errors: string[];
@@ -86,6 +89,7 @@ export interface FlexCardAssessmentInfo {
 
 export interface DataRaptorAssessmentInfo {
   name: string;
+  customFunction: string;
   id: string;
   infos: string[];
   warnings: string[];

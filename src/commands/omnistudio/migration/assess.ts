@@ -9,7 +9,7 @@ import { ApexMigration } from '../../../migration/related/ApexMigration';
 import { OmniScriptExportType, OmniScriptMigrationTool } from '../../../migration/omniscript';
 import { CardMigrationTool } from '../../../migration/flexcard';
 import { DataRaptorMigrationTool } from '../../../migration/dataraptor';
-import { DataRaptorAssessmentInfo , FlexCardAssessmentInfo } from '../../../utils';
+import { DebugTimer, DataRaptorAssessmentInfo, FlexCardAssessmentInfo } from '../../../utils';
 
 import { Logger } from '../../../utils/logger';
 import OmnistudioRelatedObjectMigrationFacade from './OmnistudioRelatedObjectMigrationFacade';
@@ -42,6 +42,7 @@ export default class Assess extends OmniStudioBaseCommand {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public async run(): Promise<any> {
+    DebugTimer.getInstance().start();
     const namespace = (this.flags.namespace || 'vlocity_ins') as string;
     const apiVersion = (this.flags.apiversion || '55.0') as string;
     const allVersions = true;
@@ -68,7 +69,7 @@ export default class Assess extends OmniStudioBaseCommand {
     const dataRaptorAssessmentInfos: DataRaptorAssessmentInfo[] = await drMigrator.assess();
     this.ux.log('dataRaptorAssessmentInfos');
     this.ux.log(dataRaptorAssessmentInfos.toString());
-    const flexCardAssessmentInfos: FlexCardAssessmentInfo[] = await flexMigrator.assess();  
+    const flexCardAssessmentInfos: FlexCardAssessmentInfo[] = await flexMigrator.assess();
     const omniAssessmentInfo = await osMigrator.assess(dataRaptorAssessmentInfos, flexCardAssessmentInfos);
 
     const assesmentInfo: AssessmentInfo = {

@@ -19,7 +19,7 @@ export class AssessmentReporter {
     htmlBody += '<br />' + this.generateApexAssesment(result.apexAssessmentInfos);
     htmlBody += '<br />' + this.generateOmniAssesment(result.omniAssessmentInfo);
     htmlBody += '<br />' + this.generateCardAssesment(result.flexCardAssessmentInfos);
-    htmlBody += '<br />' + this.generateDRAssesment(result.DdataRaptorAssessmentInfos);
+    htmlBody += '<br />' + this.generateDRAssesment(result.dataRaptorAssessmentInfos);
 
     const doc = this.generateDocument(htmlBody);
     const fileUrl = process.cwd() + '/assessmentresults.html';
@@ -125,6 +125,9 @@ export class AssessmentReporter {
                   <td style="word-wrap: break-word; white-space: normal; max-width: 60%; overflow: hidden;">
                       <div title="${osAssessmentInfo.missingDR}">${osAssessmentInfo.missingDR}</div>
                   </td>
+                  <td style="word-wrap: break-word; white-space: normal; max-width: 60%; overflow: hidden;">
+                      <div title="${osAssessmentInfo.dependenciesRemoteAction}">${osAssessmentInfo.dependenciesRemoteAction}</div>
+                  </td>
               </tr>`;
       tableBody += row;
     }
@@ -153,6 +156,9 @@ export class AssessmentReporter {
                   </td>
                   <td style="word-wrap: break-word; white-space: normal; max-width: 60%; overflow: hidden;">
                       <div title="${ipAssessmentInfo.dependenciesDR}">${ipAssessmentInfo.dependenciesDR}</div>
+                  </td>
+                  <td style="word-wrap: break-word; white-space: normal; max-width: 60%; overflow: hidden;">
+                      <div title="${ipAssessmentInfo.dependenciesRemoteAction}">${ipAssessmentInfo.dependenciesRemoteAction}</div>
                   </td>
               </tr>`;
       tableBody += row;
@@ -197,6 +203,7 @@ export class AssessmentReporter {
               <tr class="slds-hint_parent">
                   <td style="word-wrap: break-word; white-space: normal; max-width: 200px;">
                       <div class="slds-truncate" title="${dr.name}">${dr.name}</div>
+                      <div class="slds-truncate" title="${dr.customFunction}">${dr.customFunction}</div>
                   </td>
               </tr>`;
       tableBody += row;
@@ -293,6 +300,9 @@ export class AssessmentReporter {
                 <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
                     <div title="Dependencies">Data Raptor Missing dependencies</div>
                 </th>
+                <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
+                    <div title="Dependencies">Remote Action dependencies</div>
+                </th>
             </tr>
         </thead>
         <tbody>
@@ -323,6 +333,9 @@ export class AssessmentReporter {
                     </th>
                     <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
                         <div title="Dependencies">Data Raptor pendencies</div>
+                    </th>
+                    <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
+                        <div title="Dependencies">Remote Action Dependencies</div>
                     </th>
                 </tr>
             </thead>
@@ -375,7 +388,10 @@ export class AssessmentReporter {
                         <div class="slds-truncate" title="Name">Name</div>
                     </th>
                     <th class="" scope="col" style="width: 10%; word-wrap: break-word; white-space: normal; text-align: left;">
-                        <div class="slds-truncate" title="ID">ID</div>
+                        <div class="slds-truncate" title="Custom Function Change">Custom Function Change</div>
+                    </th>
+                    <!--th class="" scope="col" style="width: 10%; word-wrap: break-word; white-space: normal; text-align: left;">
+                        <div class="slds-truncate" title="Custom Function Change">Custom Function Change</div>
                     </th>
                     <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
                         <div title="Dependencies">Omniscript Dependencies</div>
@@ -385,7 +401,7 @@ export class AssessmentReporter {
                     </th>
                     <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
                         <div title="Dependencies">Data Raptor pendencies</div>
-                    </th>
+                    </th-->
                 </tr>
             </thead>
             <tbody>

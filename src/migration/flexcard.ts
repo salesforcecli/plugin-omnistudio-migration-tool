@@ -111,7 +111,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     // Now process each OmniScript and its elements
     for (const flexCard of limitedFlexCards) {
         // Await here since processOSComponents is now async
-        this.ux.log(flexCard['Name']);
+        //this.ux.log(flexCard['Name']);
         const flexCardAssessmentInfo: FlexCardAssessmentInfo = {
             name: flexCard['Name'],
             id: '',

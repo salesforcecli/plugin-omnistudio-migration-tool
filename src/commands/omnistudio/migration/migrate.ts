@@ -19,7 +19,9 @@ import { ResultsBuilder } from '../../../utils/resultsbuilder';
 import { CardMigrationTool } from '../../../migration/flexcard';
 import { OmniScriptExportType, OmniScriptMigrationTool } from '../../../migration/omniscript';
 import { Logger } from '../../../utils/logger';
+import { RemoteActionMigration } from '../../../migration/remoteActionParser';
 import OmnistudioRelatedObjectMigrationFacade from './OmnistudioRelatedObjectMigrationFacade';
+
 
 // Initialize Messages with the current plugin directory
 Messages.importMessagesDirectory(__dirname);
@@ -50,7 +52,7 @@ export default class Migrate extends OmniStudioBaseCommand {
       required: false,
     }),
   };
-
+  private remoteActionMigration: RemoteActionMigration;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public async run(): Promise<any> {
     const namespace = (this.flags.namespace || 'vlocity_ins') as string;
@@ -63,8 +65,15 @@ export default class Migrate extends OmniStudioBaseCommand {
     // this.org is guaranteed because requiresUsername=true, as opposed to supportsUsername
     const conn = this.org.getConnection();
     conn.setApiVersion(apiVersion);
-
-    // Let's time every step
+    this.remoteActionMigration = new RemoteActionMigration(
+      namespace,
+      conn,
+      this.logger,
+      messages,
+      this.ux,
+      allVersions
+    );
+    await this.remoteActionMigration.migrateApexClasses();
     DebugTimer.getInstance().start();
 
     // Register the migration objects

@@ -397,7 +397,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
   }
 
   // Get All OmniScript__c records i.e All IP & OS
-  private async getAllOmniScripts(): Promise<AnyJson[]> {
+  public async getAllOmniScripts(): Promise<AnyJson[]> {
     DebugTimer.getInstance().lap('Query OmniScripts');
     this.logger.info('allVersions : ' + this.allVersions);
     const filters = new Map<string, any>();
@@ -424,30 +424,73 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
       );
     } else {
       filters.set(this.namespacePrefix + 'IsActive__c', true);
-      return await QueryTools.queryWithFilter(
+      const queryResult = await QueryTools.queryWithFilter(
         this.connection,
         this.namespace,
         OmniScriptMigrationTool.OMNISCRIPT_NAME,
         this.getOmniScriptFields(),
         filters
       );
+      return queryResult;
     }
   }
 
   // Get All Elements w.r.t OmniScript__c i.e Elements tagged to passed in IP/OS
-  private async getAllElementsForOmniScript(recordId: string): Promise<AnyJson[]> {
+  public async getAllElementsForOmniScript(recordId: string): Promise<AnyJson[]> {
     // Query all Elements for an OmniScript
     const filters = new Map<string, any>();
     filters.set(this.namespacePrefix + 'OmniScriptId__c', recordId);
 
     // const queryFilterStr = ` Where ${this.namespacePrefix}OmniScriptId__c = '${omniScriptData.keys().next().value}'`;
-    return await QueryTools.queryWithFilter(
+    const queryResult = await QueryTools.queryWithFilter(
       this.connection,
       this.namespace,
       OmniScriptMigrationTool.ELEMENT_NAME,
       this.getElementFields(),
       filters
     );
+    return queryResult;
+  }
+
+  public async getElementsForAllOmniScripts(): Promise<AnyJson[]> {
+    try {
+      // Fetch all OmniScript records
+      const omniscripts = await this.getAllOmniScripts();
+
+      // Extract all OmniScript IDs
+      const omniScriptIds = omniscripts.map((os) => os['Id']);
+
+      if (omniScriptIds.length === 0) {
+        this.logger.warn('No OmniScripts found.');
+        return [];
+      }
+
+      // Fetch all corresponding Element records based on OmniScript IDs
+      const elements = await this.getElementsByOmniScriptIds(omniScriptIds);
+
+      this.logger.info(`Fetched ${elements.length} elements for ${omniScriptIds.length} OmniScripts.`);
+
+      return elements;
+    } catch (error) {
+      this.logger.error('Error fetching elements for all OmniScripts:', error);
+      throw error;
+    }
+  }
+
+  // Helper method to get elements by a list of OmniScript IDs
+  private async getElementsByOmniScriptIds(omniScriptIds: string[]): Promise<AnyJson[]> {
+    const filters = new Map<string, any>();
+    filters.set(`${this.namespacePrefix}OmniScriptId__c`, omniScriptIds);
+
+    const queryResult = await QueryTools.queryWithFilter(
+      this.connection,
+      this.namespace,
+      OmniScriptMigrationTool.ELEMENT_NAME,
+      this.getElementFields(),
+      filters
+    );
+
+    return queryResult;
   }
 
   // Get All Compiled Definitions w.r.t OmniScript__c i.e Definitions tagged to passed in IP/OS

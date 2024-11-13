@@ -6,13 +6,12 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/explicit-member-accessibility */
 import * as fs from 'fs';
-import { DOMParser, XMLSerializer } from 'xmldom';
+import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 import { FileConstant } from '../fileutils/FileConstant';
 
 export class XmlParser {
   private xmlDoc: Document | null = null;
   private fileContent: string;
-
   constructor(private filePath: string) {
     this.fileContent = fs.readFileSync(this.filePath, 'utf-8');
     this.parseXml(this.fileContent);

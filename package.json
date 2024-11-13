@@ -10,18 +10,20 @@
     "@oclif/command": "^1",
     "@oclif/config": "^1",
     "@oclif/errors": "^1",
-    "@salesforce/command": "^4.2.1",
-    "@salesforce/core": "^2.37.1",
+    "@salesforce/command": "^5.3.9",
+    "@salesforce/core": "^8.6.4",
     "@types/jsdom": "^21.1.7",
     "@types/lodash.chunk": "^4.2.9",
+    "@types/mocha": "^10.0.9",
     "@types/shelljs": "^0.8.15",
+    "@xmldom/xmldom": "^0.7.5",
     "cheerio": "^1.0.0",
     "jsdom": "^25.0.0",
     "lodash.chunk": "^4.2.0",
+    "minimatch": "^10.0.1",
     "open": "^8.4.2",
     "shelljs": "^0.8.5",
-    "tslib": "^2",
-    "xmldom": "^0.6.0"
+    "tslib": "^2"
   },
   "devDependencies": {
     "@babel/parser": "^7.25.6",
@@ -30,7 +32,6 @@
     "@oclif/plugin-help": "^3",
     "@oclif/test": "^1",
     "@salesforce/dev-config": "^2.1.2",
-    "@salesforce/dev-scripts": "^0",
     "@salesforce/plugin-command-reference": "^1.4.7",
     "@salesforce/prettier-config": "^0.0.3",
     "@salesforce/ts-sinon": "^1",
@@ -52,13 +53,18 @@
     "eslint-plugin-typescript": "^0",
     "globby": "^11",
     "husky": "^4.3.8",
-    "mocha": "^8.4.0",
-    "nyc": "^15.1.0",
+    "nyc": "^17.1.0",
     "prettier": "^2.8.8",
     "pretty-quick": "^3.3.1",
     "sinon": "10.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^4.9.5"
+  },
+  "overrides": {
+    "semver": "7.5.3",
+    "marked": "^15.0.0",
+    "trim-newlines": "5.0.0",
+    "nanoid": "5.0.8"
   },
   "engines": {
     "node": ">=12.0.0"

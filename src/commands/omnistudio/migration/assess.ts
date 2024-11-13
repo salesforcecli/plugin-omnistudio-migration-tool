@@ -1,6 +1,6 @@
 import * as os from 'os';
 import { flags } from '@salesforce/command';
-import { Messages } from '@salesforce/core';
+import { Messages, Org } from '@salesforce/core';
 import OmniStudioBaseCommand from '../../basecommand';
 import { AssessmentInfo } from '../../../utils/interfaces';
 import { AssessmentReporter } from '../../../utils/resultsbuilder/assessmentReporter';
@@ -46,23 +46,25 @@ export default class Assess extends OmniStudioBaseCommand {
     const namespace = (this.flags.namespace || 'vlocity_ins') as string;
     const apiVersion = (this.flags.apiversion || '55.0') as string;
     const allVersions = (this.flags.allversions || false) as boolean;
-    const conn = this.org.getConnection();
-    Logger.initialiseLogger(this.ux, this.logger);
+    const org = new Org();
+    const conn = org.getConnection();
+    Logger.initialiseLogger(this.ux, Logger.logger);
+    const logger = Logger.logger;
     const projectDirectory = OmnistudioRelatedObjectMigrationFacade.intializeProject();
     conn.setApiVersion(apiVersion);
-    const lwcparser = new LwcMigration(projectDirectory, namespace, this.org);
-    const apexMigrator = new ApexMigration(projectDirectory, namespace, this.org);
+    const lwcparser = new LwcMigration(projectDirectory, namespace, org);
+    const apexMigrator = new ApexMigration(projectDirectory, namespace, org);
     const osMigrator = new OmniScriptMigrationTool(
       OmniScriptExportType.All,
       namespace,
       conn,
-      this.logger,
+      logger,
       messages,
       this.ux,
       allVersions
     );
-    const flexMigrator = new CardMigrationTool(namespace, conn, this.logger, messages, this.ux, allVersions);
-    const drMigrator = new DataRaptorMigrationTool(namespace, conn, this.logger, messages, this.ux);
+    const flexMigrator = new CardMigrationTool(namespace, conn, logger, messages, this.ux, allVersions);
+    const drMigrator = new DataRaptorMigrationTool(namespace, conn, logger, messages, this.ux);
     this.logger.info(namespace);
     this.ux.log(`Using Namespace: ${namespace}`);
 

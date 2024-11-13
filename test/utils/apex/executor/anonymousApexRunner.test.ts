@@ -2,7 +2,7 @@ import { Org } from '@salesforce/core';
 
 import sinon = require('sinon');
 import { expect } from '@salesforce/command/lib/test';
-import { Connection, ExecuteAnonymousResult } from 'jsforce';
+import { Connection } from 'jsforce';
 import { AnonymousApexRunner } from '../../../../src/utils/apex/executor/AnonymousApexRunner';
 
 describe('AnonymusApexRunner', () => {
@@ -30,7 +30,7 @@ describe('AnonymusApexRunner', () => {
 
     const executeAnonymousResultStub = sandboxStub
       .stub()
-      .returns(Promise.resolve({ success: true } as unknown as ExecuteAnonymousResult));
+      .returns(Promise.resolve({ success: true } as unknown as AnonymousApexRunner));
     sandboxStub.stub(Org.prototype.getConnection().tooling, 'executeAnonymous').callsFake(executeAnonymousResultStub);
 
     const result = await AnonymousApexRunner.run(org, anonymousApex);

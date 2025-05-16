@@ -113,7 +113,8 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     const flexCardAssessmentInfos: FlexCardAssessmentInfo[] = [];
     let progressCounter = 0;
     const progressBar = createProgressBar('Assessing', 'Flexcard');
-    progressBar.start(flexCards.length, progressCounter);
+    progressBar.start(flexCards.length, progressCounter);    const uniqueNames = new Set<string>();
+
     const limitedFlexCards = flexCards.slice(0, 200);
 
     // Now process each OmniScript and its elements
@@ -125,9 +126,39 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         dependenciesIP: [],
         dependenciesDR: [],
         dependenciesOS: [],
+        dependenciesLWC: [],
         infos: [],
         warnings: [],
       };
+
+      // Check for name changes due to API naming requirements
+      const originalName = flexCard['Name'];
+      const cleanedName = this.cleanName(originalName);
+      if (cleanedName !== originalName) {
+        flexCardAssessmentInfo.warnings.push(
+          `Card name will be changed from "${originalName}" to "${cleanedName}" to follow API naming standards.`
+        );
+      }
+
+      // Check for duplicate names
+      if (uniqueNames.has(cleanedName)) {
+        flexCardAssessmentInfo.warnings.push(
+          `Potential duplicate: Another card has the same name "${cleanedName}" after name cleaning. This may cause conflicts during migration.`
+        );
+      }
+      uniqueNames.add(cleanedName);
+
+      // Check for author name changes
+      const originalAuthor = flexCard[this.namespacePrefix + 'Author__c'];
+      if (originalAuthor) {
+        const cleanedAuthor = this.cleanName(originalAuthor);
+        if (cleanedAuthor !== originalAuthor) {
+          flexCardAssessmentInfo.warnings.push(
+            `Author name will be changed from "${originalAuthor}" to "${cleanedAuthor}" to follow API naming standards.`
+          );
+        }
+      }
+
       this.updateDependencies(flexCard, flexCardAssessmentInfo);
       flexCardAssessmentInfos.push(flexCardAssessmentInfo);
       progressBar.update(++progressCounter);
@@ -136,16 +167,197 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
   }
 
   private updateDependencies(flexCard, flexCardAssessmentInfo): void {
-    let dataSource = JSON.parse(flexCard[this.namespacePrefix + 'Datasource__c']);
-    if (dataSource?.datasource) {
+    let dataSource = JSON.parse(flexCard[this.namespacePrefix + 'Datasource__c'] || '{}');
+    // Handle both camelCase and lowercase variants
+    if (dataSource?.dataSource) {
       dataSource = dataSource.dataSource;
+    } else if (dataSource?.datasource) {
+      dataSource = dataSource.datasource;
     }
-    if (dataSource['type'] === 'DataRaptor') {
-      flexCardAssessmentInfo.dependenciesDR.push(dataSource['value']['bundle']);
+
+    // Check if it's a DataRaptor source
+    if (dataSource.type === 'DataRaptor') {
+      const originalBundle = dataSource.value?.bundle;
+      if (originalBundle) {
+        const cleanedBundle = this.cleanName(originalBundle);
+        flexCardAssessmentInfo.dependenciesDR.push(cleanedBundle);
+
+        // Add warning if DataRaptor name will change
+        if (originalBundle !== cleanedBundle) {
+          flexCardAssessmentInfo.warnings.push(
+            `DataRaptor reference "${originalBundle}" will be changed to "${cleanedBundle}" during migration.`
+          );
+        }
+      }
     } else if (dataSource.type === 'IntegrationProcedures') {
-      flexCardAssessmentInfo.dependenciesIP.push(dataSource['value']['ipMethod']);
+      const originalIpMethod = dataSource.value?.ipMethod;
+      if (originalIpMethod) {
+        const parts = originalIpMethod.split('_');
+        const cleanedParts = parts.map((p) => this.cleanName(p, true));
+        const cleanedIpMethod = cleanedParts.join('_');
+
+        flexCardAssessmentInfo.dependenciesIP.push(cleanedIpMethod);
+
+        // Add warning if IP name will change
+        if (originalIpMethod !== cleanedIpMethod) {
+          flexCardAssessmentInfo.warnings.push(
+            `Integration Procedure reference "${originalIpMethod}" will be changed to "${cleanedIpMethod}" during migration.`
+          );
+        }
+
+        // Add warning for IP references with more than 2 parts (which potentially need manual updates)
+        if (parts.length > 2) {
+          flexCardAssessmentInfo.warnings.push(
+            `Integration Procedure reference "${originalIpMethod}" may need manual updates after migration.`
+          );
+        }
+      }
+    }
+
+    // Check for OmniScript dependencies in the card's definition
+    try {
+      const definition = JSON.parse(flexCard[this.namespacePrefix + 'Definition__c'] || '{}');
+      if (definition && definition.states) {
+        for (const state of definition.states) {
+          if (state.omniscripts && Array.isArray(state.omniscripts)) {
+            for (const os of state.omniscripts) {
+              if (os.type && os.subtype) {
+                const osRef = `${os.type}_${os.subtype}_${os.language || 'English'}`;
+                flexCardAssessmentInfo.dependenciesOS.push(osRef);
+              }
+            }
+          }
+
+          // Also check for omniscripts referenced in component actions
+          if (state.components) {
+            for (const componentKey in state.components) {
+              if (state.components.hasOwnProperty(componentKey)) {
+                const component = state.components[componentKey];
+                this.checkComponentForDependencies(component, flexCardAssessmentInfo);
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      // Log the error but continue processing
+      this.logger.error(`Error parsing definition for card ${flexCard.Name}: ${err.message}`);
     }
   }
+
+  private checkComponentForDependencies(component: any, flexCardAssessmentInfo: FlexCardAssessmentInfo): void {
+    // Check if this component is an action element
+    if (component.element === 'action' && component.property && component.property.actionList) {
+      // Process each action in the actionList
+      for (const action of component.property.actionList) {
+        if (action.stateAction) {
+          // Case 1: Direct OmniScript reference
+          if (action.stateAction.type === 'OmniScript' && action.stateAction.omniType) {
+            const omniType = action.stateAction.omniType;
+            if (omniType.Name && typeof omniType.Name === 'string') {
+              const originalName = omniType.Name;
+              const parts = originalName.split('/');
+
+              if (parts.length >= 2) {
+                // Check for name changes in each part
+                const cleanedParts = parts.map((p) => this.cleanName(p));
+                const cleanedName = cleanedParts.join('_');
+                flexCardAssessmentInfo.dependenciesOS.push(cleanedName);
+
+                // Add warning if any part of the name will change
+                for (let i = 0; i < parts.length; i++) {
+                  if (parts[i] !== cleanedParts[i]) {
+                    flexCardAssessmentInfo.warnings.push(
+                      `OmniScript reference part "${parts[i]}" will be changed to "${cleanedParts[i]}" during migration.`
+                    );
+                  }
+                }
+              }
+            }
+          }
+
+          // Case 2: Flyout OmniScript reference
+          else if (
+            action.stateAction.type === 'Flyout' &&
+            action.stateAction.flyoutType === 'OmniScripts' &&
+            action.stateAction.osName
+          ) {
+            const osName = action.stateAction.osName;
+            if (typeof osName === 'string') {
+              // osName is typically in format "Omniscript/Testing/English"
+              const originalName = osName;
+              const parts = originalName.split('/');
+
+              if (parts.length >= 2) {
+                // Check for name changes in each part
+                const cleanedParts = parts.map((p) => this.cleanName(p));
+                const cleanedName = cleanedParts.join('_');
+                flexCardAssessmentInfo.dependenciesOS.push(cleanedName);
+
+                // Add warning if any part of the name will change
+                for (let i = 0; i < parts.length; i++) {
+                  if (parts[i] !== cleanedParts[i]) {
+                    flexCardAssessmentInfo.warnings.push(
+                      `OmniScript reference part "${parts[i]}" will be changed to "${cleanedParts[i]}" during migration.`
+                    );
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Check for Custom LWC component
+    if (component.element === 'customLwc' && component.property) {
+      // Check customlwcname property
+      /*if (component.property.customlwcname) {
+        flexCardAssessmentInfo.dependenciesLWC.push(component.property.customlwcname);
+      } */
+
+      // Also check customLwcData if available (has more details)
+      if (component.property.customLwcData) {
+        const lwcData = component.property.customLwcData;
+
+        // Use DeveloperName as a more reliable identifier
+        if (lwcData.DeveloperName) {
+          const lwcName = lwcData.NamespacePrefix
+            ? `${lwcData.NamespacePrefix}.${lwcData.DeveloperName}`
+            : lwcData.DeveloperName;
+
+          // Avoid duplicates
+          if (!flexCardAssessmentInfo.dependenciesLWC.includes(lwcName)) {
+            flexCardAssessmentInfo.dependenciesLWC.push(lwcName);
+          }
+        }
+      }
+    }
+
+    // Check standard component actions if they exist
+    if (component.actions && Array.isArray(component.actions)) {
+      for (const action of component.actions) {
+        if (action.stateAction && action.stateAction.omniType) {
+          const omniType = action.stateAction.omniType;
+          if (omniType.Name && typeof omniType.Name === 'string') {
+            const parts = omniType.Name.split('/');
+            if (parts.length >= 2) {
+              const osRef = parts.join('_');
+              flexCardAssessmentInfo.dependenciesOS.push(osRef);
+            }
+          }
+        }
+      }
+    }
+
+    // Check child components recursively
+    if (component.children && Array.isArray(component.children)) {
+      for (const child of component.children) {
+        this.checkComponentForDependencies(child, flexCardAssessmentInfo);
+      }
+    }
+  }
+
   // Query all cards that are active
   private async getAllActiveCards(): Promise<AnyJson[]> {
     //DebugTimer.getInstance().lap('Query Vlocity Cards');

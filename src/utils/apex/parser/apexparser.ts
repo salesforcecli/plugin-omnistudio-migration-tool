@@ -28,6 +28,7 @@ export class ApexASTParser {
   private astListener: ApexParserListener;
   private methodCalls: Set<MethodCall>;
   private classDeclarationToken: Token;
+  private hasCallMethod = false;
 
   public get implementsInterfaces(): Map<InterfaceImplements, Token[]> {
     return this.implementsInterface;
@@ -45,6 +46,9 @@ export class ApexASTParser {
   }
   public get nonReplacableMethodParameters(): MethodCall[] {
     return this.nonReplacableMethodParameter;
+  }
+  public get hasCallMethodImplemented(): boolean {
+    return this.hasCallMethod;
   }
 
   public constructor(
@@ -135,6 +139,18 @@ export class ApexASTParser {
           ctx.typeName(1).text === 'DRProcessResult'
         ) {
           MapUtil.addToValueList(this.parser.namespaceChange, this.parser.namespace, ctx.typeName(0).start);
+        }
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      public enterMethodDeclaration(ctx: any): void {
+        if (ctx.id && ctx.id().text && ctx.id().text.toLowerCase() === 'call') {
+          const formalParams = ctx.formalParameters();
+          if (formalParams && formalParams.formalParameterList()) {
+            const paramList = formalParams.formalParameterList();
+            if (paramList.formalParameter() && paramList.formalParameter().length === 2) {
+              this.parser.hasCallMethod = true;
+            }
+          }
         }
       }
     }

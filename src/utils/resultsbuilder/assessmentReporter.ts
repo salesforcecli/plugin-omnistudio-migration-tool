@@ -193,6 +193,27 @@ export class AssessmentReporter {
                         <body>
                             <div class="slds-p-around_medium">
                                 <h1 class="slds-text-heading_medium">Assessment Reports</h1>
+                                
+                                <!-- Static Banner with HTML Content -->
+                                <div class="slds-box slds-theme_info slds-m-bottom_medium">
+                                    <div class="slds-media slds-media_center">
+                                        <div class="slds-media__figure">
+                                            <span class="slds-icon_container slds-icon-utility-info" title="Information">
+                                                <svg class="slds-icon slds-icon_small slds-icon-text-default" aria-hidden="true">
+                                                    <use xlink:href="/assets/icons/utility-sprite/svg/symbols.svg#info"></use>
+                                                </svg>
+                                                <span class="slds-assistive-text">Information</span>
+                                            </span>
+                                        </div>
+                                        <div class="slds-media__body">
+                                            <h2 class="slds-text-heading_small">Migration Assessment Summary</h2>
+                                            <p>This report provides a comprehensive overview of all components that need to be migrated from OmniStudio custom objects to standard objects.</p>
+                                            <p class="slds-m-top_small">Please review each section carefully and address any warnings or errors before proceeding with the migration.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- End of Static Banner -->
+                                
                                 <ul class="slds-list_vertical slds-has-dividers_left-space">
                                     ${listBody}
                                 </ul>
@@ -215,6 +236,16 @@ export class AssessmentReporter {
     let tableBody = '';
     tableBody += '<div class="slds-text-heading_large">Flexcard Components Assessment</div>';
     for (const card of flexCardAssessmentInfos) {
+      // Generate warnings HTML
+      let warningsHtml = '';
+      if (card.warnings && card.warnings.length > 0) {
+        warningsHtml = '<ul class="slds-list_dotted">';
+        for (const warning of card.warnings) {
+          warningsHtml += `<li class="slds-text-color_warning">${warning}</li>`;
+        }
+        warningsHtml += '</ul>';
+      }
+
       const row = `
               <tr class="slds-hint_parent">
                   <td style="word-wrap: break-word; white-space: normal; max-width: 200px;">
@@ -231,6 +262,12 @@ export class AssessmentReporter {
                   </td>
                   <td style="word-wrap: break-word; white-space: normal; max-width: 60%; overflow: hidden;">
                       <div title="${card.dependenciesDR}">${card.dependenciesDR}</div>
+                  </td>
+                  <td style="word-wrap: break-word; white-space: normal; max-width: 60%; overflow: hidden;">
+                      <div title="${card.dependenciesLWC}">${card.dependenciesLWC}</div>
+                  </td>
+                  <td style="word-wrap: break-word; white-space: normal; max-width: 100%; overflow: hidden;">
+                      <div>${warningsHtml}</div>
                   </td>
               </tr>`;
       tableBody += row;
@@ -263,20 +300,26 @@ export class AssessmentReporter {
             <table style="width: 100%; table-layout: auto;" class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped slds-table_col-bordered" aria-label="Results for Flexcards updates">
             <thead>
                 <tr class="slds-line-height_reset">
-                    <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
+                    <th class="" scope="col" style="width: 15%; word-wrap: break-word; white-space: normal; text-align: left;">
                         <div class="slds-truncate" title="Name">Name</div>
                     </th>
                     <th class="" scope="col" style="width: 10%; word-wrap: break-word; white-space: normal; text-align: left;">
                         <div class="slds-truncate" title="ID">ID</div>
                     </th>
-                    <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
+                    <th class="" scope="col" style="width: 12%; word-wrap: break-word; white-space: normal; text-align: left;">
                         <div title="Dependencies">Omniscript Dependencies</div>
                     </th>
-                    <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
+                    <th class="" scope="col" style="width: 12%; word-wrap: break-word; white-space: normal; text-align: left;">
                         <div title="Dependencies">Integration Procedures Dependencies</div>
                     </th>
-                    <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
+                    <th class="" scope="col" style="width: 12%; word-wrap: break-word; white-space: normal; text-align: left;">
                         <div title="Dependencies">Data Mapper Dependencies</div>
+                    </th>
+                    <th class="" scope="col" style="width: 12%; word-wrap: break-word; white-space: normal; text-align: left;">
+                        <div title="Dependencies">LWC Dependencies</div>
+                    </th>
+                    <th class="" scope="col" style="width: 22%; word-wrap: break-word; white-space: normal; text-align: left;">
+                        <div title="Warnings">Summary</div>
                     </th>
                 </tr>
             </thead>
@@ -287,4 +330,5 @@ export class AssessmentReporter {
         </div>`;
     return tableBody;
   }
+
 }

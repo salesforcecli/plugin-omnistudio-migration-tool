@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as shell from 'shelljs';
 import { Org } from '@salesforce/core';
+import { Token } from 'antlr4ts';
 import {
   ApexASTParser,
   InsertAfterTokenUpdate,
@@ -23,7 +24,7 @@ import { BaseRelatedObjectMigration } from './BaseRealtedObjectMigration';
 
 const APEXCLASS = 'Apexclass';
 const APEX_CLASS_PATH = '/force-app/main/default/classes';
-const CALLABLE = 'Callable';
+const CALLABLE = 'System.Callable';
 const VLOCITY_OPEN_INTERFACE2 = 'VlocityOpenInterface2';
 const VLOCITY_OPEN_INTERFACE = 'VlocityOpenInterface';
 
@@ -35,7 +36,7 @@ export class ApexMigration extends BaseRelatedObjectMigration {
   public constructor(projectPath: string, namespace: string, org: Org, targetApexNameSpace?: string) {
     super(projectPath, namespace, org);
     this.updatedNamespace = targetApexNameSpace ? targetApexNameSpace : namespace;
-    this.callableInterface = new InterfaceImplements(CALLABLE, this.namespace);
+    this.callableInterface = new InterfaceImplements('Callable', 'System');
     this.vlocityOpenInterface2 = new InterfaceImplements(VLOCITY_OPEN_INTERFACE2, this.namespace);
     this.vlocityOpenInterface = new InterfaceImplements(VLOCITY_OPEN_INTERFACE, this.namespace);
   }
@@ -54,7 +55,7 @@ export class ApexMigration extends BaseRelatedObjectMigration {
     // const targetOrg: Org = this.org;
     // sfProject.retrieve(APEXCLASS, targetOrg.getUsername());
     Logger.logger.info('Processing Apex ');
-    const apexAssessmentInfos = this.processApexFiles(this.projectPath);
+    const apexAssessmentInfos = this.processApexFiles(this.projectPath, 'migration');
     Logger.logger.info('Apex processed for migration ');
     // sfProject.deploy(APEXCLASS, targetOrg.getUsername());
     shell.cd(pwd);
@@ -65,11 +66,11 @@ export class ApexMigration extends BaseRelatedObjectMigration {
     const pwd = shell.pwd();
     shell.cd(this.projectPath);
     sfProject.retrieve(APEXCLASS, this.org.getUsername());
-    const apexAssessmentInfos = this.processApexFiles(this.projectPath);
+    const apexAssessmentInfos = this.processApexFiles(this.projectPath, 'assessment');
     shell.cd(pwd);
     return apexAssessmentInfos;
   }
-  public processApexFiles(dir: string): ApexAssessmentInfo[] {
+  public processApexFiles(dir: string, type = 'migration'): ApexAssessmentInfo[] {
     dir += APEX_CLASS_PATH;
     let files: File[] = [];
     files = FileUtil.readFilesSync(dir);
@@ -77,7 +78,7 @@ export class ApexMigration extends BaseRelatedObjectMigration {
     for (const file of files) {
       if (file.ext !== '.cls') continue;
       try {
-        const apexAssementInfo = this.processApexFile(file);
+        const apexAssementInfo = this.processApexFile(file, type);
         if (apexAssementInfo && apexAssementInfo.diff.length < 3) continue;
         fileAssessmentInfo.push(apexAssementInfo);
       } catch (err) {
@@ -88,7 +89,7 @@ export class ApexMigration extends BaseRelatedObjectMigration {
     return fileAssessmentInfo;
   }
 
-  public processApexFile(file: File): ApexAssessmentInfo {
+  public processApexFile(file: File, type = 'migration'): ApexAssessmentInfo {
     const fileContent = fs.readFileSync(file.location, 'utf8');
     const interfaces: InterfaceImplements[] = [];
     interfaces.push(this.vlocityOpenInterface, this.vlocityOpenInterface2, this.callableInterface);
@@ -120,7 +121,13 @@ export class ApexMigration extends BaseRelatedObjectMigration {
     let difference = [];
     if (tokenUpdates && tokenUpdates.length > 0) {
       const updatedContent = parser.rewrite(tokenUpdates);
-      fs.writeFileSync(file.location, parser.rewrite(tokenUpdates));
+      // Only write file changes if we're in migration mode, not assessment mode
+      if (type === 'migration') {
+        fs.writeFileSync(file.location, updatedContent);
+        Logger.logger.info(`Applied changes to Apex class ${file.name}`);
+      } else {
+        Logger.logger.info(`Changes identified for Apex class ${file.name} but not applied (assessment mode)`);
+      }
       difference = new FileDiffUtil().getFileDiff(file.name, fileContent, updatedContent);
     }
     if (updateMessages.length === 0) {
@@ -142,15 +149,96 @@ export class ApexMigration extends BaseRelatedObjectMigration {
   private processApexFileForRemotecalls(file: File, parser: ApexASTParser): TokenUpdater[] {
     const implementsInterface = parser.implementsInterfaces;
     const tokenUpdates: TokenUpdater[] = [];
-    if (implementsInterface.has(this.callableInterface)) {
-      Logger.logger.info('file ${file.name} already implements callable no changes will be applied');
-    } else if (implementsInterface.has(this.vlocityOpenInterface2)) {
+
+    // Case 1: Already implements just System.Callable - no changes needed
+    if (implementsInterface.has(this.callableInterface) && implementsInterface.size === 1) {
+      Logger.logger.info(`File ${file.name} already implements System.Callable only`);
+      return tokenUpdates;
+    }
+
+    // Case 2: Already implements multiple interfaces including Callable - keep only System.Callable
+    if (implementsInterface.has(this.callableInterface) && implementsInterface.size > 1) {
+      Logger.logger.info(
+        `File ${file.name} has multiple interfaces including Callable, standardizing to System.Callable only`
+      );
+      // We need to identify the entire implements clause and replace it
+      return this.replaceAllInterfaces(implementsInterface, tokenUpdates, parser, file.name);
+    }
+
+    // Case 3: Implements VlocityOpenInterface2 - replace with System.Callable
+    if (implementsInterface.has(this.vlocityOpenInterface2)) {
+      Logger.logger.info(`File ${file.name} implements VlocityOpenInterface2, replacing with System.Callable`);
       const tokens = implementsInterface.get(this.vlocityOpenInterface2);
       tokenUpdates.push(new RangeTokenUpdate(CALLABLE, tokens[0], tokens[1]));
-      tokenUpdates.push(new InsertAfterTokenUpdate(this.callMethodBody(), parser.classDeclaration));
-    } else if (implementsInterface.has(this.vlocityOpenInterface)) {
-      Logger.logger.error('file ${file.name} implements VlocityOpenInterface please implement Callable');
+
+      // Only add call method if it doesn't already exist
+      if (!parser.hasCallMethodImplemented) {
+        tokenUpdates.push(new InsertAfterTokenUpdate(this.callMethodBody(), parser.classDeclaration));
+      } else {
+        Logger.logger.info(`File ${file.name} already has a call() method, not adding`);
+      }
     }
+    // Case 4: Implements VlocityOpenInterface - replace with System.Callable
+    else if (implementsInterface.has(this.vlocityOpenInterface)) {
+      Logger.logger.info(`File ${file.name} implements VlocityOpenInterface, replacing with System.Callable`);
+      const tokens = implementsInterface.get(this.vlocityOpenInterface);
+      tokenUpdates.push(new RangeTokenUpdate(CALLABLE, tokens[0], tokens[1]));
+
+      // Only add call method if it doesn't already exist
+      if (!parser.hasCallMethodImplemented) {
+        tokenUpdates.push(new InsertAfterTokenUpdate(this.callMethodBody(), parser.classDeclaration));
+      } else {
+        Logger.logger.info(`File ${file.name} already has a call() method, not adding`);
+      }
+    }
+    return tokenUpdates;
+  }
+
+  /**
+   * Replaces all interfaces with just System.Callable
+   * This handles complex scenarios with multiple interfaces
+   */
+  private replaceAllInterfaces(
+    implementsInterface: Map<InterfaceImplements, Token[]>,
+    tokenUpdates: TokenUpdater[],
+    parser: ApexASTParser,
+    fileName: string
+  ): TokenUpdater[] {
+    let leftmostToken: Token | null = null;
+    let rightmostToken: Token | null = null;
+
+    for (const [, tokens] of implementsInterface.entries()) {
+      if (tokens && tokens.length > 0) {
+        const firstToken = tokens[0];
+        const lastToken = tokens[tokens.length - 1];
+
+        // Safe access using optional chaining
+        const firstIndex = firstToken?.startIndex ?? Number.MAX_SAFE_INTEGER;
+        const leftIndex = leftmostToken?.startIndex ?? Number.MAX_SAFE_INTEGER;
+
+        if (!leftmostToken || firstIndex < leftIndex) {
+          leftmostToken = firstToken;
+        }
+
+        const lastStopIndex = lastToken?.stopIndex ?? 0;
+        const rightStopIndex = rightmostToken?.stopIndex ?? 0;
+
+        if (!rightmostToken || lastStopIndex > rightStopIndex) {
+          rightmostToken = lastToken;
+        }
+      }
+    }
+
+    if (leftmostToken && rightmostToken) {
+      tokenUpdates.push(new RangeTokenUpdate(CALLABLE, leftmostToken, rightmostToken));
+
+      if (!parser.hasCallMethodImplemented) {
+        tokenUpdates.push(new InsertAfterTokenUpdate(this.callMethodBody(), parser.classDeclaration));
+      } else {
+        Logger.logger.info(`File ${fileName} already has a call() method, not adding`);
+      }
+    }
+
     return tokenUpdates;
   }
 

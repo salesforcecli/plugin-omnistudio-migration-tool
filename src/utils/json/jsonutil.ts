@@ -5,6 +5,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 export class jsonutil {
   // Recursive method to find a property in the JSON
+  // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
   public static findProperty(obj: any, propertyName: string): any {
     if (obj === null || typeof obj !== 'object') {
       return null;

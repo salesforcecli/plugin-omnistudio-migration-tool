@@ -77,7 +77,7 @@ export class ApexMigration extends BaseRelatedObjectMigration {
       if (file.ext !== '.cls') continue;
       try {
         const apexAssementInfo = this.processApexFile(file);
-        if (apexAssementInfo && apexAssementInfo.diff.length === 0) continue;
+        if (apexAssementInfo && apexAssementInfo.diff.length < 3) continue;
         fileAssessmentInfo.push(apexAssementInfo);
       } catch (err) {
         Logger.logger.error(`Error processing ${file.name}`);
@@ -116,7 +116,7 @@ export class ApexMigration extends BaseRelatedObjectMigration {
       updateMessages.push('File has been updated to allow calls to Omnistudio components');
       tokenUpdates.push(...tokeUpdatesForMethodCalls);
     }
-    let difference = '';
+    let difference = [];
     if (tokenUpdates && tokenUpdates.length > 0) {
       const updatedContent = parser.rewrite(tokenUpdates);
       fs.writeFileSync(file.location, parser.rewrite(tokenUpdates));
@@ -134,7 +134,7 @@ export class ApexMigration extends BaseRelatedObjectMigration {
       warnings: warningMessage,
       infos: updateMessages,
       path: file.location,
-      diff: difference,
+      diff: JSON.stringify(difference),
     };
   }
 

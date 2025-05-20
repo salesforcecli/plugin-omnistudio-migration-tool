@@ -13,6 +13,14 @@ import {
 import { OSAssesmentReporter } from './OSAssessmentReporter';
 import { IPAssessmentReporter } from './IPAssessmentReporter';
 import { DRAssessmentReporter } from './DRAssessmentReporter';
+import { lwcHtml, lwcJs, lwcCss } from './assessmentReporterUtils/LWCUtils';
+
+// Define a new type for the assessment info with the desired diff format
+interface CustomLWCAssessmentInfo {
+  name: string;
+  changeInfos: Array<{ path: string; name: string; diff: Array<[string | null, string | null]> }>;
+  errors: string[];
+}
 
 export class AssessmentReporter {
   public static async generate(result: AssessmentInfo, instanceUrl: string): Promise<void> {
@@ -23,7 +31,6 @@ export class AssessmentReporter {
     const integrationProcedureAssessmentFilePath = basePath + '/integration_procedure_assessment.html';
     const dataMapperAssessmentFilePath = basePath + '/datamapper_assessment.html';
     const apexAssessmentFilePath = basePath + '/apex_assessment.html';
-    const lwcAssessmentFilePath = basePath + '/lwc_assessment.html';
 
     this.createDocument(
       omniscriptAssessmentFilePath,
@@ -42,7 +49,7 @@ export class AssessmentReporter {
       DRAssessmentReporter.generateDRAssesment(result.dataRaptorAssessmentInfos, instanceUrl)
     );
     this.createDocument(apexAssessmentFilePath, this.generateApexAssesment(result.apexAssessmentInfos));
-    this.createDocument(lwcAssessmentFilePath, this.generateLwcAssesment(result.lwcAssessmentInfos));
+    this.generateLwcAssesment(result.lwcAssessmentInfos);
     const nameUrls = [
       {
         name: 'omnscript assessment report',
@@ -108,43 +115,27 @@ export class AssessmentReporter {
     const doc = this.generateDocument(htmlBody);
     fs.writeFileSync(filePath, doc);
   }
-  private static generateLwcAssesment(lwcAssessmentInfos: LWCAssessmentInfo[]): string {
-    let tableBody = '';
-    tableBody += `
-    <html>
-            <head>
-                <title>OmniStudio Migration Assessment</title>
-                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/design-system/2.17.5/styles/salesforce-lightning-design-system.min.css" />
-            </head>
-            <body>
-            <div style="margin: 20px;">
-                <div class="slds-text-heading_large">OmniStudio Migration Assessment</div>`;
-    tableBody += '<div class="slds-text-heading_large">LWC Assessment</div>';
+  private static generateLwcAssesment(lwcAssessmentInfos: LWCAssessmentInfo[]): void {
+    const basePath = process.cwd() + '/assessment_reports';
+    fs.writeFileSync(basePath + '/lwc_assessment.css', lwcCss);
+    const assesmentInfo: CustomLWCAssessmentInfo[] = [];
     for (const lwcAssessmentInfo of lwcAssessmentInfos) {
-      let changeInfoRows = '';
-
-      for (const changeInfo of lwcAssessmentInfo.changeInfos) {
-        changeInfoRows += `<tr class ="slds-hint_parent">
-                                <td><div class="slds-truncate" title="${changeInfo.name}"><a href="${changeInfo.path}">${changeInfo.name}</div></td>
-                                <td><div class="slds-scrollable" style="height:8rem;width:36rem"><pre>${changeInfo.diff}<pre></div></td>
-                            </tr>`;
-      }
-      const changeInfoTable = `<table>
-                                    ${changeInfoRows}
-                                </table>`;
-      const row = `<tr class="slds-hint_parent">
-                            <td><div class="slds-truncate" title="${lwcAssessmentInfo.name}">${lwcAssessmentInfo.name}</div></td>
-                            <td>${changeInfoTable}</td>
-                        </tr>`;
-      tableBody += row;
+      const newAssessmentInfo: CustomLWCAssessmentInfo = {
+        name: lwcAssessmentInfo.name,
+        errors: lwcAssessmentInfo.errors,
+        changeInfos: lwcAssessmentInfo.changeInfos.map((changeInfo: { path: string; name: string; diff: string }) => {
+          return {
+            path: changeInfo.path,
+            name: changeInfo.name,
+            diff: JSON.parse(changeInfo.diff) as Array<[string | null, string | null]>,
+          };
+        }),
+      };
+      assesmentInfo.push(newAssessmentInfo);
     }
-    tableBody += `
-    </div>
-            </div>
-            </body>
-        </html>
-        `;
-    return this.getLWCAssesmentReport(tableBody);
+    const additionalJs = `const jsonData = ${JSON.stringify(assesmentInfo)};\n\n`;
+    fs.writeFileSync(basePath + '/lwc_assessment.js', additionalJs + lwcJs);
+    fs.writeFileSync(basePath + '/lwc_assessment.html', lwcHtml);
   }
 
   private static generateApexAssesment(apexAssessmentInfos: ApexAssessmentInfo[]): string {
@@ -153,16 +144,38 @@ export class AssessmentReporter {
     for (const apexAssessmentInfo of apexAssessmentInfos) {
       const message = this.generateMessages(apexAssessmentInfo.infos);
       const errors = this.generateMessages(apexAssessmentInfo.warnings);
+      const newDiff = this.getDiffHTML(apexAssessmentInfo.diff);
       const row = `<tr class="slds-hint_parent">
       <td><div class="slds-truncate" title="${apexAssessmentInfo.name}">${apexAssessmentInfo.name}</div></td>
       <td><div class="slds-truncate" title="${apexAssessmentInfo.name}"><a href="${apexAssessmentInfo.path}">${apexAssessmentInfo.name}</div></td>
-      <td><div class="slds-truncate">${apexAssessmentInfo.diff}</div></td>
+      <td><div class="slds-truncate">${newDiff}</div></td>
       <td><div class="slds-truncate"></div>${message}</td>
       <td><div class="slds-truncate"></div>${errors}</td>
      </tr>`;
       tableBody += row;
     }
     return this.getApexAssessmentReport(tableBody);
+  }
+
+  private static getDiffHTML(diff: string): string {
+    const diffArray: Array<[string | null, string | null]> = JSON.parse(diff) as Array<[string | null, string | null]>;
+    let originalLine = 1;
+    let modifiedLine = 1;
+    let result = '';
+    for (const [original, modified] of diffArray) {
+      if (original === modified) {
+        result += `<div style="color: black;">• Line ${modifiedLine}: ${original}</div>`;
+        modifiedLine++;
+        originalLine++;
+      } else if (original !== null && modified === null) {
+        result += `<div style="color: red;">- Line ${originalLine}: ${original}</div>`;
+        originalLine++;
+      } else if (original === null && modified !== null) {
+        result += `<div style="color: green;">+ Line ${modifiedLine}: ${modified}</div>`;
+        modifiedLine++;
+      }
+    }
+    return result;
   }
 
   private static getApexAssessmentReport(tableContent: string): string {
@@ -284,31 +297,6 @@ export class AssessmentReporter {
             </tbody>
             </table>
         </div>`;
-    return tableBody;
-  }
-
-  private static getLWCAssesmentReport(tableContent: string): string {
-    const tableBody = `
-      <div style="margin-block:15px">
-        <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped slds-table_col-bordered" aria-label="Results for LWC updates">
-        <thead>
-            <tr class="slds-line-height_reset">
-                <th class="" scope="col" style="width: 25%">
-                    <div class="slds-truncate" title="Name">Name</div>
-                </th>
-                <th class="" scope="col" style="width: 10%">
-                    <div class="slds-truncate" title="Changes">File Path & Diff</div>
-                </th>
-                <th class="" scope="col">
-                    <div class="slds-truncate" title="Errors">Errors</div>
-                </th>
-            </tr>
-        </thead>
-        <tbody>
-        ${tableContent}
-        </tbody>
-        </table>
-      </div>`;
     return tableBody;
   }
 }

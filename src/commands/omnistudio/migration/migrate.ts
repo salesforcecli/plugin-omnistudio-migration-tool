@@ -73,17 +73,17 @@ export default class Migrate extends OmniStudioBaseCommand {
     conn.setApiVersion(apiVersion);
 
     const orgs: OmnistudioOrgDetails = await OrgUtils.getOrgDetails(conn, namespace);
-        
+
     if (orgs.packageDetails.length === 0) {
       this.ux.log('No package installed on given org.');
       return;
     }
-    
+
     if (orgs.omniStudioOrgPermissionEnabled) {
       this.ux.log('The org is already on standard data model.');
       return;
     }
-    
+
     // Let's time every step
     DebugTimer.getInstance().start();
     let projectPath: string;

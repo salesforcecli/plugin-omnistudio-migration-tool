@@ -10,9 +10,19 @@ import {
   FlexCardAssessmentInfo,
   nameLocation,
 } from '../interfaces';
+import { generateHtmlTable } from '../reportGenerator/reportGenerator';
 import { OSAssesmentReporter } from './OSAssessmentReporter';
 import { IPAssessmentReporter } from './IPAssessmentReporter';
 import { DRAssessmentReporter } from './DRAssessmentReporter';
+
+type RowType = {
+  name: string;
+  filePath: string;
+  fileName: string;
+  diff: string;
+  status: string;
+  errors: string;
+};
 
 export class AssessmentReporter {
   public static async generate(result: AssessmentInfo, instanceUrl: string): Promise<void> {
@@ -108,7 +118,174 @@ export class AssessmentReporter {
     const doc = this.generateDocument(htmlBody);
     fs.writeFileSync(filePath, doc);
   }
+
+  private static getDiffContent(diff: string, lineLimit = -1): string {
+    const diffArray: Array<[string | null, string | null]> = JSON.parse(diff) as Array<[string | null, string | null]>;
+    let result = '';
+    let originalLine = 1;
+    let modifiedLine = 1;
+    let linecount = 0;
+    for (const [original, modified] of diffArray) {
+      if (original === modified) {
+        result += `<div style="color: black;">• Line ${modifiedLine}: ${original}</div>`;
+        modifiedLine++;
+        originalLine++;
+        linecount++;
+      } else if (original !== null && modified === null) {
+        result += `<div style="color: red;">- Line ${originalLine}: ${original}</div>`;
+        originalLine++;
+        linecount++;
+      } else if (original === null && modified !== null) {
+        result += `<div style="color: green;">+ Line ${modifiedLine}: ${modified}</div>`;
+        modifiedLine++;
+        linecount++;
+      }
+      if (linecount >= lineLimit && lineLimit !== -1) {
+        break;
+      }
+    }
+    return result;
+  }
+
+  private static getDiffHTML(diff: string): string {
+    const diffArray: Array<[string | null, string | null]> = JSON.parse(diff) as Array<[string | null, string | null]>;
+    let result = '<div style="height: 200px;">';
+    if (diffArray.length <= 5) {
+      result += this.getDiffContent(diff);
+      result += '</div>';
+    } else {
+      result += this.getDiffContent(diff, 5);
+      result += '</div>';
+      result +=
+        '<button onclick="document.getElementById(\'myModal\').style.display=\'block\'" style="position: absolute; top: 5px; right: 5px;"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button>';
+      result += `<div id="myModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
+        <div style="background-color: #fff; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 300px; box-shadow: 0 5px 15px rgba(0,0,0,.5);">
+          <span onclick="document.getElementById('myModal').style.display='none'" style="color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
+          <p>${this.getDiffContent(diff, -1)}</p>
+        </div>
+      </div>`;
+    }
+    return result;
+  }
+
   private static generateLwcAssesment(lwcAssessmentInfos: LWCAssessmentInfo[]): string {
+    fs.writeFileSync('assess.json', JSON.stringify(lwcAssessmentInfos));
+    // Example header rows with 'key' property added
+    const headerRows = [
+      [
+        { key: 'name', label: 'Name', colspan: 1, rowspan: 1, width: '100px' },
+        { key: 'filePath', label: 'File Path', colspan: 1, rowspan: 1, width: '150px' },
+        { key: 'diff', label: 'File Diff', colspan: 1, rowspan: 1, width: '350px' },
+        { key: 'status', label: 'Migration Status', colspan: 1, rowspan: 1, width: '150px' },
+        { key: 'errors', label: 'Errors', colspan: 1, rowspan: 1, width: '150px' },
+      ],
+    ];
+
+    // Example columns
+    const columns = [
+      {
+        key: 'name',
+        title: (row: RowType): string => `Name: ${row.name}`,
+        filterValue: (row: RowType): string => row.name,
+        cell: (row: RowType): string => `<span>${row.name}</span>`,
+      },
+      {
+        key: 'filePath',
+        title: (row: RowType): string => `File Path: ${row.fileName}`,
+        filterValue: (row: RowType): string => row.fileName,
+        cell: (row: RowType): string => `<span><a href="${row.filePath}">${row.fileName}</a></span>`,
+      },
+      {
+        key: 'diff',
+        title: (row: RowType): string => 'File Diff: diff',
+        filterValue: (row: RowType): string => 'diff',
+        cell: (row: RowType): string => `<span>${row.diff}</span>`,
+      },
+      {
+        key: 'errors',
+        title: (row: RowType): string => `Errors: ${row.errors}`,
+        filterValue: (row: RowType): string => row.errors,
+        cell: (row: RowType): string => `<span>${row.errors}</span>`,
+      },
+      {
+        key: 'status',
+        title: (row: RowType): string => `Status: ${row.status}`,
+        filterValue: (row: RowType): string => row.status,
+        cell: (row: RowType): string => `<span>${row.status}</span>`,
+      },
+    ];
+
+    // const stdDiff = `diff
+    //   <button onclick="document.getElementById('myModal').style.display='block'">Open Modal</button>
+
+    //   <!-- Modal inside the TD -->
+    //   <div id="myModal" style="
+    //       display: none;
+    //       position: fixed;
+    //       z-index: 1000;
+    //       left: 0;
+    //       top: 0;
+    //       width: 100%;
+    //       height: 100%;
+    //       overflow: auto;
+    //       background-color: rgba(0,0,0,0.4);
+    //     ">
+    //     <div style="
+    //         background-color: #fff;
+    //         margin: 15% auto;
+    //         padding: 20px;
+    //         border: 1px solid #888;
+    //         width: 300px;
+    //         box-shadow: 0 5px 15px rgba(0,0,0,.5);
+    //       ">
+    //       <span onclick="document.getElementById('myModal').style.display='none'" style="
+    //           color: #aaa;
+    //           float: right;
+    //           font-size: 28px;
+    //           font-weight: bold;
+    //           cursor: pointer;
+    //         ">&times;</span>
+    //       <p>This is some modal content inside a TD!</p>
+    //     </div>
+    //   </div>`;
+
+    const rows = [];
+
+    for (const lwcAssessmentInfo of lwcAssessmentInfos) {
+      for (const changeInfo of lwcAssessmentInfo.changeInfos) {
+        if (changeInfo.diff.length > 2) {
+          rows.push({
+            name: lwcAssessmentInfo.name,
+            filePath: changeInfo.path,
+            fileName: changeInfo.name,
+            diff: this.getDiffHTML(changeInfo.diff),
+            status: 'Pending',
+            errors: lwcAssessmentInfo.errors.join(', '),
+          } as RowType);
+        }
+      }
+    }
+
+    const reportHeader = [
+      { key: 'Report Title', value: 'User Information' },
+      { key: 'Date', value: '2023-10-01' },
+    ];
+
+    const filters = [
+      {
+        label: 'Status',
+        key: 'status',
+        filterOptions: Array.from(new Set(rows.map((row: RowType) => row.status))),
+      },
+      {
+        label: 'Errors',
+        key: 'errors',
+        filterOptions: Array.from(new Set(rows.map((row: RowType) => row.errors))),
+      },
+    ];
+
+    const htmlTable = generateHtmlTable(headerRows, columns, rows, reportHeader, filters);
+    return htmlTable;
     let tableBody = '';
     tableBody += `
     <html>
@@ -195,6 +372,7 @@ export class AssessmentReporter {
       </div>`;
     return tableBody;
   }
+
   private static generateOmniAssesment(omniAssessmentInfo: OmniAssessmentInfo, instanceUrl: string): string {
     let htmlBody = '';
     htmlBody += '<br />' + OSAssesmentReporter.generateOSAssesment(omniAssessmentInfo.osAssessmentInfos, instanceUrl);
@@ -243,6 +421,7 @@ export class AssessmentReporter {
             <head>
                 <title>OmniStudio Migration Assessment</title>
                 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/design-system/2.17.5/styles/salesforce-lightning-design-system.min.css" />
+                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
             </head>
             <body>
             <div style="margin: 20px;">

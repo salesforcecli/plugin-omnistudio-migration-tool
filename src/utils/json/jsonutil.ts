@@ -5,7 +5,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 export class jsonutil {
   // Recursive method to find a property in the JSON
-  public static findProperty(obj: any, propertyName: string): any {
+  public static findProperty(obj: Record<string, unknown>, propertyName: string): unknown {
     if (obj === null || typeof obj !== 'object') {
       return null;
     }
@@ -23,7 +23,7 @@ export class jsonutil {
     // Otherwise, search through all keys
     for (const key in obj) {
       if (obj.hasOwnProperty(key)) {
-        const result = this.findProperty(obj[key], propertyName);
+        const result = this.findProperty(obj[key] as Record<string, unknown>, propertyName);
         if (result !== null) {
           return result;
         }

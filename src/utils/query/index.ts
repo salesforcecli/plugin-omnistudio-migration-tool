@@ -6,7 +6,9 @@ export class QueryTools {
   public static buildCustomObjectQuery(namespace: string, name: string, fields: string[], filters?: Map<string, any>) {
     const queryFields = this.buildCustomObjectFields(namespace, ['Id', ...fields]);
 
-    let query = 'SELECT ' + queryFields.join(', ') + ' FROM ' + namespace + '__' + name;
+    let query = namespace
+      ? 'SELECT ' + queryFields.join(', ') + ' FROM ' + namespace + '__' + name
+      : 'SELECT ' + queryFields.join(', ') + ' FROM ' + name;
 
     const andFilters = [];
     if (filters && filters.size > 0) {

@@ -1,0 +1,219 @@
+/* === Filter Header & Toggle === */
+.filter-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: center;
+}
+
+.filter-header-bar {
+  position: absolute;
+  right: 0;
+  margin-right: 1.4rem;
+}
+
+.filter-header-type {
+  min-width: 90px;
+}
+
+.filter-label,
+.filter-label-type {
+  width: 100%;
+  text-align: center;
+}
+
+.filter-label-type {
+  margin-left: -32px;
+}
+
+.filter-toggle-button {
+  color: black;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: 600;
+  display: inline-block;
+  border: 1px solid #e5e5e5;
+  line-height: 0rem;
+  border-radius: 8px;
+  background: white;
+}
+
+/* === Dropdown Styles === */
+.filter-dropdown-container {
+  display: inline-block;
+  margin: 12px 0;
+}
+
+.filter-dropdown {
+  display: none;
+  position: absolute;
+  background-color: white;
+  min-width: 250px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+  padding: 12px;
+  z-index: 10;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  right: 0;
+  margin: 32px;
+}
+
+.filter-dropdown.show {
+  display: block;
+}
+
+.chevron-icon {
+  cursor: pointer;
+}
+
+.chevron-icon.hidden,
+.hidden {
+  display: none;
+}
+
+/* === Filter Options === */
+.filter-option {
+  padding-left: 16px;
+}
+
+.filter-group {
+  margin-bottom: 12px;
+}
+
+.filter-group-label {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.filter-options label {
+  display: block;
+  margin-left: 8px;
+  margin-bottom: 4px;
+}
+
+/* === Table Styles === */
+.table-container {
+  overflow: auto;
+  max-width: 100%;
+  position: relative;
+  margin-top: 38px;
+}
+
+.slds-table td,
+.slds-table th {
+  white-space: normal;
+  position: relative;
+  max-width: 250px;
+}
+
+.slds-table--bordered,
+.slds-table_bordered {
+  border: 1.5px solid #d5d5d5;
+}
+
+.slds-table--striped tbody tr:nth-of-type(even) > td,
+.slds-table--striped tbody tr:nth-of-type(even) > th,
+.slds-table_striped tbody tr:nth-of-type(even) > td,
+.slds-table_striped tbody tr:nth-of-type(even) > th {
+  background-color: transparent;
+}
+
+.slds-dropdown__item {
+  text-align: justify;
+  width: auto;
+  white-space: nowrap;
+}
+
+.filter-dropdown .slds-dropdown__list {
+  display: table;
+  min-width: max-content;
+}
+
+thead tr {
+  height: 32px;
+  background-color: #f3f3f3;
+}
+
+tbody tr td {
+  overflow: auto;
+}
+
+/* === Utility / Layout Styles === */
+.slds-text-heading_large {
+  width: auto;
+  height: 28px;
+  top: 50px;
+  left: 43px;
+  font-weight: 200;
+  font-size: 28px;
+  line-height: 28px;
+  letter-spacing: 0px;
+}
+
+.search-container {
+  position: relative;
+  display: inline-block;
+  width: 20rem;
+}
+
+.search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.search-input {
+  padding-left: 32px; /* leave space for icon */
+  width: 100%;
+}
+
+.search-container input {
+  width: 100%;
+  border-radius: 4px;
+  border-width: 0.5px;
+  line-height: 20px;
+  vertical-align: middle;
+}
+
+.row-count-display {
+  font-weight: 600;
+  margin-right: auto;
+  display: inline-block;
+  align-items: center;
+}
+
+.org-details-section {
+  display: inline-block;
+  padding: 1.5rem;
+}
+
+.label-key {
+  font-size: small;
+  color: #808080;
+}
+
+.header-container {
+  display: inline-block;
+  width: 100%;
+  background-color: #fff;
+  border-radius: 6px;
+  margin-top: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.migration-message {
+  margin-top: 16px;
+  font-size: 10px;
+  color: #8c4c00;
+  font-weight: 600;
+  padding: 12px;
+  border-radius: 6px;
+  background: #fae2b6;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+html {
+  background: #f8f8f8;
+}

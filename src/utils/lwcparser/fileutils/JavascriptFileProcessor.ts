@@ -28,7 +28,7 @@ export class JavascriptFileProcessor implements FileProcessor {
       if (type != null && type === 'migration') {
         fileutil.saveToFile(filePath, fileContent.get(FileConstant.MODIFIED_CONTENT));
       }
-      return diff;
+      return JSON.stringify(diff);
     }
   }
 }

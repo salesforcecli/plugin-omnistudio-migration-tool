@@ -81,7 +81,7 @@ export class LwcMigration extends BaseRelatedObjectMigration {
                 const path = file.location;
                 const name = file.name + file.ext;
                 const diff = processor.process(file, type, this.namespace);
-                if (diff !== undefined && diff !== '') {
+                if (diff !== undefined && diff !== '[]') {
                   const fileInfo: FileChangeInfo = {
                     path,
                     name,

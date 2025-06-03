@@ -1,21 +1,23 @@
 /* eslint-disable prettier/prettier */
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
 import fs from 'fs';
+import path from 'path';
 import open from 'open';
-import {
-  ApexAssessmentInfo,
-  AssessmentInfo,
-  LWCAssessmentInfo,
-  OmniAssessmentInfo,
-  FlexCardAssessmentInfo,
-  nameLocation,
-} from '../interfaces';
-import { OSAssesmentReporter } from './OSAssessmentReporter';
+import { AssessmentInfo, FlexCardAssessmentInfo, nameLocation } from '../interfaces';
+import { ReportHeaderFormat } from '../reportGenerator/reportInterfaces';
+import { OmnistudioOrgDetails } from '../orgUtils';
+import { OSAssessmentReporter } from './OSAssessmentReporter';
+import { LWCAssessmentReporter } from './LWCAssessmentReporter';
+import { ApexAssessmentReporter } from './ApexAssessmentReporter';
 import { IPAssessmentReporter } from './IPAssessmentReporter';
 import { DRAssessmentReporter } from './DRAssessmentReporter';
 
 export class AssessmentReporter {
-  public static async generate(result: AssessmentInfo, instanceUrl: string): Promise<void> {
+  public static async generate(
+    result: AssessmentInfo,
+    instanceUrl: string,
+    omnistudioOrgDetails: OmnistudioOrgDetails
+  ): Promise<void> {
     const basePath = process.cwd() + '/assessment_reports';
     fs.mkdirSync(basePath, { recursive: true });
     const omniscriptAssessmentFilePath = basePath + '/omniscript_assessment.html';
@@ -24,10 +26,11 @@ export class AssessmentReporter {
     const dataMapperAssessmentFilePath = basePath + '/datamapper_assessment.html';
     const apexAssessmentFilePath = basePath + '/apex_assessment.html';
     const lwcAssessmentFilePath = basePath + '/lwc_assessment.html';
+    const orgDetails: ReportHeaderFormat[] = this.formattedOrgDetails(omnistudioOrgDetails);
 
     this.createDocument(
       omniscriptAssessmentFilePath,
-      this.generateOmniAssesment(result.omniAssessmentInfo, instanceUrl)
+      OSAssessmentReporter.generateOSAssesment(result.omniAssessmentInfo.osAssessmentInfos, instanceUrl, orgDetails)
     );
     this.createDocument(
       flexcardAssessmentFilePath,
@@ -35,14 +38,20 @@ export class AssessmentReporter {
     );
     this.createDocument(
       integrationProcedureAssessmentFilePath,
-      IPAssessmentReporter.generateIPAssesment(result.omniAssessmentInfo.ipAssessmentInfos, instanceUrl)
+      IPAssessmentReporter.generateIPAssesment(result.omniAssessmentInfo.ipAssessmentInfos, instanceUrl, orgDetails)
     );
     this.createDocument(
       dataMapperAssessmentFilePath,
       DRAssessmentReporter.generateDRAssesment(result.dataRaptorAssessmentInfos, instanceUrl)
     );
-    this.createDocument(apexAssessmentFilePath, this.generateApexAssesment(result.apexAssessmentInfos));
-    this.createDocument(lwcAssessmentFilePath, this.generateLwcAssesment(result.lwcAssessmentInfos));
+    this.createDocument(
+      apexAssessmentFilePath,
+      ApexAssessmentReporter.generateApexAssesment(result.apexAssessmentInfos, instanceUrl, orgDetails)
+    );
+    this.createDocument(
+      lwcAssessmentFilePath,
+      LWCAssessmentReporter.generateLwcAssesment(result.lwcAssessmentInfos, instanceUrl, orgDetails)
+    );
     const nameUrls = [
       {
         name: 'omnscript assessment report',
@@ -69,7 +78,77 @@ export class AssessmentReporter {
         location: 'lwc_assessment.html',
       },
     ];
+
     await this.createMasterDocument(nameUrls, basePath);
+    this.pushAssestUtilites('javascripts', basePath);
+    this.pushAssestUtilites('styles', basePath);
+  }
+
+  private static formattedOrgDetails(orgDetails: OmnistudioOrgDetails): ReportHeaderFormat[] {
+    return [
+      {
+        key: 'Org Name',
+        value: orgDetails.orgDetails.Name,
+      },
+      {
+        key: 'Org Id',
+        value: orgDetails.orgDetails.Id,
+      },
+      {
+        key: 'Package Name',
+        value: orgDetails.packageDetails[0].namespace,
+      },
+      {
+        key: 'Data Model',
+        value: orgDetails.dataModel,
+      },
+      {
+        key: 'Assessment Date and Time',
+        value: new Date() as unknown as string,
+      },
+    ];
+  }
+
+  /**
+   * Copies `.js` and `.css` files from a source directory (based on `folderName`)
+   * to a specified destination directory.
+   *
+   * @param folderName - The subdirectory under `/src/` where source asset files are located (e.g., `'javascripts'`, `'styles'`).
+   * @param destDir - The absolute or relative path to the destination directory where the assets should be copied.
+   *
+   * @remarks
+   * - If the destination directory does not exist, the method logs a warning and exits.
+   * - Only `.js` and `.css` files are copied.
+   * - The source files remain in place after copying.
+   */
+  private static pushAssestUtilites(folderName: string, destDir: string): void {
+    const sourceDir = path.join(process.cwd(), 'src', folderName);
+
+    if (!fs.existsSync(destDir)) {
+      // Destination directory does not exist. Skipping file copy.
+      return;
+    }
+
+    fs.readdir(sourceDir, (readDirErr, files) => {
+      if (readDirErr) {
+        // Error reading source directory: readDirErr.message
+        return;
+      }
+
+      files.forEach((file) => {
+        const ext = path.extname(file);
+        if (ext === '.js' || ext === '.css') {
+          const srcPath = path.join(sourceDir, file);
+          const destPath = path.join(destDir, file);
+
+          fs.copyFile(srcPath, destPath, (copyErr) => {
+            if (copyErr) {
+              // Failed to copy file: copyErr.message
+            }
+          });
+        }
+      });
+    });
   }
 
   private static async createMasterDocument(reports: nameLocation[], basePath: string): Promise<void> {
@@ -108,98 +187,6 @@ export class AssessmentReporter {
     const doc = this.generateDocument(htmlBody);
     fs.writeFileSync(filePath, doc);
   }
-  private static generateLwcAssesment(lwcAssessmentInfos: LWCAssessmentInfo[]): string {
-    let tableBody = '';
-    tableBody += `
-    <html>
-            <head>
-                <title>OmniStudio Migration Assessment</title>
-                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/design-system/2.17.5/styles/salesforce-lightning-design-system.min.css" />
-            </head>
-            <body>
-            <div style="margin: 20px;">
-                <div class="slds-text-heading_large">OmniStudio Migration Assessment</div>`;
-    tableBody += '<div class="slds-text-heading_large">LWC Assessment</div>';
-    for (const lwcAssessmentInfo of lwcAssessmentInfos) {
-      let changeInfoRows = '';
-
-      for (const changeInfo of lwcAssessmentInfo.changeInfos) {
-        changeInfoRows += `<tr class ="slds-hint_parent">
-                                <td><div class="slds-truncate" title="${changeInfo.name}"><a href="${changeInfo.path}">${changeInfo.name}</div></td>
-                                <td><div class="slds-scrollable" style="height:8rem;width:36rem"><pre>${changeInfo.diff}<pre></div></td>
-                            </tr>`;
-      }
-      const changeInfoTable = `<table>
-                                    ${changeInfoRows}
-                                </table>`;
-      const row = `<tr class="slds-hint_parent">
-                            <td><div class="slds-truncate" title="${lwcAssessmentInfo.name}">${lwcAssessmentInfo.name}</div></td>
-                            <td>${changeInfoTable}</td>
-                        </tr>`;
-      tableBody += row;
-    }
-    tableBody += `
-    </div>
-            </div>
-            </body>
-        </html>
-        `;
-    return this.getLWCAssesmentReport(tableBody);
-  }
-
-  private static generateApexAssesment(apexAssessmentInfos: ApexAssessmentInfo[]): string {
-    let tableBody = '';
-    tableBody += '<div class="slds-text-heading_large">Apex Assessment</div>';
-    for (const apexAssessmentInfo of apexAssessmentInfos) {
-      const message = this.generateMessages(apexAssessmentInfo.infos);
-      const errors = this.generateMessages(apexAssessmentInfo.warnings);
-      const row = `<tr class="slds-hint_parent">
-      <td><div class="slds-truncate" title="${apexAssessmentInfo.name}">${apexAssessmentInfo.name}</div></td>
-      <td><div class="slds-truncate" title="${apexAssessmentInfo.name}"><a href="${apexAssessmentInfo.path}">${apexAssessmentInfo.name}</div></td>
-      <td><div class="slds-truncate">${apexAssessmentInfo.diff}</div></td>
-      <td><div class="slds-truncate"></div>${message}</td>
-      <td><div class="slds-truncate"></div>${errors}</td>
-     </tr>`;
-      tableBody += row;
-    }
-    return this.getApexAssessmentReport(tableBody);
-  }
-
-  private static getApexAssessmentReport(tableContent: string): string {
-    const tableBody = `
-      <div style="margin-block:15px">        
-        <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped slds-table_col-bordered" aria-label="Results for Apex updates">
-        <thead>
-            <tr class="slds-line-height_reset">
-                <th class="" scope="col" style="width: 25%">
-                    <div class="slds-truncate" title="Name">Name</div>
-                </th>
-                <th class="" scope="col" style="width: 10%">
-                    <div class="slds-truncate" title="File">File reference</div>
-                </th>
-                <th class="" scope="col" style="width: 10%">
-                    <div class="slds-truncate" title="Diff">Diff</div>
-                </th>
-                <th class="" scope="col" style="width: 10%">
-                    <div class="slds-truncate" title="Infos">Comments</div>
-                </th>
-                <th class="" scope="col" style="width: 10%">
-                    <div class="slds-truncate" title="Warnings">Errors</div>
-                </th>
-            </tr>
-        </thead>
-        <tbody>
-        ${tableContent}
-        </tbody>
-        </table>
-      </div>`;
-    return tableBody;
-  }
-  private static generateOmniAssesment(omniAssessmentInfo: OmniAssessmentInfo, instanceUrl: string): string {
-    let htmlBody = '';
-    htmlBody += '<br />' + OSAssesmentReporter.generateOSAssesment(omniAssessmentInfo.osAssessmentInfos, instanceUrl);
-    return htmlBody;
-  }
 
   private static generateCardAssesment(flexCardAssessmentInfos: FlexCardAssessmentInfo[], instanceUrl: string): string {
     let tableBody = '';
@@ -229,14 +216,6 @@ export class AssessmentReporter {
     return this.getCardAssessmentReport(tableBody);
   }
 
-  private static generateMessages(messages: string[]): string {
-    let messageBody = '';
-    for (const message of messages) {
-      messageBody += `<li class="slds-item slds-text-color_destructive">${message}</li>`;
-    }
-    return messageBody;
-  }
-
   private static generateDocument(resultsAsHtml: string): string {
     const document = `
         <html>
@@ -246,7 +225,6 @@ export class AssessmentReporter {
             </head>
             <body>
             <div style="margin: 20px;">
-                <div class="slds-text-heading_large">OmniStudio Migration Assessment </div>
                     ${resultsAsHtml}
                 </div>
             </div>
@@ -284,31 +262,6 @@ export class AssessmentReporter {
             </tbody>
             </table>
         </div>`;
-    return tableBody;
-  }
-
-  private static getLWCAssesmentReport(tableContent: string): string {
-    const tableBody = `
-      <div style="margin-block:15px">
-        <table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped slds-table_col-bordered" aria-label="Results for LWC updates">
-        <thead>
-            <tr class="slds-line-height_reset">
-                <th class="" scope="col" style="width: 25%">
-                    <div class="slds-truncate" title="Name">Name</div>
-                </th>
-                <th class="" scope="col" style="width: 10%">
-                    <div class="slds-truncate" title="Changes">File Path & Diff</div>
-                </th>
-                <th class="" scope="col">
-                    <div class="slds-truncate" title="Errors">Errors</div>
-                </th>
-            </tr>
-        </thead>
-        <tbody>
-        ${tableContent}
-        </tbody>
-        </table>
-      </div>`;
     return tableBody;
   }
 }

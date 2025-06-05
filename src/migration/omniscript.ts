@@ -307,6 +307,14 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
           : '') +
         `_${omniscript[this.namespacePrefix + 'Version__c']}`;
 
+        const oldName =
+        `${existingTypeVal.val}_` +
+        `${existingSubTypeVal.val}` +
+        (omniscript[this.namespacePrefix + 'Language__c']
+          ? `_${omniscript[this.namespacePrefix + 'Language__c']}`
+          : '') +
+        `_${omniscript[this.namespacePrefix + 'Version__c']}`;
+
       if (!existingTypeVal.isNameCleaned()) {
         warnings.push(
           this.messages.getMessage('changeMessage', [
@@ -342,12 +350,15 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
       if (omniProcessType === 'OmniScript') {
         const type = omniscript[this.namespacePrefix + 'IsLwcEnabled__c'] ? 'LWC' : 'Angular';
+        let migrationStatus = 'Can be Automated';
         if (type === 'Angular') {
           warnings.unshift(this.messages.getMessage('angularOSWarning'));
+          migrationStatus = 'Need Manual Intervention';
         }
         const osAssessmentInfo: OSAssessmentInfo = {
           name: recordName,
           type: type,
+          oldName: oldName,
           id: omniscript['Id'],
           dependenciesIP: dependencyIP,
           missingIP: [],
@@ -360,12 +371,14 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
           infos: [],
           warnings: warnings,
           errors: [],
+          migrationStatus: migrationStatus
         };
         osAssessmentInfos.push(osAssessmentInfo);
       } else {
         const ipAssessmentInfo: IPAssessmentInfo = {
           name: recordName,
           id: omniscript['Id'],
+          oldName: oldName,
           dependenciesIP: dependencyIP,
           dependenciesDR: dependencyDR,
           dependenciesOS: dependencyOS,

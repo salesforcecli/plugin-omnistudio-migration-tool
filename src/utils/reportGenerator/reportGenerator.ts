@@ -1,7 +1,7 @@
-import { Filter, ReportHeader, TableColumn, TableHeaderCell } from './reportInterfaces';
+import { Filter, HeaderColumn, ReportHeader, TableColumn, TableHeaderCell } from './reportInterfaces';
 
 export function generateHtmlTable<T>(
-  headerRows: TableHeaderCell[][],
+  headerRows: HeaderColumn[],
   columns: Array<TableColumn<T>>,
   rows: T[],
   reportHeader: ReportHeader[],
@@ -9,26 +9,27 @@ export function generateHtmlTable<T>(
   tableClass = 'slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped slds-table_col-bordered',
   ariaLabel = ''
 ): string {
+  const transformedHeader: TableHeaderCell[][] = transform(headerRows);
+
   const thead = `
     <thead>
-      ${headerRows
+      ${transformedHeader
         .map(
           (row) => `
         <tr>
           ${row
-            .map(
-              (cell) => `
-              <th
-                ${cell.colspan ? `colspan="${cell.colspan}"` : ''}
-                ${cell.rowspan ? `rowspan="${cell.rowspan}"` : ''}
-                style="width:${cell?.width || 'auto'}"
-              >
-                <div class="filter-header">
-                  <span class="filter-label">${cell.label}</span>
-                </div>
-              </th>
-            `
-            )
+            .map((cell: TableHeaderCell) => {
+              const colspanAttr = cell.colspan ? `colspan="${cell.colspan}"` : '';
+              const rowspanAttr = cell.rowspan ? `rowspan="${cell.rowspan}"` : '';
+              const styleAttr = `style="${cell.styles ?? 'width:auto;'}"`;
+              return `
+                <th ${colspanAttr} ${rowspanAttr} ${styleAttr}>
+                  <div class="filter-header">
+                    <span class="filter-label">${cell.label}</span>
+                  </div>
+                </th>
+              `;
+            })
             .join('')}
         </tr>
       `
@@ -58,7 +59,7 @@ export function generateHtmlTable<T>(
         oninput="filterAndSearchTable()"
       />
     </div>
-
+ 
     <div class="filter-toggle-button" onclick="toggleFilterDropdown()">
       Filters
       <svg id="chevron-down" class="chevron-icon" xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 16 16">
@@ -118,8 +119,9 @@ export function generateHtmlTable<T>(
               const title: string = col.title ? col.title(row) : '';
               const value: string = col.filterValue(row).toString();
               const cellContent: string = col.cell(row);
+              const style: string = col.styles ? col.styles(row) : '';
               const dataAttr: string = ['name', 'oldName'].includes(key) ? `data-name="${value.toLowerCase()}"` : '';
-              return `<td ${dataAttr} title="${title}" key="${key}" value="${value}">${cellContent}</td>`;
+              return `<td ${dataAttr} title="${title}" key="${key}" value="${value}" style="${style}">${cellContent}</td>`;
             })
             .join('')}
         </tr>
@@ -171,4 +173,36 @@ export function generateHtmlTable<T>(
       <link rel="stylesheet" href="./reportGenerator.css">
     </div>
   `;
+}
+
+function transform(columnInput): TableHeaderCell[][] {
+  const row1 = [];
+  const row2 = [];
+
+  columnInput.forEach((item) => {
+    if (item.subColumn && item.subColumn.length > 0) {
+      row1.push({
+        label: item.label,
+        colspan: item.subColumn.length,
+      });
+
+      item.subColumn.forEach((sub) => {
+        row2.push({
+          label: sub.label,
+          key: sub.key,
+        });
+      });
+    } else {
+      const row1Entry: TableHeaderCell = {
+        label: item.label,
+      };
+
+      if (item.rowspan) row1Entry.rowspan = Number(item.rowspan);
+      if (item.key) row1Entry.key = item.key;
+
+      row1.push(row1Entry);
+    }
+  });
+
+  return [row1, row2] as unknown as TableHeaderCell[][];
 }

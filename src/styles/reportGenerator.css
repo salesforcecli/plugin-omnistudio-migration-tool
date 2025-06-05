@@ -101,9 +101,9 @@
 
 .slds-table td,
 .slds-table th {
-  white-space: normal;
   position: relative;
   max-width: 250px;
+  text-align: center;
 }
 
 .slds-table--bordered,

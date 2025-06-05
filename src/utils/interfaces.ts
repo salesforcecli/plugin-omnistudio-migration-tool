@@ -25,10 +25,12 @@ export interface LWCAssessmentInfo {
 export interface OSAssessmentInfo {
   name: string;
   id: string;
+  oldName: string;
   dependenciesIP: nameLocation[];
   missingIP: string[];
   dependenciesDR: nameLocation[];
   missingDR: string[];
+  migrationStatus: string;
   dependenciesOS: nameLocation[];
   missingOS: string[];
   dependenciesRemoteAction: nameLocation[];
@@ -42,6 +44,7 @@ export interface OSAssessmentInfo {
 export interface IPAssessmentInfo {
   name: string;
   id: string;
+  oldName: string;
   dependenciesIP: nameLocation[];
   dependenciesDR: nameLocation[];
   dependenciesOS: nameLocation[];

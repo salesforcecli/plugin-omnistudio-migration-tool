@@ -1,71 +1,113 @@
 import { IPAssessmentInfo } from '../interfaces';
+import { generateHtmlTable } from '../reportGenerator/reportGenerator';
+import { HeaderColumn, ReportHeaderFormat, TableColumn } from '../reportGenerator/reportInterfaces';
 import { reportingHelper } from './reportingHelper';
 
 export class IPAssessmentReporter {
-  public static generateIPAssesment(ipAssessmentInfos: IPAssessmentInfo[], instanceUrl: string): string {
-    let tableBody = '';
-    tableBody += '<div class="slds-text-heading_large">Integration Procedure Components Assessment</div>';
+  public static generateIPAssesment(
+    ipAssessmentInfos: IPAssessmentInfo[],
+    instanceUrl: string,
+    org: ReportHeaderFormat[]
+  ): string {
+    // Define multi-row headers
+    const headerColumn: HeaderColumn[] = [
+      {
+        label: 'In Package',
+        colspan: 2,
+        subColumn: [
+          {
+            label: 'Name',
+          },
+          {
+            label: 'Record ID',
+          },
+        ],
+      },
+      {
+        label: 'In Core',
+        colspan: 1,
+        subColumn: [
+          {
+            label: 'Name',
+          },
+        ],
+      },
+      {
+        label: 'Summary',
+        rowspan: 2,
+        subColumn: [],
+      },
+      {
+        label: 'Integration Procedures Dependencies',
+        rowspan: 2,
+        subColumn: [],
+      },
+      {
+        label: 'Data Mapper dependencies',
+        rowspan: 2,
+        subColumn: [],
+      },
+      {
+        label: 'Remote Action Dependencies',
+        rowspan: 2,
+        subColumn: [],
+      },
+    ];
 
-    for (const ipAssessmentInfo of ipAssessmentInfos) {
-      const row = `
-          <tr class="slds-hint_parent">
-              <td style="word-wrap: break-word; white-space: normal; max-width: 200px;">
-                  <div class="slds-truncate" title="${ipAssessmentInfo.name}">${ipAssessmentInfo.name}</div>
-              </td>
-              <td style="word-wrap: break-word; white-space: normal; max-width: 100px;">
-                  <div class="slds-truncate" title="${ipAssessmentInfo.id}"><a href="${instanceUrl}/${
-        ipAssessmentInfo.id
-      }">${ipAssessmentInfo.id}</div>
-              </td>
-               <td style="word-wrap: break-word; white-space: normal; max-width: 60%; overflow: hidden;">
-                  ${reportingHelper.convertToBuletedList(ipAssessmentInfo.warnings)}
-              </td>
-              <td style="word-wrap: break-word; white-space: normal; max-width: 60%; overflow: hidden;">
-                  ${reportingHelper.decorate(ipAssessmentInfo.dependenciesIP)}
-              </td>
-              <td style="word-wrap: break-word; white-space: normal; max-width: 60%; overflow: hidden;">
-                 ${reportingHelper.decorate(ipAssessmentInfo.dependenciesDR)}
-              </td>
-              <td style="word-wrap: break-word; white-space: normal; max-width: 60%; overflow: hidden;">
-                 ${reportingHelper.decorate(ipAssessmentInfo.dependenciesRemoteAction)}
-              </td>
-          </tr>`;
-      tableBody += row;
-    }
+    // Define columns
+    const columns: Array<TableColumn<IPAssessmentInfo>> = [
+      {
+        key: 'oldName',
+        cell: (row: IPAssessmentInfo): string => row.oldName,
+        filterValue: (row: IPAssessmentInfo): string => row.oldName,
+        title: (row: IPAssessmentInfo): string => row.oldName,
+      },
+      {
+        key: 'id',
+        cell: (row: IPAssessmentInfo): string => (row.id ? `<a href="${instanceUrl}/${row.id}">${row.id}</a>` : ''),
+        filterValue: (row: IPAssessmentInfo): string => row.id,
+        title: (row: IPAssessmentInfo): string => row.id,
+      },
+      {
+        key: 'name',
+        cell: (row: IPAssessmentInfo): string => row.name || '',
+        filterValue: (row: IPAssessmentInfo): string => row.name,
+        title: (row: IPAssessmentInfo): string => row.name,
+      },
+      {
+        key: 'Summary',
+        cell: (row: IPAssessmentInfo): string => reportingHelper.convertToBuletedList(row.warnings || []),
+        filterValue: (row: IPAssessmentInfo): string => (row.warnings ? row.warnings.join(', ') : ''),
+        title: (row: IPAssessmentInfo): string => (row.warnings ? row.warnings.join(', ') : ''),
+      },
+      {
+        key: 'dependenciesIP',
+        cell: (row: IPAssessmentInfo): string => reportingHelper.decorate(row.dependenciesIP) || '',
+        filterValue: (row: IPAssessmentInfo): string => (row.dependenciesIP ? row.dependenciesIP.join(', ') : ''),
+      },
+      {
+        key: 'dependenciesDR',
+        cell: (row: IPAssessmentInfo): string => reportingHelper.decorate(row.dependenciesDR) || '',
+        filterValue: (row: IPAssessmentInfo): string => (row.dependenciesDR ? row.dependenciesDR.join(', ') : ''),
+      },
+      {
+        key: 'dependenciesRemoteAction',
+        cell: (row: IPAssessmentInfo): string => reportingHelper.decorate(row.dependenciesRemoteAction) || '',
+        filterValue: (row: IPAssessmentInfo): string =>
+          row.dependenciesRemoteAction ? row.dependenciesRemoteAction.join(', ') : '',
+      },
+    ];
 
-    return this.getIPAssessmentReport(tableBody);
-  }
-  private static getIPAssessmentReport(tableContent: string): string {
-    const tableBody = `
-    <div style="margin-block:15px">        
-        <table style="width: 100%; table-layout: auto;" class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped slds-table_col-bordered" aria-label="Results for Integration Procedure updates">
-        <thead>
-            <tr class="slds-line-height_reset">
-                <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
-                    <div class="slds-truncate" title="Name">Name</div>
-                </th>
-                <th class="" scope="col" style="width: 10%; word-wrap: break-word; white-space: normal; text-align: left;">
-                    <div class="slds-truncate" title="ID">ID</div>
-                </th>
-                <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
-                <div title="Warnings"> Summary </div>
-                </th>
-                <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
-                    <div title="Dependencies">Integration Procedures Dependencies</div>
-                </th>
-                <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
-                    <div title="Dependencies">Data Mapper dependencies</div>
-                </th>
-                <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
-                    <div title="Dependencies">Remote Action Dependencies</div>
-                </th>
-            </tr>
-        </thead>
-        <tbody>
-        ${tableContent}
-        </tbody>
-        </table>
-    </div>`;
-    return tableBody;
+    // Render table
+    const tableHtml = generateHtmlTable(
+      headerColumn,
+      columns,
+      ipAssessmentInfos,
+      org,
+      [],
+      undefined,
+      'Integration Procedure Assessment'
+    );
+    return `<div class="slds-text-heading_large">Integration Procedure Components Assessment</div>${tableHtml}`;
   }
 }

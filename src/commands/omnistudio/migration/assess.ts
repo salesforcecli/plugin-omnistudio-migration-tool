@@ -94,7 +94,8 @@ export default class Assess extends OmniStudioBaseCommand {
       flexCardAssessmentInfos,
       omniAssessmentInfo,
     };
-    await AssessmentReporter.generate(assesmentInfo, conn.instanceUrl);
+
+    await AssessmentReporter.generate(assesmentInfo, conn.instanceUrl, orgs);
     return assesmentInfo;
   }
 }

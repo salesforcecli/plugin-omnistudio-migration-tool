@@ -1,17 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export interface TableHeaderCell {
-  label: string;
-  colspan?: number;
-  rowspan?: number;
-  key: string;
-  width?: string;
-}
-
 export interface TableColumn<T> {
   key: string;
   cell: any;
   filterValue: any;
   title?: any;
+  styles?: any;
 }
 
 export interface Filter {
@@ -23,4 +16,27 @@ export interface Filter {
 export interface ReportHeader {
   key: string;
   value: string;
+}
+
+export interface ReportHeaderFormat {
+  key: string;
+  value: string;
+}
+
+export interface HeaderColumn {
+  label: string;
+  key?: string;
+  colspan?: number;
+  rowspan?: number;
+  styles?: string;
+  subColumn?: HeaderColumn[]; // Recursive definition
+}
+
+export interface TableHeaderCell {
+  label: string;
+  colspan?: number;
+  rowspan?: number;
+  key?: string;
+  width?: string;
+  styles?: string;
 }

@@ -283,8 +283,10 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
         }
       }
       const dataRaptorAssessmentInfo: DataRaptorAssessmentInfo = {
-        name: existingDRNameVal.val,
+        oldName: existingDRNameVal.val,
+        name: existingDRNameVal.cleanName(),
         id: dataRaptor['Id'],
+        type: dataRaptor[this.namespacePrefix + 'Type__c'] || '',
         formulaChanges: formulaChanges,
         infos: [],
         apexDependencies: apexDependencies,

@@ -96,9 +96,11 @@ export interface FlexCardAssessmentInfo {
 }
 
 export interface DataRaptorAssessmentInfo {
+  oldName: string;
   name: string;
   id: string;
   formulaChanges: oldNew[];
+  type: string;
   infos: string[];
   warnings: string[];
   apexDependencies: string[];

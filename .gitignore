@@ -33,7 +33,7 @@ package.json.bak.
 # -- CLEAN ALL
 node_modules
 
-# --
+# -- asd
 # put files here you don't want cleaned with sf-clean
 
 # os specific files

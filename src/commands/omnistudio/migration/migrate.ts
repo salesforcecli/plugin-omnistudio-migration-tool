@@ -11,7 +11,6 @@ import * as os from 'os';
 import * as fs from 'fs';
 import { flags } from '@salesforce/command';
 import { Messages } from '@salesforce/core';
-import '../../../utils/prototypes';
 import OmniStudioBaseCommand from '../../basecommand';
 import { DataRaptorMigrationTool } from '../../../migration/dataraptor';
 import { DebugTimer, MigratedObject, MigratedRecordInfo } from '../../../utils';
@@ -87,7 +86,7 @@ export default class Migrate extends OmniStudioBaseCommand {
     // Let's time every step
     DebugTimer.getInstance().start();
     let projectPath: string;
-    let objectsToProcess: string[];
+    let objectsToProcess: string[] = [];
     let targetApexNamespace: string;
     if (relatedObjects) {
       const validOptions = ['apex', 'lwc'];
@@ -166,14 +165,11 @@ export default class Migrate extends OmniStudioBaseCommand {
       namespace,
       migrateOnly,
       allVersions,
-      this.org
-    );
-    const relatedObjectMigrationResult = omnistudioRelatedObjectsMigration.migrateAll(
-      objectMigrationResults,
-      objectsToProcess,
+      this.org,
       projectPath,
       targetApexNamespace
     );
+    const relatedObjectMigrationResult = omnistudioRelatedObjectsMigration.migrateAll(objectsToProcess);
     generatePackageXml.createChangeList(
       relatedObjectMigrationResult.apexAssessmentInfos,
       relatedObjectMigrationResult.lwcAssessmentInfos

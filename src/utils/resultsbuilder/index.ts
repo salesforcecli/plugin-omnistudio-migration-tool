@@ -1,5 +1,7 @@
 import fs from 'fs';
 import open from 'open';
+import { Logger } from '@salesforce/core';
+import { pushAssestUtilites } from '../file/fileutil';
 import {
   ApexAssessmentInfo,
   LWCAssessmentInfo,
@@ -8,21 +10,119 @@ import {
   RelatedObjectAssesmentInfo,
 } from '../interfaces';
 import { generateHtmlTable } from '../reportGenerator/reportGenerator';
-import { Filter, HeaderColumn, ReportHeaderFormat, TableColumn } from '../reportGenerator/reportInterfaces';
+import {
+  ComponentDetail,
+  Filter,
+  HeaderColumn,
+  ReportHeaderFormat,
+  TableColumn,
+} from '../reportGenerator/reportInterfaces';
 import { OmnistudioOrgDetails } from '../orgUtils';
 
+const resultsDir = process.cwd() + '/migration_report';
+const dataRaptorConstants = { componentName: 'DataMappers', title: 'Data Mappers Migration Result' };
+const flexCardConstants = { componentName: 'FlexCards', title: 'Flex Cards Migration Result' };
+const omniScriptConstants = {
+  componentName: 'OmniScript___Integration_Procedures',
+  title: 'OmniScripts / IP Migration Result',
+};
+const apexConstants = { componentName: 'apex', title: 'Apex Classes Migration Result' };
+const lwcConstants = { componentName: 'lwc', title: 'LWC Components Migration Result' };
+const migrationResultCSSfileName = 'reportGenerator.css';
+const migrationReportHTMLfileName = 'migration_report.html';
+
 export class ResultsBuilder {
-  public static generateReport(
+  private static logger: Logger = new Logger('ResultsBuilder');
+
+  public static async generateReport(
     results: MigratedObject[],
     relatedObjectMigrationResult: RelatedObjectAssesmentInfo,
     instanceUrl: string,
     orgDetails: OmnistudioOrgDetails
-  ): void {
-    let htmlBody = '<div class="slds-text-heading_large">OmniStudio Migration Results</div>';
-    const reportHeader = this.formattedOrgDetails(orgDetails);
-    const pageHeader = `
-    <div class="header-container">
-      ${reportHeader
+  ): Promise<void> {
+    this.logger.info('Generating directories');
+    fs.mkdirSync(resultsDir, { recursive: true });
+    this.logger.info('Generating report for components');
+    for (const result of results) {
+      this.generateReportForResult(result, instanceUrl, ResultsBuilder.getResultConstant(result.name), orgDetails);
+    }
+    this.logger.info('Generating report for related objects');
+    this.generateReportForRelatedObject(relatedObjectMigrationResult, instanceUrl, orgDetails);
+
+    this.logger.info('Generating migration report dashboard');
+    this.generateMigrationReportDashboard(orgDetails, this.getFormattedDetails(results, relatedObjectMigrationResult));
+    this.logger.info('Pushing assets');
+    pushAssestUtilites('javascripts', resultsDir);
+    pushAssestUtilites('styles', resultsDir);
+    await open(resultsDir + '/' + migrationReportHTMLfileName);
+  }
+
+  private static createHeadWithScript(title: string): string {
+    return `<head><title>${title}</title>
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/design-system/2.17.5/styles/salesforce-lightning-design-system.min.css" />
+      <link rel="stylesheet" href="${migrationResultCSSfileName}" />
+    </head>`;
+  }
+
+  private static getFormattedDetails(
+    results: MigratedObject[],
+    relatedObjectMigrationResult: RelatedObjectAssesmentInfo
+  ): ComponentDetail[] {
+    const details: ComponentDetail[] = [];
+
+    for (const result of results) {
+      const resultConstants = this.getResultConstant(result.name);
+      details.push({
+        name: resultConstants.componentName,
+        title: resultConstants.title,
+        count: result.data?.length || 0,
+        completed: result.data?.filter((record) => record.status === 'Complete').length || 0,
+        errored: result.data?.filter((record) => record.status === 'Error').length || 0,
+        skipped: result.data?.filter((record) => record.status === 'Skipped').length || 0,
+      });
+    }
+
+    details.push({
+      name: apexConstants.componentName,
+      title: apexConstants.title,
+      count: relatedObjectMigrationResult.apexAssessmentInfos.length,
+      completed:
+        relatedObjectMigrationResult.apexAssessmentInfos.filter(
+          (record) => !record.warnings || record.warnings.length === 0
+        ).length || 0,
+      errored:
+        relatedObjectMigrationResult.apexAssessmentInfos.filter(
+          (record) => record.warnings && record.warnings.length > 0
+        ).length || 0,
+    });
+    details.push({
+      name: lwcConstants.componentName,
+      title: lwcConstants.title,
+      count: relatedObjectMigrationResult.lwcAssessmentInfos.length,
+      completed:
+        relatedObjectMigrationResult.lwcAssessmentInfos.filter((record) => !record.errors || record.errors.length === 0)
+          .length || 0,
+      errored:
+        relatedObjectMigrationResult.lwcAssessmentInfos.filter((record) => record.errors && record.errors.length > 0)
+          .length || 0,
+    });
+
+    return details;
+  }
+
+  private static generateMigrationReportDashboard(orgDetails: OmnistudioOrgDetails, details: ComponentDetail[]): void {
+    const header = '<div class="slds-text-heading_large">OmniStudio Migration Report</div>';
+    const propsBanner = this.createPropsBanner(this.formattedOrgDetails(orgDetails));
+    const detailsBody = this.createDetailsBody(details);
+    const html = `<html>${this.createHeadWithScript(
+      'OmniStudio Migration Report'
+    )}<body><div class="slds-m-around_medium">${header}${propsBanner}${detailsBody}</div></body></html>`;
+    fs.writeFileSync(resultsDir + '/' + migrationReportHTMLfileName, html);
+  }
+
+  private static createPropsBanner(orgDetails: ReportHeaderFormat[]): string {
+    return `<div class="header-container">
+      ${orgDetails
         .map(
           (header) => `
         <div class="org-details-section">
@@ -32,21 +132,60 @@ export class ResultsBuilder {
       `
         )
         .join('')}
-    </div>
-  `;
+      </div>
+    `;
+  }
 
-    htmlBody += pageHeader;
-    // this.ux.log('Generating report fro results...');
-    for (const result of results) {
-      htmlBody += '<br />' + this.generateReportForResult(result, instanceUrl);
+  private static createDetailsBody(details: ComponentDetail[]): string {
+    return `<div class="details-body">
+      ${details.map((detail) => this.createDetailCard(detail)).join('')}
+    </div>`;
+  }
+
+  private static createDetailCard(detail: ComponentDetail): string {
+    return `<div class="slds-box slds-box_small slds-box_body-spacing">
+      <div class="detail-row">
+        <div class="detail-item slds-text-heading_medium">${detail.title}</div>
+        <div class="detail-item slds-text-heading_medium">${detail.count}</div>
+      </div>
+      <hr />
+      <div class="detail-row">
+        <div class="detail-item">Completed Without Errors</div>
+        <div class="detail-item text-success">${detail.completed}</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-item">Errors</div>
+        <div class="detail-item text-error">${detail.errored}</div>
+      </div>
+        ${
+          detail.skipped !== undefined
+            ? `
+        <div class="detail-row">
+          <div class="detail-item">Skipped</div>
+          <div class="detail-item text-warning">${detail.skipped}</div>
+        </div>
+        `
+            : ''
+        }
+        <div class="detail-row card-footer">
+          <button class="slds-button_stretch slds-button slds-button_neutral" onclick="window.location.href='${resultsDir}/${
+      detail.name
+    }.html'">View Report</button>
+        </div>
+    </div>`;
+  }
+
+  private static getResultConstant(resultName: string): { componentName: string; title: string } {
+    switch (resultName.replace(/ /g, '_').replace(/\//g, '_')) {
+      case dataRaptorConstants.componentName:
+        return dataRaptorConstants;
+      case flexCardConstants.componentName:
+        return flexCardConstants;
+      case omniScriptConstants.componentName:
+        return omniScriptConstants;
     }
-    // this.ux.log('Generating report for related objects...');
-    htmlBody += this.generateReportForRelatedObject(relatedObjectMigrationResult, instanceUrl);
-
-    const doc = this.generateDocumentqwe(htmlBody);
-    const basePath = process.cwd() + '/migration_report';
-    fs.mkdirSync(basePath, { recursive: true });
-    fs.writeFileSync(basePath + '/migration_report.html', doc);
+    // log error
+    return { componentName: resultName.toLowerCase().replace(/ /g, '_'), title: resultName };
   }
 
   private static formattedOrgDetails(orgDetails: OmnistudioOrgDetails): ReportHeaderFormat[] {
@@ -74,25 +213,12 @@ export class ResultsBuilder {
     ];
   }
 
-  private static generateDocumentqwe(resultsAsHtml: string): string {
-    const document = `
-        <html>
-            <head>
-                <title>OmniStudio Migration Assessment</title>
-                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/design-system/2.17.5/styles/salesforce-lightning-design-system.min.css" />
-            </head>
-            <body>
-            <div style="margin: 20px;">
-                    ${resultsAsHtml}
-                </div>
-            </div>
-            </body>
-        </html>
-        `;
-    return document;
-  }
-
-  private static generateReportForResult(result: MigratedObject, instanceUrl: string): string {
+  private static generateReportForResult(
+    result: MigratedObject,
+    instanceUrl: string,
+    resultConstants: { componentName: string; title: string },
+    orgDetails: OmnistudioOrgDetails
+  ): void {
     // this.ux.log('Generating report for result: ' + result.name);
     let tablebody = '';
     const headerColumns: HeaderColumn[] = [
@@ -164,7 +290,7 @@ export class ResultsBuilder {
       },
       {
         key: 'migratedName',
-        cell: (record: MigratedRecordInfo): string => record.migratedName,
+        cell: (record: MigratedRecordInfo): string => record.migratedName || '',
         filterValue: (record: MigratedRecordInfo): string => record.migratedName || '',
         title: (record: MigratedRecordInfo): string => record.migratedName || '',
       },
@@ -176,17 +302,17 @@ export class ResultsBuilder {
       },
       {
         key: 'errors',
-        cell: (record: MigratedRecordInfo): string => record.errors.join(', '),
+        cell: (record: MigratedRecordInfo): string => (record.errors ? record.errors.join('<br>') : ''),
         filterValue: (record: MigratedRecordInfo): string =>
           record.errors && record.errors.length > 0 ? 'Has Errors' : 'Has No Errors',
-        title: (record: MigratedRecordInfo): string => record.errors.join(', '),
+        title: (record: MigratedRecordInfo): string => (record.errors ? record.errors.join('<br>') : ''),
       },
       {
         key: 'warnings',
-        cell: (record: MigratedRecordInfo): string => record.warnings.join(', '),
+        cell: (record: MigratedRecordInfo): string => (record.warnings ? record.warnings.join('<br>') : ''),
         filterValue: (record: MigratedRecordInfo): string =>
           record.warnings && record.warnings.length > 0 ? 'Has Warnings' : 'Has No Warnings',
-        title: (record: MigratedRecordInfo): string => record.warnings.join(', '),
+        title: (record: MigratedRecordInfo): string => (record.warnings ? record.warnings.join('<br>') : ''),
       },
     ];
 
@@ -194,25 +320,45 @@ export class ResultsBuilder {
       {
         label: 'Migration Status',
         key: 'status',
-        filterOptions: ['Complete', 'Error', 'Warning'],
+        filterOptions: ['Complete', 'Error', 'Skipped'],
       },
     ];
 
     // this.ux.log('Generating table body for result: ' + result.name);
-    tablebody = generateHtmlTable(headerColumns, columns, result.data, [], filters, undefined, '', undefined, false);
-    // this.ux.log('Table body generated for result: ' + result.name);
-    return (
-      this.getCard(`<div class="slds-text-heading_medium">${result.name}</div>`, ['collapsible']) +
-      this.getCard(tablebody, ['collapsible-content'])
+    tablebody = generateHtmlTable(
+      headerColumns,
+      columns,
+      result.data,
+      this.formattedOrgDetails(orgDetails),
+      filters,
+      undefined,
+      '',
+      undefined,
+      false
     );
+    // this.ux.log('Table body generated for result: ' + result.name);
+    const html = `<html>${this.createHeadWithScript(
+      `${resultConstants.title} Migration Report`
+    )}<body><div class="slds-m-around_medium"><div class="slds-text-heading_large">${
+      resultConstants.title
+    }</div>${tablebody}</div></body></html>`;
+    fs.writeFileSync(resultsDir + '/' + resultConstants.componentName + '.html', html);
   }
 
-  private static generateReportForRelatedObject(result: RelatedObjectAssesmentInfo, instanceUrl: string): string {
-    return `${this.generateReportForApexResult(result.apexAssessmentInfos, instanceUrl)}
-      ${this.generateReportForLwcResult(result.lwcAssessmentInfos, instanceUrl)}`;
+  private static generateReportForRelatedObject(
+    result: RelatedObjectAssesmentInfo,
+    instanceUrl: string,
+    orgDetails: OmnistudioOrgDetails
+  ): void {
+    this.generateReportForApexResult(result.apexAssessmentInfos, instanceUrl, orgDetails);
+    this.generateReportForLwcResult(result.lwcAssessmentInfos, instanceUrl, orgDetails);
   }
 
-  private static generateReportForApexResult(result: ApexAssessmentInfo[], instanceUrl: string): string {
+  private static generateReportForApexResult(
+    result: ApexAssessmentInfo[],
+    instanceUrl: string,
+    orgDetails: OmnistudioOrgDetails
+  ): void {
     const headerColumns: HeaderColumn[] = [
       {
         label: 'Class Name',
@@ -258,16 +404,16 @@ export class ResultsBuilder {
       },
       {
         key: 'infos',
-        cell: (record: ApexAssessmentInfo): string => record.infos.join(', '),
-        filterValue: (record: ApexAssessmentInfo): string => record.infos.join(', '),
-        title: (record: ApexAssessmentInfo): string => record.infos.join(', '),
+        cell: (record: ApexAssessmentInfo): string => (record.infos ? record.infos.join('<br>') : ''),
+        filterValue: (record: ApexAssessmentInfo): string => (record.infos ? record.infos.join('<br>') : ''),
+        title: (record: ApexAssessmentInfo): string => (record.infos ? record.infos.join('<br>') : ''),
       },
       {
         key: 'warnings',
-        cell: (record: ApexAssessmentInfo): string => record.warnings.join(', '),
+        cell: (record: ApexAssessmentInfo): string => (record.warnings ? record.warnings.join('<br>') : ''),
         filterValue: (record: ApexAssessmentInfo): string =>
           record.warnings.length > 0 ? 'Has Errors' : 'Has No Errors',
-        title: (record: ApexAssessmentInfo): string => record.warnings.join(', '),
+        title: (record: ApexAssessmentInfo): string => (record.warnings ? record.warnings.join('<br>') : ''),
       },
     ];
 
@@ -279,15 +425,29 @@ export class ResultsBuilder {
       },
     ];
 
-    return (
-      this.getCard('<div class="slds-text-heading_medium">Apex Updates</div>', ['collapsible']) +
-      this.getCard(generateHtmlTable(headerColumns, columns, result, [], filters, undefined, '', undefined, false), [
-        'collapsible-content',
-      ])
-    );
+    const html = `<html>${this.createHeadWithScript(
+      `${apexConstants.title} Migration Report`
+    )}<body><div class="slds-m-around_medium"><div class="slds-text-heading_large">${
+      apexConstants.title
+    }</div>${generateHtmlTable(
+      headerColumns,
+      columns,
+      result,
+      this.formattedOrgDetails(orgDetails),
+      filters,
+      undefined,
+      '',
+      undefined,
+      false
+    )}</div></body></html>`;
+    fs.writeFileSync(resultsDir + '/' + apexConstants.componentName + '.html', html);
   }
 
-  private static generateReportForLwcResult(result: LWCAssessmentInfo[], instanceUrl: string): string {
+  private static generateReportForLwcResult(
+    result: LWCAssessmentInfo[],
+    instanceUrl: string,
+    orgDetails: OmnistudioOrgDetails
+  ): void {
     const headerColumns: HeaderColumn[] = [
       {
         label: 'Component Name',
@@ -310,12 +470,12 @@ export class ResultsBuilder {
     const columns: Array<TableColumn<LWCAssessmentInfo>> = [
       {
         key: 'name',
-        cell: (record: LWCAssessmentInfo, _index: number): string => record.name,
-        filterValue: (record: LWCAssessmentInfo, _index: number): string => record.name,
-        title: (record: LWCAssessmentInfo, _index: number): string => record.name,
+        cell: (record: LWCAssessmentInfo): string => record.name,
+        filterValue: (record: LWCAssessmentInfo): string => record.name,
+        title: (record: LWCAssessmentInfo): string => record.name,
         skip: (record: LWCAssessmentInfo, index: number): boolean =>
           !(record.changeInfos && record.changeInfos.length > 0 && index === 0),
-        rowspan: (record: LWCAssessmentInfo, index: number): number =>
+        rowspan: (record: LWCAssessmentInfo): number =>
           record.changeInfos && record.changeInfos.length > 0 ? record.changeInfos.length : 1,
       },
       {
@@ -334,10 +494,10 @@ export class ResultsBuilder {
       },
       {
         key: 'errors',
-        cell: (record: LWCAssessmentInfo, _index): string => (record.errors ? record.errors.join(', ') : ''),
-        filterValue: (record: LWCAssessmentInfo, _index): string =>
+        cell: (record: LWCAssessmentInfo): string => (record.errors ? record.errors.join(', ') : ''),
+        filterValue: (record: LWCAssessmentInfo): string =>
           record.errors && record.errors.length > 0 ? 'Has Errors' : 'Has No Errors',
-        rowspan: (record: LWCAssessmentInfo, _index): number =>
+        rowspan: (record: LWCAssessmentInfo): number =>
           record.changeInfos && record.changeInfos.length > 0 ? record.changeInfos.length : 1,
         skip: (record: LWCAssessmentInfo, index: number): boolean =>
           !(record.changeInfos && record.changeInfos.length > 0 && index === 0),
@@ -352,16 +512,25 @@ export class ResultsBuilder {
       },
     ];
 
-    return (
-      this.getCard('<div class="slds-text-heading_medium">LWC Updates</div>', ['collapsible']) +
-      this.getCard(
-        generateHtmlTable(headerColumns, columns, result, [], filters, undefined, '', 'changeInfos', false),
-        ['collapsible-content']
-      )
-    );
-  }
-
-  private static getCard(body: string, classNames: string[] = []): string {
-    return `<div class="header-container slds-box ${classNames.join(' ')}">${body}</div>`;
+    const html = `<html>
+        ${this.createHeadWithScript(`${lwcConstants.title} Migration Report`)}
+        <body>
+          <div class="slds-m-around_medium">
+            <div class="slds-text-heading_large">${lwcConstants.title}</div>
+          ${generateHtmlTable(
+            headerColumns,
+            columns,
+            result,
+            this.formattedOrgDetails(orgDetails),
+            filters,
+            undefined,
+            '',
+            'changeInfos',
+            false
+          )}
+          </div>
+        </body>
+      </html>`;
+    fs.writeFileSync(resultsDir + '/' + lwcConstants.componentName + '.html', html);
   }
 }

@@ -44,3 +44,7 @@ migrationresults.html
 
 oclif.manifest.json
 omnistudio_migration
+
+assessment_reports/
+migration_report/
+.sfdx/

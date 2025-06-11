@@ -64,6 +64,7 @@ export class ResultsBuilder {
     </head>`;
   }
 
+  // some random comment
   private static getFormattedDetails(
     results: MigratedObject[],
     relatedObjectMigrationResult: RelatedObjectAssesmentInfo
@@ -157,20 +158,18 @@ export class ResultsBuilder {
         <div class="detail-item">Errors</div>
         <div class="detail-item text-error">${detail.errored}</div>
       </div>
-        ${
-          detail.skipped !== undefined
-            ? `
+        ${detail.skipped !== undefined
+        ? `
         <div class="detail-row">
           <div class="detail-item">Skipped</div>
           <div class="detail-item text-warning">${detail.skipped}</div>
         </div>
         `
-            : ''
-        }
+        : ''
+      }
         <div class="detail-row card-footer">
-          <button class="slds-button_stretch slds-button slds-button_neutral" onclick="window.location.href='${resultsDir}/${
-      detail.name
-    }.html'">View Report</button>
+          <button class="slds-button_stretch slds-button slds-button_neutral" onclick="window.location.href='${resultsDir}/${detail.name
+      }.html'">View Report</button>
         </div>
     </div>`;
   }
@@ -339,9 +338,8 @@ export class ResultsBuilder {
     // this.ux.log('Table body generated for result: ' + result.name);
     const html = `<html>${this.createHeadWithScript(
       `${resultConstants.title} Migration Report`
-    )}<body><div class="slds-m-around_medium"><div class="slds-text-heading_large">${
-      resultConstants.title
-    }</div>${tablebody}</div></body></html>`;
+    )}<body><div class="slds-m-around_medium"><div class="slds-text-heading_large">${resultConstants.title
+      }</div>${tablebody}</div></body></html>`;
     fs.writeFileSync(resultsDir + '/' + resultConstants.componentName + '.html', html);
   }
 
@@ -427,19 +425,18 @@ export class ResultsBuilder {
 
     const html = `<html>${this.createHeadWithScript(
       `${apexConstants.title} Migration Report`
-    )}<body><div class="slds-m-around_medium"><div class="slds-text-heading_large">${
-      apexConstants.title
-    }</div>${generateHtmlTable(
-      headerColumns,
-      columns,
-      result,
-      this.formattedOrgDetails(orgDetails),
-      filters,
-      undefined,
-      '',
-      undefined,
-      false
-    )}</div></body></html>`;
+    )}<body><div class="slds-m-around_medium"><div class="slds-text-heading_large">${apexConstants.title
+      }</div>${generateHtmlTable(
+        headerColumns,
+        columns,
+        result,
+        this.formattedOrgDetails(orgDetails),
+        filters,
+        undefined,
+        '',
+        undefined,
+        false
+      )}</div></body></html>`;
     fs.writeFileSync(resultsDir + '/' + apexConstants.componentName + '.html', html);
   }
 
@@ -518,16 +515,16 @@ export class ResultsBuilder {
           <div class="slds-m-around_medium">
             <div class="slds-text-heading_large">${lwcConstants.title}</div>
           ${generateHtmlTable(
-            headerColumns,
-            columns,
-            result,
-            this.formattedOrgDetails(orgDetails),
-            filters,
-            undefined,
-            '',
-            'changeInfos',
-            false
-          )}
+      headerColumns,
+      columns,
+      result,
+      this.formattedOrgDetails(orgDetails),
+      filters,
+      undefined,
+      '',
+      'changeInfos',
+      false
+    )}
           </div>
         </body>
       </html>`;

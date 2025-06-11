@@ -178,7 +178,8 @@ export default class Migrate extends OmniStudioBaseCommand {
       relatedObjectMigrationResult.apexAssessmentInfos,
       relatedObjectMigrationResult.lwcAssessmentInfos
     );
-    await ResultsBuilder.generate(objectMigrationResults, relatedObjectMigrationResult, conn.instanceUrl);
+
+    await ResultsBuilder.generateReport(objectMigrationResults, relatedObjectMigrationResult, conn.instanceUrl, orgs);
 
     // save timer to debug logger
     this.logger.debug(timer);

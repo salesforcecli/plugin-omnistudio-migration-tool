@@ -5,6 +5,8 @@ export interface TableColumn<T> {
   filterValue: any;
   title?: any;
   styles?: any;
+  rowspan?: (arg0: T, arg1: number) => number;
+  skip?: (arg0: T, arg1: number) => boolean;
 }
 
 export interface Filter {
@@ -39,4 +41,13 @@ export interface TableHeaderCell {
   key?: string;
   width?: string;
   styles?: string;
+}
+
+export interface ComponentDetail {
+  name: string;
+  title: string;
+  count: number;
+  completed?: number;
+  errored?: number;
+  skipped?: number;
 }

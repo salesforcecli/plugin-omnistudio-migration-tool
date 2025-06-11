@@ -1,5 +1,8 @@
 import { Filter, HeaderColumn, ReportHeader, TableColumn, TableHeaderCell } from './reportInterfaces';
 
+let reportTableInstance = 0;
+let dataItemInstance = 0;
+const dataItemClass = 'data-row-';
 export function generateHtmlTable<T>(
   headerRows: HeaderColumn[],
   columns: Array<TableColumn<T>>,
@@ -7,9 +10,12 @@ export function generateHtmlTable<T>(
   reportHeader: ReportHeader[],
   filters: Filter[] = [],
   tableClass = 'slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped slds-table_col-bordered',
-  ariaLabel = ''
+  ariaLabel = '',
+  indexedKey: string | undefined = undefined,
+  showMigrationBanner = true
 ): string {
   const transformedHeader: TableHeaderCell[][] = transform(headerRows);
+  const tableId = `report-table-${reportTableInstance++}`;
 
   const thead = `
     <thead>
@@ -58,11 +64,11 @@ export function generateHtmlTable<T>(
         id="name-search-input"
         class="search-input"
         placeholder="Search by Name"
-        oninput="filterAndSearchTable()"
+        oninput="filterAndSearchTable('${tableId}')"
       />
     </div>
  
-    <div class="filter-toggle-button" onclick="toggleFilterDropdown()">
+    <div class="filter-toggle-button" onclick="toggleFilterDropdown('${tableId}')">
       Filters
       <svg id="chevron-down" class="chevron-icon" xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 16 16">
         <path fill-rule="none" stroke="currentColor" stroke-width="2" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708"/>
@@ -90,7 +96,7 @@ export function generateHtmlTable<T>(
                 data-filter-key="${filter.key}"
                 value="${option}"
                 checked
-                onclick="filterAndSearchTable()"
+                onclick="filterAndSearchTable('${tableId}')"
               />
               ${option}
             </label>
@@ -115,10 +121,11 @@ export function generateHtmlTable<T>(
   const tbody = `
     <tbody id="filterable-table-body">
       ${rows
-        .map(
-          (row) => `
-        <tr>
-        
+        .map((row) =>
+          indexedKey
+            ? createIndexedRow(row, indexedKey, columns)
+            : `
+        <tr class="${dataItemClass}${dataItemInstance++}">
           ${columns
             /* eslint-disable @typescript-eslint/no-unsafe-assignment */
             /* eslint-disable @typescript-eslint/no-unsafe-call */
@@ -160,26 +167,30 @@ export function generateHtmlTable<T>(
     </div>
   `;
 
-  const migrationBanner = `
+  const migrationBanner = showMigrationBanner
+    ? `
     <div class="migration-message">
       <svg fill="#8c4c00" width="20px" height="20px" viewBox="-3.2 -3.2 38.40 38.40" xmlns="http://www.w3.org/2000/svg" stroke="#8c4c00" stroke-width="0.0032">
         <path d="M31.082 27.5l-13.999-24.249c-0.237-0.352-0.633-0.58-1.083-0.58s-0.846 0.228-1.080 0.575l-0.003 0.005-14 24.249c-0.105 0.179-0.167 0.395-0.167 0.625 0 0.69 0.56 1.25 1.25 1.25h28c0.69 0 1.249-0.56 1.249-1.25 0-0.23-0.062-0.446-0.171-0.631zM4.165 26.875l11.835-20.499 11.834 20.499zM14.75 12v8.994c0 0.69 0.56 1.25 1.25 1.25s1.25-0.56 1.25-1.25V12c0-0.69-0.56-1.25-1.25-1.25s-1.25 0.56-1.25 1.25zM15.12 23.619c-0.124 0.106-0.22 0.24-0.278 0.394-0.051 0.143-0.08 0.308-0.08 0.48s0.029 0.337 0.083 0.491c0.144 0.3 0.38 0.536 0.671 0.676 0.143 0.051 0.308 0.080 0.48 0.080s0.337-0.029 0.49-0.083c0.156-0.071 0.288-0.166 0.4-0.281 0.224-0.225 0.363-0.536 0.363-0.878 0-0.687-0.557-1.244-1.244-1.244-0.343 0-0.653 0.139-0.878 0.363z"/>
       </svg>
       <span>High level description of what actions were taken as part of the migration will come here</span>
     </div>
-  `;
+  `
+    : '';
 
   return `
-    ${migrationBanner}
-    ${pageHeader}
-    ${filterAndSearchPanel}
-    <div class="table-container">
-      <table class="${tableClass}" aria-label="${ariaLabel}">
-        ${thead}
-        ${tbody}
-      </table>
-      <script src="./reportGeneratorUtility.js" defer></script>
-      <link rel="stylesheet" href="./reportGenerator.css">
+    <div class="rpt-table-container" id="${tableId}">
+      ${migrationBanner}
+      ${pageHeader}
+      ${filterAndSearchPanel}
+      <div class="table-container">
+        <table class="${tableClass}" aria-label="${ariaLabel}">
+          ${thead}
+          ${tbody}
+        </table>
+        <script src="./reportGeneratorUtility.js" defer></script>
+        <link rel="stylesheet" href="./reportGenerator.css">
+      </div>
     </div>
   `;
 }
@@ -213,5 +224,40 @@ function transform(columnInput): TableHeaderCell[][] {
     }
   });
 
+  if (row2.length === 0) {
+    return [row1] as unknown as TableHeaderCell[][];
+  }
+
   return [row1, row2] as unknown as TableHeaderCell[][];
+}
+
+function createIndexedRow<T>(row: T, indexedKey: string, columns: Array<TableColumn<T>>): string {
+  let rows = '';
+  const indexedTill = row[indexedKey].length;
+  const dataRowClass = `${dataItemClass}${dataItemInstance++}`;
+  for (let i = 0; i < indexedTill; i++) {
+    rows += `
+    <tr class="${dataRowClass}">
+        
+          ${columns
+            /* eslint-disable @typescript-eslint/no-unsafe-assignment */
+            /* eslint-disable @typescript-eslint/no-unsafe-call */
+            /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+            .map((col) => {
+              const skip: boolean = col.skip ? col.skip(row, i) : false;
+              if (skip) return '';
+              const key: string = col.key;
+              const title: string = col.title ? col.title(row, i) : '';
+              const value: string = col.filterValue(row, i).toString();
+              const cellContent: string = col.cell(row, i);
+              const style: string = col.styles ? col.styles(row, i) : '';
+              const dataAttr: string = ['name', 'oldName'].includes(key) ? `data-name="${value.toLowerCase()}"` : '';
+              const rowspan: string = col.rowspan ? `rowspan="${col.rowspan(row, i)}"` : '';
+              return `<td ${dataAttr} title="${title}" key="${key}" value="${value}" style="${style}" ${rowspan}>${cellContent}</td>`;
+            })
+            .join('')}
+        </tr>
+        `;
+  }
+  return rows;
 }

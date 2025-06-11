@@ -1,7 +1,6 @@
 /* eslint-disable prettier/prettier */
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
 import fs from 'fs';
-import path from 'path';
 import open from 'open';
 import {
   ApexAssessmentInfo,
@@ -12,6 +11,7 @@ import {
 } from '../interfaces';
 import { ReportHeaderFormat } from '../reportGenerator/reportInterfaces';
 import { OmnistudioOrgDetails } from '../orgUtils';
+import { pushAssestUtilites } from '../file/fileutil';
 import { OSAssessmentReporter } from './OSAssessmentReporter';
 import { IPAssessmentReporter } from './IPAssessmentReporter';
 import { DRAssessmentReporter } from './DRAssessmentReporter';
@@ -81,8 +81,8 @@ export class AssessmentReporter {
     ];
 
     await this.createMasterDocument(nameUrls, basePath);
-    this.pushAssestUtilites('javascripts', basePath);
-    this.pushAssestUtilites('styles', basePath);
+    pushAssestUtilites('javascripts', basePath);
+    pushAssestUtilites('styles', basePath);
   }
 
   private static formattedOrgDetails(orgDetails: OmnistudioOrgDetails): ReportHeaderFormat[] {
@@ -108,48 +108,6 @@ export class AssessmentReporter {
         value: new Date() as unknown as string,
       },
     ];
-  }
-
-  /**
-   * Copies `.js` and `.css` files from a source directory (based on `folderName`)
-   * to a specified destination directory.
-   *
-   * @param folderName - The subdirectory under `/src/` where source asset files are located (e.g., `'javascripts'`, `'styles'`).
-   * @param destDir - The absolute or relative path to the destination directory where the assets should be copied.
-   *
-   * @remarks
-   * - If the destination directory does not exist, the method logs a warning and exits.
-   * - Only `.js` and `.css` files are copied.
-   * - The source files remain in place after copying.
-   */
-  private static pushAssestUtilites(folderName: string, destDir: string): void {
-    const sourceDir = path.join(process.cwd(), 'src', folderName);
-
-    if (!fs.existsSync(destDir)) {
-      // Destination directory does not exist. Skipping file copy.
-      return;
-    }
-
-    fs.readdir(sourceDir, (readDirErr, files) => {
-      if (readDirErr) {
-        // Error reading source directory: readDirErr.message
-        return;
-      }
-
-      files.forEach((file) => {
-        const ext = path.extname(file);
-        if (ext === '.js' || ext === '.css') {
-          const srcPath = path.join(sourceDir, file);
-          const destPath = path.join(destDir, file);
-
-          fs.copyFile(srcPath, destPath, (copyErr) => {
-            if (copyErr) {
-              // Failed to copy file: copyErr.message
-            }
-          });
-        }
-      });
-    });
   }
 
   private static async createMasterDocument(reports: nameLocation[], basePath: string): Promise<void> {

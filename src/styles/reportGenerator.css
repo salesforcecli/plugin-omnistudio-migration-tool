@@ -103,7 +103,10 @@
 .slds-table th {
   position: relative;
   max-width: 250px;
-  text-align: center;
+  text-align: left;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
 }
 
 .slds-table--bordered,
@@ -216,4 +219,52 @@ tbody tr td {
 
 html {
   background: #f8f8f8;
+}
+
+.details-body {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+}
+
+.detail-row {
+  justify-content: space-between;
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+}
+
+.slds-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 14rem;
+  min-width: 25rem;
+  background-color: #fff;
+}
+
+hr {
+  margin: 1rem;
+}
+
+.text-success {
+  color: #2e844a;
+}
+
+.text-error {
+  color: #ea001e;
+}
+
+.text-warning {
+  color: #fe9339;
+}
+
+.card-footer {
+  margin-top: auto;
+}
+
+td {
+  border-left: 1px solid #e5e5e5;
 }

@@ -20,17 +20,25 @@ sfdx plugins:install @salesforce/plugin-omnistudio-migration-tool
 // To migrate everything
 sfdx omnistudio:migration:migrate -u YOUR_ORG_USERNAME@DOMAIN.COM --namespace=VLOCITY_PACKAGE_NAMESPACE
 
-//to migrate specific components: FlexCards, DataMappers, Integration Procedures, or OmniScripts, add the following parameters:
+// To assess everything without migrating
+sfdx omnistudio:migration:assess -u YOUR_ORG_USERNAME@DOMAIN.COM --namespace=VLOCITY_PACKAGE_NAMESPACE
+
+// To migrate/assess specific components: FlexCards, DataMappers, Integration Procedures, or OmniScripts, add the following parameters:
 --only=dr
 --only=ip
 --only=os
 --only=fc
 
-//to migrate all versions of the components and not just the active ones:
+// To migrate all versions of the components and not just the active ones:
 --allversions
+
+// To assess specific related objects:
+--relatedobjects=apex    // for Apex classes only
+--relatedobjects=lwc     // for Lightning Web Components only
+--relatedobjects=apex,lwc // for both Apex and LWC
 ```
 
-5. An HTML page will be open in your default browser with the results of your migration job.
+5. An HTML page will be open in your default browser with the results of your migration/assessment job.
 
 ### Usage & parameters
 
@@ -59,10 +67,16 @@ OPTIONS
   -a, --allversions                                                                 migrate all versions and not
                                                                                     and not just the active ones.
 
-  --relatedobjects=relatedobjects                                                   Please select the type of components to
-                                                                                    migrate: 'apex' for Apex classes, 'lwc' for Lightning Web Components, or 'apex,lwc' if you want to include both types.
+  --only=only                                                                       specify components to migrate/assess:
+                                                                                    dr (DataRaptors), ip (Integration Procedures),
+                                                                                    os (OmniScripts), fc (FlexCards)
 
+  --relatedobjects=relatedobjects                                                   specify related objects to assess:
+                                                                                    'apex' for Apex classes, 'lwc' for Lightning
+                                                                                    Web Components, or 'apex,lwc' for both types
 ```
+
+> **Note:** LWC (Lightning Web Components) migration functionality is temporarily disabled in the current version. This includes LWC migration, assessment, and report generation features. These features will be re-enabled in a future release. Apex migration functionality remains fully available. The `--relatedobjects` flag accepts all values ('apex', 'lwc', 'apex,lwc'), but LWC-related operations will not be executed.
 
 Terms:
 Notwithstanding anything stated in the terms and conditions agreed between Salesforce (‘SFDC’) and you (‘Customer’), the use of the OmniStudio Migration Tool (‘Tool’) is designed to facilitate the migration and it’s going to modify your custom code and by deploying and using the Tool you hereby provide your consent to automate the migration process and enable a smooth transition. Customer shall access and use the Tool only as permitted to the Customer and shall not compromise, break or circumvent any technical processes or security measures associated with the services provided by SFDC.

@@ -25,7 +25,8 @@ export class AssessmentReporter {
     const integrationProcedureAssessmentFilePath = basePath + '/integration_procedure_assessment.html';
     const dataMapperAssessmentFilePath = basePath + '/datamapper_assessment.html';
     const apexAssessmentFilePath = basePath + '/apex_assessment.html';
-    const lwcAssessmentFilePath = basePath + '/lwc_assessment.html';
+    // TODO: Uncomment code once MVP for migration is completed
+    // const lwcAssessmentFilePath = basePath + '/lwc_assessment.html';
     const orgDetails: ReportHeaderFormat[] = this.formattedOrgDetails(omnistudioOrgDetails);
 
     this.createDocument(
@@ -42,8 +43,9 @@ export class AssessmentReporter {
     );
     this.createDocument(
       dataMapperAssessmentFilePath,
-      DRAssessmentReporter.generateDRAssesment(result.dataRaptorAssessmentInfos, instanceUrl)
+      DRAssessmentReporter.generateDRAssesment(result.dataRaptorAssessmentInfos, instanceUrl, orgDetails)
     );
+
     this.createDocument(
       apexAssessmentFilePath,
       ApexAssessmentReporter.generateApexAssesment(result.apexAssessmentInfos, instanceUrl, orgDetails)
@@ -52,6 +54,7 @@ export class AssessmentReporter {
       lwcAssessmentFilePath,
       LWCAssessmentReporter.generateLwcAssesment(result.lwcAssessmentInfos, instanceUrl, orgDetails)
     );
+
     const nameUrls = [
       {
         name: 'omnscript assessment report',
@@ -73,10 +76,11 @@ export class AssessmentReporter {
         name: 'Apex assessment report',
         location: 'apex_assessment.html',
       },
-      {
-        name: 'LWC assessment report',
-        location: 'lwc_assessment.html',
-      },
+      // TODO: Uncomment code once MVP for migration is completed
+      // {
+      //   name: 'LWC assessment report',
+      //   location: 'lwc_assessment.html',
+      // },
     ];
 
     await this.createMasterDocument(nameUrls, basePath);

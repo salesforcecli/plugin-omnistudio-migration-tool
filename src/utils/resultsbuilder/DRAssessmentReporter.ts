@@ -1,68 +1,125 @@
 import { DataRaptorAssessmentInfo } from '../interfaces';
+import { Filter, HeaderColumn, ReportHeaderFormat, TableColumn } from '../reportGenerator/reportInterfaces';
+import { generateHtmlTable } from '../reportGenerator/reportGenerator';
 import { reportingHelper } from './reportingHelper';
 
 export class DRAssessmentReporter {
   public static generateDRAssesment(
     dataRaptorAssessmentInfos: DataRaptorAssessmentInfo[],
-    instanceUrl: string
+    instanceUrl: string,
+    org: ReportHeaderFormat[]
   ): string {
-    let tableBody = '';
-    tableBody += '<div class="slds-text-heading_large">Data Mapper Components Assessment</div>';
-    for (const dr of dataRaptorAssessmentInfos) {
-      const row = `
-              <tr class="slds-hint_parent">
-                  <td style="word-wrap: break-word; white-space: normal; max-width: 200px;">
-                      <div class="slds-truncate" title="${dr.name}">${dr.name}</div>
-                  </td>
-                   <td style="word-wrap: break-word; white-space: normal; max-width: 100px;">
-                      <div class="slds-truncate" title="${dr.id}">
-                    <a href="${instanceUrl}/${dr.id}">${dr.id}</div>
-                  </td>
-                   <td style="word-wrap: break-word; white-space: normal; max-width: 60%; overflow: hidden;">
-                       ${reportingHelper.convertToBuletedList(dr.warnings)}
-                  </td>
-                   <td style="word-wrap: break-word; white-space: normal; max-width: 200px;">
-                      <div> ${reportingHelper.decorateChanges(dr.formulaChanges, 'Formula')} </div>
-                  </td>
-                   <td style="word-wrap: break-word; white-space: normal; max-width: 60%; overflow: hidden;">
-                       ${reportingHelper.convertToBuletedList(dr.apexDependencies)}
-                  </td>                      
+    // Header Column
+    const headerColumn: HeaderColumn[] = [
+      {
+        label: 'In Package',
+        colspan: 2,
+        styles: 'color: purple;',
+        subColumn: [
+          {
+            label: 'Name',
+            key: 'oldName',
+          },
+          {
+            label: 'Record ID',
+            key: 'id',
+          },
+        ],
+      },
+      {
+        label: 'In Core',
+        colspan: 1,
+        subColumn: [
+          {
+            label: 'Name',
+            key: 'name',
+          },
+        ],
+      },
+      {
+        label: 'Type',
+        key: 'type',
+        rowspan: 2,
+        subColumn: [],
+      },
+      {
+        label: 'Summary',
+        key: 'summary',
+        rowspan: 2,
+        subColumn: [],
+      },
+      {
+        label: 'Custom Function Changes',
+        key: 'customFunctionChanges',
+        rowspan: 2,
+        subColumn: [],
+      },
+      {
+        label: 'Apex Dependencies',
+        key: 'apexDependencies',
+        rowspan: 2,
+        subColumn: [],
+      },
+    ];
 
-              </tr>`;
-      tableBody += row;
-    }
+    // Define columns
+    const columns: Array<TableColumn<DataRaptorAssessmentInfo>> = [
+      {
+        key: 'oldName',
+        cell: (row: DataRaptorAssessmentInfo): string => row.oldName,
+        filterValue: (row: DataRaptorAssessmentInfo): string => row.oldName,
+        title: (row: DataRaptorAssessmentInfo): string => row.oldName,
+      },
+      {
+        key: 'id',
+        cell: (row: DataRaptorAssessmentInfo): string =>
+          row.id ? `<a href="${instanceUrl}/${row.id}">${row.id}</a>` : '',
+        filterValue: (row: DataRaptorAssessmentInfo): string => row.id,
+        title: (row: DataRaptorAssessmentInfo): string => row.id,
+      },
+      {
+        key: 'name',
+        cell: (row: DataRaptorAssessmentInfo): string => row.name || '',
+        filterValue: (row: DataRaptorAssessmentInfo): string => row.name,
+        title: (row: DataRaptorAssessmentInfo): string => row.name,
+      },
+      {
+        key: 'type',
+        cell: (row: DataRaptorAssessmentInfo): string => row.type,
+        filterValue: (row: DataRaptorAssessmentInfo): string => row.type,
+        title: (row: DataRaptorAssessmentInfo): string => row.type,
+      },
+      {
+        key: 'summary',
+        cell: (row: DataRaptorAssessmentInfo): string => reportingHelper.convertToBuletedList(row.warnings || []),
+        filterValue: (row: DataRaptorAssessmentInfo): string => (row.warnings ? row.warnings.join(', ') : ''),
+        title: (row: DataRaptorAssessmentInfo): string => (row.warnings ? row.warnings.join(', ') : ''),
+      },
+      {
+        key: 'customFunctionChanges',
+        cell: (row: DataRaptorAssessmentInfo): string =>
+          reportingHelper.decorateChanges(row.formulaChanges, 'Formula') || '',
+        filterValue: (row: DataRaptorAssessmentInfo): typeof row.formulaChanges => row.formulaChanges,
+      },
+      {
+        key: 'apexDependencies',
+        cell: (row: DataRaptorAssessmentInfo): string =>
+          reportingHelper.convertToBuletedList(row.apexDependencies || []),
+        filterValue: (row: DataRaptorAssessmentInfo): string[] => row.apexDependencies,
+      },
+    ];
 
-    return DRAssessmentReporter.getDRAssessmentReport(tableBody);
-  }
-
-  private static getDRAssessmentReport(tableContent: string): string {
-    const tableBody = `
-        <div style="margin-block:15px">        
-            <table style="width: 100%; table-layout: auto;" class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped slds-table_col-bordered" aria-label="Results for Data Mapper updates">
-            <thead>
-                <tr class="slds-line-height_reset">
-                    <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
-                        <div class="slds-truncate" title="Name">Name</div>
-                    </th>
-                    <th class="" scope="col" style="width: 10%; word-wrap: break-word; white-space: normal; text-align: left;">
-                       <div class="slds-truncate" title="ID">ID</div>
-                    </th>
-                    <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
-                        <div class="slds-truncate" title="Summary">Summary</div>
-                    </th>
-                    <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
-                        <div class="slds-truncate" title="Custom Function Change">Custom Function Changes</div>
-                    </th>
-                    <th class="" scope="col" style="width: 20%; word-wrap: break-word; white-space: normal; text-align: left;">
-                        <div class="slds-truncate" title="Apex dependencies">Apex dependencies</div>
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
-            ${tableContent}
-            </tbody>
-            </table>
-        </div>`;
-    return tableBody;
+    const filters: Filter[] = [];
+    // Render table
+    const tableHtml = generateHtmlTable(
+      headerColumn,
+      columns,
+      dataRaptorAssessmentInfos,
+      org,
+      filters,
+      undefined,
+      'Data Mapper Assessment'
+    );
+    return `<div class="slds-text-heading_large">Data Mapper Assessment Report</div>${tableHtml}`;
   }
 }

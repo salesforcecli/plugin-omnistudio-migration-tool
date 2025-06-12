@@ -298,7 +298,7 @@ export class OrgUtils {
       '',
       this.orgObjectName,
       this.orgFields
-    ))as unknown as OrgDetails;
+    )) as unknown as OrgDetails;
 
     const packageDetails: PackageDetail[] = allInstalledPackages
       // Filter packages to only include those with a namespace in the predefined list

@@ -25,6 +25,7 @@ import {
   populateRegexForFunctionMetadata,
 } from '../utils/formula/FormulaUtil';
 import { StringVal } from '../utils/StringValue/stringval';
+import { formatUnicorn } from '../utils/stringUtils';
 
 export class OmniScriptMigrationTool extends BaseMigrationTool implements MigrationTool {
   private readonly exportType: OmniScriptExportType;
@@ -103,7 +104,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
     let success: boolean = await NetUtils.delete(this.connection, ids);
     if (!success) {
-      throw new Error(this.messages.getMessage('couldNotTruncateOmnniProcess').formatUnicorn(objectName));
+      throw new Error(formatUnicorn(this.messages.getMessage('couldNotTruncateOmnniProcess'), objectName));
     }
   }
 
@@ -307,7 +308,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
           : '') +
         `_${omniscript[this.namespacePrefix + 'Version__c']}`;
 
-        const oldName =
+      const oldName =
         `${existingTypeVal.val}_` +
         `${existingSubTypeVal.val}` +
         (omniscript[this.namespacePrefix + 'Language__c']
@@ -371,7 +372,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
           infos: [],
           warnings: warnings,
           errors: [],
-          migrationStatus: migrationStatus
+          migrationStatus: migrationStatus,
         };
         osAssessmentInfos.push(osAssessmentInfo);
       } else {

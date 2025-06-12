@@ -73,7 +73,7 @@ export class LWCAssessmentReporter {
       },
       {
         key: 'diff',
-        cell: (row: RowType): string => FileDiffUtil.getDiffHTML(row.diff),
+        cell: (row: RowType): string => FileDiffUtil.getDiffHTML(row.diff, row.name),
         filterValue: (row: RowType): string => `Diff_${row.fileName}`,
         title: (row: RowType): string => `Diff_${row.fileName}`,
       },
@@ -108,7 +108,7 @@ export class LWCAssessmentReporter {
 
     // Render table
     const tableHtml = generateHtmlTable(headerColumn, columns, rows, org, filters, undefined, 'LWC Assessment');
-    return `<div class="slds-text-heading_large">LWC Assessment Report</div>${tableHtml}`;
+    return `${tableHtml}`;
   }
 
   private static generateRows(lwcAssessmentInfos: LWCAssessmentInfo[]): RowType[] {

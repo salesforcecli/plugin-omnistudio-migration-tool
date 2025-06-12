@@ -16,7 +16,7 @@ export interface MigratedRecordInfo {
   warnings: string[];
 }
 
-export interface PairArray {
+export interface DiffPair {
   old: string | null;
   new: string | null;
 }

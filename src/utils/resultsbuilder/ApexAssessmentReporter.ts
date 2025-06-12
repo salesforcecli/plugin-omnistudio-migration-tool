@@ -64,7 +64,7 @@ export class ApexAssessmentReporter {
       },
       {
         key: 'diff',
-        cell: (row: ApexAssessmentInfo): string => FileDiffUtil.getDiffHTML(row.diff),
+        cell: (row: ApexAssessmentInfo): string => FileDiffUtil.getDiffHTML(row.diff, row.name),
         filterValue: (row: ApexAssessmentInfo): string => `Diff_${row.name}`,
         title: (row: ApexAssessmentInfo): string => `Diff_${row.name}`,
       },
@@ -107,7 +107,7 @@ export class ApexAssessmentReporter {
       undefined,
       'Apex Assessment'
     );
-    return `<div class="slds-text-heading_large">Apex Assessment Report</div>${tableHtml}`;
+    return `${tableHtml}`;
   }
 
   private static generateMessages(messages: string[]): string {

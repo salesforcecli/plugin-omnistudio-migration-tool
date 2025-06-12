@@ -16,6 +16,11 @@ export interface MigratedRecordInfo {
   warnings: string[];
 }
 
+export interface DiffPair {
+  old: string | null;
+  new: string | null;
+}
+
 export interface LWCAssessmentInfo {
   name: string;
   changeInfos: FileChangeInfo[];

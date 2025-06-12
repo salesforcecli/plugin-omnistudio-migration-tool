@@ -11,6 +11,11 @@ function toggleFilterDropdown(tableId) {
   }
 }
 
+function toggleDiffModal(name) {
+  const modal = document.getElementById(`myModal_${name}`);
+  modal.style.display = modal.style.display === 'none' ? 'flex' : 'none';
+}
+
 function filterAndSearchTable(tableId) {
   const reportTable = document.getElementById(tableId);
   const table = reportTable.querySelector('#filterable-table-body');
@@ -32,6 +37,7 @@ function filterAndSearchTable(tableId) {
   const noRowsMessage = reportTable.querySelector('#no-rows-message');
 
   // NEW: If any filter group has zero selected values → show no rows
+  const activeFilterKeys = [...new Set([...checkboxes].map((cb) => cb.getAttribute('data-filter-key')))];
   const activeFilterKeys = [...new Set([...checkboxes].map((cb) => cb.getAttribute('data-filter-key')))];
   const hasEmptyGroup = activeFilterKeys.some((key) => !filters[key] || filters[key].length === 0);
   if (hasEmptyGroup) {

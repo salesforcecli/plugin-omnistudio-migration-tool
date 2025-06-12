@@ -21,10 +21,10 @@ export class HtmlFileProcessor implements FileProcessor {
         fileContent.get(FileConstant.BASE_CONTENT),
         fileContent.get(FileConstant.MODIFIED_CONTENT)
       );
-      if (type != null && type === 'migration' && diff !== '') {
+      if (type != null && type === 'migration' && diff.length > 0) {
         fileutil.saveToFile(filePath, fileContent.get(FileConstant.MODIFIED_CONTENT));
       }
-      return diff;
+      return JSON.stringify(diff);
     }
   }
 }

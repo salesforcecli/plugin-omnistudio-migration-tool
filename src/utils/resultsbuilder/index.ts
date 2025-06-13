@@ -95,17 +95,17 @@ export class ResultsBuilder {
           (record) => record.warnings && record.warnings.length > 0
         ).length || 0,
     });
-    details.push({
-      name: lwcConstants.componentName,
-      title: lwcConstants.title,
-      count: relatedObjectMigrationResult.lwcAssessmentInfos.length,
-      complete:
-        relatedObjectMigrationResult.lwcAssessmentInfos.filter((record) => !record.errors || record.errors.length === 0)
-          .length || 0,
-      error:
-        relatedObjectMigrationResult.lwcAssessmentInfos.filter((record) => record.errors && record.errors.length > 0)
-          .length || 0,
-    });
+    // details.push({
+    //   name: lwcConstants.componentName,
+    //   title: lwcConstants.title,
+    //   count: relatedObjectMigrationResult.lwcAssessmentInfos.length,
+    //   complete:
+    //     relatedObjectMigrationResult.lwcAssessmentInfos.filter((record) => !record.errors || record.errors.length === 0)
+    //       .length || 0,
+    //   error:
+    //     relatedObjectMigrationResult.lwcAssessmentInfos.filter((record) => record.errors && record.errors.length > 0)
+    //       .length || 0,
+    // });
 
     return details;
   }
@@ -350,7 +350,7 @@ export class ResultsBuilder {
     orgDetails: OmnistudioOrgDetails
   ): void {
     this.generateReportForApexResult(result.apexAssessmentInfos, instanceUrl, orgDetails);
-    this.generateReportForLwcResult(result.lwcAssessmentInfos, instanceUrl, orgDetails);
+    // this.generateReportForLwcResult(result.lwcAssessmentInfos, instanceUrl, orgDetails);
   }
 
   private static generateReportForApexResult(

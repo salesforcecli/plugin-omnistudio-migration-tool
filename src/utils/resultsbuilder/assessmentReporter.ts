@@ -50,10 +50,10 @@ export class AssessmentReporter {
       apexAssessmentFilePath,
       ApexAssessmentReporter.generateApexAssesment(result.apexAssessmentInfos, instanceUrl, orgDetails)
     );
-    this.createDocument(
-      lwcAssessmentFilePath,
-      LWCAssessmentReporter.generateLwcAssesment(result.lwcAssessmentInfos, instanceUrl, orgDetails)
-    );
+    // this.createDocument(
+    //   lwcAssessmentFilePath,
+    //   LWCAssessmentReporter.generateLwcAssesment(result.lwcAssessmentInfos, instanceUrl, orgDetails)
+    // );
 
     const nameUrls = [
       {

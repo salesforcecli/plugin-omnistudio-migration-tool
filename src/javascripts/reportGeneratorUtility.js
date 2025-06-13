@@ -38,7 +38,6 @@ function filterAndSearchTable(tableId) {
 
   // NEW: If any filter group has zero selected values → show no rows
   const activeFilterKeys = [...new Set([...checkboxes].map((cb) => cb.getAttribute('data-filter-key')))];
-  const activeFilterKeys = [...new Set([...checkboxes].map((cb) => cb.getAttribute('data-filter-key')))];
   const hasEmptyGroup = activeFilterKeys.some((key) => !filters[key] || filters[key].length === 0);
   if (hasEmptyGroup) {
     // Hide all rows and show no match message

@@ -161,7 +161,7 @@ export function pushAssestUtilites(folderName: string, destDir: string): void {
   const sourceDir = path.join(process.cwd(), 'src', folderName);
 
   if (!fs.existsSync(destDir)) {
-    // Destination directory does not exist. Skipping file copy.
+    Logger.logger.warn(`Destination directory does not exist: ${destDir}`);
     return;
   }
 

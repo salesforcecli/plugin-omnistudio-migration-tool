@@ -20,7 +20,7 @@ import {
 import { OmnistudioOrgDetails } from '../orgUtils';
 
 const resultsDir = process.cwd() + '/migration_report';
-const dataRaptorConstants = { componentName: 'DataMappers', title: 'Data Mappers Migration Result' };
+const dataMapperConstants = { componentName: 'DataMappers', title: 'Data Mappers Migration Result' };
 const flexCardConstants = { componentName: 'FlexCards', title: 'Flex Cards Migration Result' };
 const omniScriptConstants = {
   componentName: 'OmniScript___Integration_Procedures',
@@ -177,14 +177,13 @@ export class ResultsBuilder {
 
   private static getResultConstant(resultName: string): { componentName: string; title: string } {
     switch (resultName.replace(/ /g, '_').replace(/\//g, '_')) {
-      case dataRaptorConstants.componentName:
-        return dataRaptorConstants;
+      case dataMapperConstants.componentName:
+        return dataMapperConstants;
       case flexCardConstants.componentName:
         return flexCardConstants;
       case omniScriptConstants.componentName:
         return omniScriptConstants;
     }
-    // log error
     return { componentName: resultName.toLowerCase().replace(/ /g, '_'), title: resultName };
   }
 
@@ -199,7 +198,7 @@ export class ResultsBuilder {
         value: orgDetails.orgDetails.Id,
       },
       {
-        key: 'Package Name',
+        key: 'Namespace',
         value: orgDetails.packageDetails[0].namespace,
       },
       {
@@ -219,7 +218,7 @@ export class ResultsBuilder {
     resultConstants: { componentName: string; title: string },
     orgDetails: OmnistudioOrgDetails
   ): void {
-    // this.ux.log('Generating report for result: ' + result.name);
+    this.logger.info(`Generating report for result: ${result.name}`);
     let tablebody = '';
     const headerColumns: HeaderColumn[] = [
       {
@@ -324,7 +323,7 @@ export class ResultsBuilder {
       },
     ];
 
-    // this.ux.log('Generating table body for result: ' + result.name);
+    this.logger.info(`Generating table body for result: ${result.name}`);
     tablebody = generateHtmlTable(
       headerColumns,
       columns,
@@ -336,7 +335,7 @@ export class ResultsBuilder {
       undefined,
       false
     );
-    // this.ux.log('Table body generated for result: ' + result.name);
+    this.logger.info(`Table body generated for result: ${result.name}`);
     const html = `<html>${this.createHeadWithScript(
       `${resultConstants.title} Migration Report`
     )}<body><div class="slds-m-around_medium"><div class="slds-text-heading_large">${

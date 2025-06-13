@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Logger } from '../logger';
 
-export class fileutil {
+export class fileUtil {
   public static readFilesSync(dir: string): File[] {
     const files: File[] = [];
     fs.readdirSync(dir).forEach((filename) => {

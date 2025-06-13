@@ -13,7 +13,7 @@ import {
   TokenUpdater,
 } from '../../utils/apex/parser/apexparser';
 import { sfProject } from '../../utils/sfcli/project/sfProject';
-import { fileutil, File } from '../../utils/file/fileutil';
+import { fileutil, File } from '../../utils/file/fileUtil';
 import { Logger } from '../../utils/logger';
 import { ApexAssessmentInfo } from '../../utils';
 import { FileDiffUtil } from '../../utils/lwcparser/fileutils/FileDiffUtil';

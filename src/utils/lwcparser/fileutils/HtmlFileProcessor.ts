@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/explicit-member-accessibility */
 import { FileProcessor } from '../../../utils';
-import { File, fileutil } from '../../file/fileutil';
+import { File, fileUtil } from '../../file/fileUtil';
 import { HTMLParser } from '../../lwcparser/htmlParser/HTMLParser';
 import { FileConstant } from '../fileutils/FileConstant';
 import { FileDiffUtil } from './FileDiffUtil';
@@ -22,7 +22,7 @@ export class HtmlFileProcessor implements FileProcessor {
         fileContent.get(FileConstant.MODIFIED_CONTENT)
       );
       if (type != null && type === 'migration' && diff.length > 0) {
-        fileutil.saveToFile(filePath, fileContent.get(FileConstant.MODIFIED_CONTENT));
+        fileUtil.saveToFile(filePath, fileContent.get(FileConstant.MODIFIED_CONTENT));
       }
       return JSON.stringify(diff);
     }

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import open from 'open';
 import { Logger } from '@salesforce/core';
-import { pushAssestUtilites } from '../file/fileutil';
+import { pushAssestUtilites } from '../file/fileUtil';
 import {
   ApexAssessmentInfo,
   LWCAssessmentInfo,
@@ -76,9 +76,9 @@ export class ResultsBuilder {
         name: resultConstants.componentName,
         title: resultConstants.title,
         count: result.data?.length || 0,
-        completed: result.data?.filter((record) => record.status === 'Complete').length || 0,
-        errored: result.data?.filter((record) => record.status === 'Error').length || 0,
-        skipped: result.data?.filter((record) => record.status === 'Skipped').length || 0,
+        complete: result.data?.filter((record) => record.status === 'Complete').length || 0,
+        error: result.data?.filter((record) => record.status === 'Error').length || 0,
+        skip: result.data?.filter((record) => record.status === 'Skipped').length || 0,
       });
     }
 
@@ -86,11 +86,11 @@ export class ResultsBuilder {
       name: apexConstants.componentName,
       title: apexConstants.title,
       count: relatedObjectMigrationResult.apexAssessmentInfos.length,
-      completed:
+      complete:
         relatedObjectMigrationResult.apexAssessmentInfos.filter(
           (record) => !record.warnings || record.warnings.length === 0
         ).length || 0,
-      errored:
+      error:
         relatedObjectMigrationResult.apexAssessmentInfos.filter(
           (record) => record.warnings && record.warnings.length > 0
         ).length || 0,
@@ -99,10 +99,10 @@ export class ResultsBuilder {
       name: lwcConstants.componentName,
       title: lwcConstants.title,
       count: relatedObjectMigrationResult.lwcAssessmentInfos.length,
-      completed:
+      complete:
         relatedObjectMigrationResult.lwcAssessmentInfos.filter((record) => !record.errors || record.errors.length === 0)
           .length || 0,
-      errored:
+      error:
         relatedObjectMigrationResult.lwcAssessmentInfos.filter((record) => record.errors && record.errors.length > 0)
           .length || 0,
     });
@@ -151,18 +151,18 @@ export class ResultsBuilder {
       <hr />
       <div class="detail-row">
         <div class="detail-item">Completed Without Errors</div>
-        <div class="detail-item text-success">${detail.completed}</div>
+        <div class="detail-item text-success">${detail.complete}</div>
       </div>
       <div class="detail-row">
         <div class="detail-item">Errors</div>
-        <div class="detail-item text-error">${detail.errored}</div>
+        <div class="detail-item text-error">${detail.error}</div>
       </div>
         ${
-          detail.skipped !== undefined
+          detail.skip !== undefined
             ? `
         <div class="detail-row">
           <div class="detail-item">Skipped</div>
-          <div class="detail-item text-warning">${detail.skipped}</div>
+          <div class="detail-item text-warning">${detail.skip}</div>
         </div>
         `
             : ''

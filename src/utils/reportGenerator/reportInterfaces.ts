@@ -47,7 +47,7 @@ export interface ComponentDetail {
   name: string;
   title: string;
   count: number;
-  completed?: number;
-  errored?: number;
-  skipped?: number;
+  complete?: number;
+  error?: number;
+  skip?: number;
 }

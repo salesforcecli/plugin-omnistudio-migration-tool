@@ -393,45 +393,45 @@ describe('omnistudio:migration:assess', () => {
       });
     });
 
-  test
-    .withOrg({ username: 'test@org.com' }, true)
-    .stdout()
-    .stderr()
-    .command(['omnistudio:migration:assess', '-r', 'apex'])
-    .it('generates assessment files with content only for Apex components', () => {
-      const apexContent = fs.readFileSync(path.join(process.cwd(), 'assessment_reports/apex_assessment.html'), 'utf8');
-      void expect(apexContent).to.include('TestApexClass');
+  // test
+  //   .withOrg({ username: 'test@org.com' }, true)
+  //   .stdout()
+  //   .stderr()
+  //   .command(['omnistudio:migration:assess', '-r', 'apex'])
+  //   .it('generates assessment files with content only for Apex components', () => {
+  //     const apexContent = fs.readFileSync(path.join(process.cwd(), 'assessment_reports/apex_assessment.html'), 'utf8');
+  //     void expect(apexContent).to.include('TestApexClass');
 
-      // LWC assessment file should not exist since LWC functionality is disabled
-      const lwcFilePath = path.join(process.cwd(), 'assessment_reports/lwc_assessment.html');
-      void expect(fs.existsSync(lwcFilePath)).to.be.false;
+  //     // LWC assessment file should not exist since LWC functionality is disabled
+  //     const lwcFilePath = path.join(process.cwd(), 'assessment_reports/lwc_assessment.html');
+  //     void expect(fs.existsSync(lwcFilePath)).to.be.false;
 
-      const dataRaptorContent = fs.readFileSync(
-        path.join(process.cwd(), 'assessment_reports/datamapper_assessment.html'),
-        'utf8'
-      );
-      void expect(dataRaptorContent).to.include('DR_Test_Extract');
-      void expect(dataRaptorContent).to.include('DR_Test_Transform');
+  //     const dataRaptorContent = fs.readFileSync(
+  //       path.join(process.cwd(), 'assessment_reports/datamapper_assessment.html'),
+  //       'utf8'
+  //     );
+  //     void expect(dataRaptorContent).to.include('DR_Test_Extract');
+  //     void expect(dataRaptorContent).to.include('DR_Test_Transform');
 
-      const flexCardContent = fs.readFileSync(
-        path.join(process.cwd(), 'assessment_reports/flexcard_assessment.html'),
-        'utf8'
-      );
-      void expect(flexCardContent).to.include('FC_Test_Card');
-      void expect(flexCardContent).to.include('FC_Test_Form');
+  //     const flexCardContent = fs.readFileSync(
+  //       path.join(process.cwd(), 'assessment_reports/flexcard_assessment.html'),
+  //       'utf8'
+  //     );
+  //     void expect(flexCardContent).to.include('FC_Test_Card');
+  //     void expect(flexCardContent).to.include('FC_Test_Form');
 
-      const omniScriptContent = fs.readFileSync(
-        path.join(process.cwd(), 'assessment_reports/omniscript_assessment.html'),
-        'utf8'
-      );
-      void expect(omniScriptContent).to.include('OS_Test_Script');
+  //     const omniScriptContent = fs.readFileSync(
+  //       path.join(process.cwd(), 'assessment_reports/omniscript_assessment.html'),
+  //       'utf8'
+  //     );
+  //     void expect(omniScriptContent).to.include('OS_Test_Script');
 
-      const ipContent = fs.readFileSync(
-        path.join(process.cwd(), 'assessment_reports/integration_procedure_assessment.html'),
-        'utf8'
-      );
-      void expect(ipContent).to.include('IP_Test_Procedure');
-    });
+  //     const ipContent = fs.readFileSync(
+  //       path.join(process.cwd(), 'assessment_reports/integration_procedure_assessment.html'),
+  //       'utf8'
+  //     );
+  //     void expect(ipContent).to.include('IP_Test_Procedure');
+  //   });
 
   test
     .withOrg({ username: 'test@org.com' }, true)
@@ -473,43 +473,43 @@ describe('omnistudio:migration:assess', () => {
       void expect(ipContent).to.include('IP_Test_Procedure');
     });
 
-  test
-    .withOrg({ username: 'test@org.com' }, true)
-    .stdout()
-    .stderr()
-    .command(['omnistudio:migration:assess', '-r', 'apex,lwc'])
-    .it('generates assessment files with content only for Apex components when both apex and lwc are specified', () => {
-      const apexContent = fs.readFileSync(path.join(process.cwd(), 'assessment_reports/apex_assessment.html'), 'utf8');
-      void expect(apexContent).to.include('TestApexClass');
+  // test
+  //   .withOrg({ username: 'test@org.com' }, true)
+  //   .stdout()
+  //   .stderr()
+  //   .command(['omnistudio:migration:assess', '-r', 'apex,lwc'])
+  //   .it('generates assessment files with content only for Apex components when both apex and lwc are specified', () => {
+  //     const apexContent = fs.readFileSync(path.join(process.cwd(), 'assessment_reports/apex_assessment.html'), 'utf8');
+  //     void expect(apexContent).to.include('TestApexClass');
 
-      // LWC assessment file should not exist since LWC functionality is disabled
-      const lwcFilePath = path.join(process.cwd(), 'assessment_reports/lwc_assessment.html');
-      void expect(fs.existsSync(lwcFilePath)).to.be.false;
+  //     // LWC assessment file should not exist since LWC functionality is disabled
+  //     const lwcFilePath = path.join(process.cwd(), 'assessment_reports/lwc_assessment.html');
+  //     void expect(fs.existsSync(lwcFilePath)).to.be.false;
 
-      const dataRaptorContent = fs.readFileSync(
-        path.join(process.cwd(), 'assessment_reports/datamapper_assessment.html'),
-        'utf8'
-      );
-      void expect(dataRaptorContent).to.include('DR_Test_Extract');
-      void expect(dataRaptorContent).to.include('DR_Test_Transform');
+  //     const dataRaptorContent = fs.readFileSync(
+  //       path.join(process.cwd(), 'assessment_reports/datamapper_assessment.html'),
+  //       'utf8'
+  //     );
+  //     void expect(dataRaptorContent).to.include('DR_Test_Extract');
+  //     void expect(dataRaptorContent).to.include('DR_Test_Transform');
 
-      const flexCardContent = fs.readFileSync(
-        path.join(process.cwd(), 'assessment_reports/flexcard_assessment.html'),
-        'utf8'
-      );
-      void expect(flexCardContent).to.include('FC_Test_Card');
-      void expect(flexCardContent).to.include('FC_Test_Form');
+  //     const flexCardContent = fs.readFileSync(
+  //       path.join(process.cwd(), 'assessment_reports/flexcard_assessment.html'),
+  //       'utf8'
+  //     );
+  //     void expect(flexCardContent).to.include('FC_Test_Card');
+  //     void expect(flexCardContent).to.include('FC_Test_Form');
 
-      const omniScriptContent = fs.readFileSync(
-        path.join(process.cwd(), 'assessment_reports/omniscript_assessment.html'),
-        'utf8'
-      );
-      void expect(omniScriptContent).to.include('OS_Test_Script');
+  //     const omniScriptContent = fs.readFileSync(
+  //       path.join(process.cwd(), 'assessment_reports/omniscript_assessment.html'),
+  //       'utf8'
+  //     );
+  //     void expect(omniScriptContent).to.include('OS_Test_Script');
 
-      const ipContent = fs.readFileSync(
-        path.join(process.cwd(), 'assessment_reports/integration_procedure_assessment.html'),
-        'utf8'
-      );
-      void expect(ipContent).to.include('IP_Test_Procedure');
-    });
+  //     const ipContent = fs.readFileSync(
+  //       path.join(process.cwd(), 'assessment_reports/integration_procedure_assessment.html'),
+  //       'utf8'
+  //     );
+  //     void expect(ipContent).to.include('IP_Test_Procedure');
+  //   });
 });

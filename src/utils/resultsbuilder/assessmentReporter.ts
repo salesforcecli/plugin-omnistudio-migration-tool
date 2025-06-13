@@ -7,7 +7,6 @@ import { ReportHeaderFormat } from '../reportGenerator/reportInterfaces';
 import { OmnistudioOrgDetails } from '../orgUtils';
 import { pushAssestUtilites } from '../file/fileUtil';
 import { OSAssessmentReporter } from './OSAssessmentReporter';
-import { LWCAssessmentReporter } from './LWCAssessmentReporter';
 import { ApexAssessmentReporter } from './ApexAssessmentReporter';
 import { IPAssessmentReporter } from './IPAssessmentReporter';
 import { DRAssessmentReporter } from './DRAssessmentReporter';

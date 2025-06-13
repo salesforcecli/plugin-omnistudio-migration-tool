@@ -2,13 +2,7 @@ import fs from 'fs';
 import open from 'open';
 import { Logger } from '@salesforce/core';
 import { pushAssestUtilites } from '../file/fileUtil';
-import {
-  ApexAssessmentInfo,
-  LWCAssessmentInfo,
-  MigratedObject,
-  MigratedRecordInfo,
-  RelatedObjectAssesmentInfo,
-} from '../interfaces';
+import { ApexAssessmentInfo, MigratedObject, MigratedRecordInfo, RelatedObjectAssesmentInfo } from '../interfaces';
 import { generateHtmlTable } from '../reportGenerator/reportGenerator';
 import {
   ComponentDetail,
@@ -27,7 +21,7 @@ const omniScriptConstants = {
   title: 'OmniScripts / IP Migration Result',
 };
 const apexConstants = { componentName: 'apex', title: 'Apex Classes Migration Result' };
-const lwcConstants = { componentName: 'lwc', title: 'LWC Components Migration Result' };
+// const lwcConstants = { componentName: 'lwc', title: 'LWC Components Migration Result' };
 const migrationResultCSSfileName = 'reportGenerator.css';
 const migrationReportHTMLfileName = 'migration_report.html';
 
@@ -442,94 +436,94 @@ export class ResultsBuilder {
     fs.writeFileSync(resultsDir + '/' + apexConstants.componentName + '.html', html);
   }
 
-  private static generateReportForLwcResult(
-    result: LWCAssessmentInfo[],
-    instanceUrl: string,
-    orgDetails: OmnistudioOrgDetails
-  ): void {
-    const headerColumns: HeaderColumn[] = [
-      {
-        label: 'Component Name',
-        key: 'name',
-      },
-      {
-        label: 'File Reference',
-        key: 'path',
-      },
-      {
-        label: 'Diff',
-        key: 'diff',
-      },
-      {
-        label: 'Errors',
-        key: 'errors',
-      },
-    ];
+  //   private static generateReportForLwcResult(
+  //     result: LWCAssessmentInfo[],
+  //     instanceUrl: string,
+  //     orgDetails: OmnistudioOrgDetails
+  //   ): void {
+  //     const headerColumns: HeaderColumn[] = [
+  //       {
+  //         label: 'Component Name',
+  //         key: 'name',
+  //       },
+  //       {
+  //         label: 'File Reference',
+  //         key: 'path',
+  //       },
+  //       {
+  //         label: 'Diff',
+  //         key: 'diff',
+  //       },
+  //       {
+  //         label: 'Errors',
+  //         key: 'errors',
+  //       },
+  //     ];
 
-    const columns: Array<TableColumn<LWCAssessmentInfo>> = [
-      {
-        key: 'name',
-        cell: (record: LWCAssessmentInfo): string => record.name,
-        filterValue: (record: LWCAssessmentInfo): string => record.name,
-        title: (record: LWCAssessmentInfo): string => record.name,
-        skip: (record: LWCAssessmentInfo, index: number): boolean =>
-          !(record.changeInfos && record.changeInfos.length > 0 && index === 0),
-        rowspan: (record: LWCAssessmentInfo): number =>
-          record.changeInfos && record.changeInfos.length > 0 ? record.changeInfos.length : 1,
-      },
-      {
-        key: 'path',
-        filterValue: (record: LWCAssessmentInfo, index: number): string => record.changeInfos[index].path,
-        title: (record: LWCAssessmentInfo, index: number): string => record.changeInfos[index].path,
-        cell: (record: LWCAssessmentInfo, index: number): string =>
-          record.changeInfos[index].path
-            ? `<a href="${instanceUrl}/${record.changeInfos[index].path}">${record.changeInfos[index].name}</a>`
-            : '',
-      },
-      {
-        key: 'diff',
-        cell: (record: LWCAssessmentInfo, index: number): string => record.changeInfos[index].diff,
-        filterValue: (record: LWCAssessmentInfo, index: number): string => record.changeInfos[index].diff,
-      },
-      {
-        key: 'errors',
-        cell: (record: LWCAssessmentInfo): string => (record.errors ? record.errors.join(', ') : ''),
-        filterValue: (record: LWCAssessmentInfo): string =>
-          record.errors && record.errors.length > 0 ? 'Has Errors' : 'Has No Errors',
-        rowspan: (record: LWCAssessmentInfo): number =>
-          record.changeInfos && record.changeInfos.length > 0 ? record.changeInfos.length : 1,
-        skip: (record: LWCAssessmentInfo, index: number): boolean =>
-          !(record.changeInfos && record.changeInfos.length > 0 && index === 0),
-      },
-    ];
+  //     const columns: Array<TableColumn<LWCAssessmentInfo>> = [
+  //       {
+  //         key: 'name',
+  //         cell: (record: LWCAssessmentInfo): string => record.name,
+  //         filterValue: (record: LWCAssessmentInfo): string => record.name,
+  //         title: (record: LWCAssessmentInfo): string => record.name,
+  //         skip: (record: LWCAssessmentInfo, index: number): boolean =>
+  //           !(record.changeInfos && record.changeInfos.length > 0 && index === 0),
+  //         rowspan: (record: LWCAssessmentInfo): number =>
+  //           record.changeInfos && record.changeInfos.length > 0 ? record.changeInfos.length : 1,
+  //       },
+  //       {
+  //         key: 'path',
+  //         filterValue: (record: LWCAssessmentInfo, index: number): string => record.changeInfos[index].path,
+  //         title: (record: LWCAssessmentInfo, index: number): string => record.changeInfos[index].path,
+  //         cell: (record: LWCAssessmentInfo, index: number): string =>
+  //           record.changeInfos[index].path
+  //             ? `<a href="${instanceUrl}/${record.changeInfos[index].path}">${record.changeInfos[index].name}</a>`
+  //             : '',
+  //       },
+  //       {
+  //         key: 'diff',
+  //         cell: (record: LWCAssessmentInfo, index: number): string => record.changeInfos[index].diff,
+  //         filterValue: (record: LWCAssessmentInfo, index: number): string => record.changeInfos[index].diff,
+  //       },
+  //       {
+  //         key: 'errors',
+  //         cell: (record: LWCAssessmentInfo): string => (record.errors ? record.errors.join(', ') : ''),
+  //         filterValue: (record: LWCAssessmentInfo): string =>
+  //           record.errors && record.errors.length > 0 ? 'Has Errors' : 'Has No Errors',
+  //         rowspan: (record: LWCAssessmentInfo): number =>
+  //           record.changeInfos && record.changeInfos.length > 0 ? record.changeInfos.length : 1,
+  //         skip: (record: LWCAssessmentInfo, index: number): boolean =>
+  //           !(record.changeInfos && record.changeInfos.length > 0 && index === 0),
+  //       },
+  //     ];
 
-    const filters: Filter[] = [
-      {
-        label: 'Errors',
-        key: 'errors',
-        filterOptions: ['Has Errors', 'Has No Errors'],
-      },
-    ];
+  //     const filters: Filter[] = [
+  //       {
+  //         label: 'Errors',
+  //         key: 'errors',
+  //         filterOptions: ['Has Errors', 'Has No Errors'],
+  //       },
+  //     ];
 
-    const html = `<html>
-        ${this.createHeadWithScript(`${lwcConstants.title} Migration Report`)}
-        <body>
-          <div class="slds-m-around_medium">
-            <div class="slds-text-heading_large">${lwcConstants.title}</div>
-          ${generateHtmlTable(
-            headerColumns,
-            columns,
-            result,
-            this.formattedOrgDetails(orgDetails),
-            filters,
-            undefined,
-            '',
-            'changeInfos',
-            false
-          )}
-          </div>
-        </body>
-      </html>`;
-    fs.writeFileSync(resultsDir + '/' + lwcConstants.componentName + '.html', html);
-  }
+  //     const html = `<html>
+  //         ${this.createHeadWithScript(`${lwcConstants.title} Migration Report`)}
+  //         <body>
+  //           <div class="slds-m-around_medium">
+  //             <div class="slds-text-heading_large">${lwcConstants.title}</div>
+  //           ${generateHtmlTable(
+  //             headerColumns,
+  //             columns,
+  //             result,
+  //             this.formattedOrgDetails(orgDetails),
+  //             filters,
+  //             undefined,
+  //             '',
+  //             'changeInfos',
+  //             false
+  //           )}
+  //           </div>
+  //         </body>
+  //       </html>`;
+  //     fs.writeFileSync(resultsDir + '/' + lwcConstants.componentName + '.html', html);
+  //   }
 }

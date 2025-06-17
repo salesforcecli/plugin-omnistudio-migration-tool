@@ -1,7 +1,13 @@
 import { ApexAssessmentInfo } from '../interfaces';
 import { FileDiffUtil } from '../lwcparser/fileutils/FileDiffUtil';
 import { generateHtmlTable } from '../reportGenerator/reportGenerator';
-import { Filter, HeaderColumn, ReportHeaderFormat, TableColumn } from '../reportGenerator/reportInterfaces';
+import {
+  Filter,
+  HeaderColumn,
+  ReportFrameworkParameters,
+  ReportHeaderFormat,
+  TableColumn,
+} from '../reportGenerator/reportInterfaces';
 
 export class ApexAssessmentReporter {
   public static generateApexAssesment(
@@ -97,16 +103,18 @@ export class ApexAssessmentReporter {
       },
     ];
 
-    // Render table
-    const tableHtml = generateHtmlTable(
-      headerColumn,
+    const reportFrameworkParameters: ReportFrameworkParameters<ApexAssessmentInfo> = {
+      headerColumns: headerColumn,
       columns,
-      apexAssessmentInfos,
-      org,
+      rows: apexAssessmentInfos,
+      orgDetails: org,
       filters,
-      undefined,
-      'Apex Assessment'
-    );
+      ctaSummary: [],
+      reportHeaderLabel: 'Apex Assessment',
+      showMigrationBanner: true,
+    };
+    // Render table
+    const tableHtml = generateHtmlTable(reportFrameworkParameters);
     return `${tableHtml}`;
   }
 

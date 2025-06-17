@@ -6,6 +6,7 @@ import { sfProject } from '../../utils/sfcli/project/sfProject';
 import { Logger } from '../../utils/logger';
 import { FileProcessorFactory } from '../../utils/lwcparser/fileutils/FileProcessorFactory';
 import { FileChangeInfo, LWCAssessmentInfo } from '../../utils';
+import { Constants } from '../../utils/constants/stringContants';
 import { BaseRelatedObjectMigration } from './BaseRealtedObjectMigration';
 
 const LWC_DIR_PATH = '/force-app/main/default/lwc';
@@ -13,7 +14,7 @@ const LWCTYPE = 'LightningComponentBundle';
 
 export class LwcMigration extends BaseRelatedObjectMigration {
   public processObjectType(): string {
-    return 'lwc';
+    return Constants.LWC;
   }
   // public identifyObjects(migrationResults: MigrationResult[]): Promise<JSON[]> {
   //   this.assessment();
@@ -65,7 +66,7 @@ export class LwcMigration extends BaseRelatedObjectMigration {
       fileMap.forEach((fileList, dir) => {
         const changeInfos: FileChangeInfo[] = [];
         if (
-          dir !== 'lwc' &&
+          dir !== Constants.LWC &&
           !dir.endsWith('MultiLanguage') &&
           !dir.endsWith('English') &&
           !dir.includes('_') &&

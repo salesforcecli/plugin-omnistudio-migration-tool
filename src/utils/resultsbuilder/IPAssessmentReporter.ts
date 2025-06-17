@@ -1,6 +1,11 @@
 import { IPAssessmentInfo } from '../interfaces';
 import { generateHtmlTable } from '../reportGenerator/reportGenerator';
-import { HeaderColumn, ReportHeaderFormat, TableColumn } from '../reportGenerator/reportInterfaces';
+import {
+  HeaderColumn,
+  ReportFrameworkParameters,
+  ReportHeaderFormat,
+  TableColumn,
+} from '../reportGenerator/reportInterfaces';
 import { reportingHelper } from './reportingHelper';
 
 export class IPAssessmentReporter {
@@ -98,16 +103,18 @@ export class IPAssessmentReporter {
       },
     ];
 
-    // Render table
-    const tableHtml = generateHtmlTable(
-      headerColumn,
+    const reportFrameworkParameters: ReportFrameworkParameters<IPAssessmentInfo> = {
+      headerColumns: headerColumn,
       columns,
-      ipAssessmentInfos,
-      org,
-      [],
-      undefined,
-      'Integration Procedure Assessment'
-    );
-    return `<div class="slds-text-heading_large">Integration Procedure Components Assessment</div>${tableHtml}`;
+      rows: ipAssessmentInfos,
+      orgDetails: org,
+      filters: [],
+      ctaSummary: [],
+      reportHeaderLabel: 'Integration Procedure Assessment',
+      showMigrationBanner: true,
+    };
+    // Render table
+    const tableHtml = generateHtmlTable(reportFrameworkParameters);
+    return `${tableHtml}`;
   }
 }

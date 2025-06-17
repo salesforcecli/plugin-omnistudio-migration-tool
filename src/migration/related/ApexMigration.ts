@@ -18,6 +18,7 @@ import { Logger } from '../../utils/logger';
 import { ApexAssessmentInfo } from '../../utils';
 import { FileDiffUtil } from '../../utils/lwcparser/fileutils/FileDiffUtil';
 import { Stringutil } from '../../utils/StringValue/stringutil';
+import { Constants } from '../../utils/constants/stringContants';
 import { BaseRelatedObjectMigration } from './BaseRealtedObjectMigration';
 
 const APEXCLASS = 'Apexclass';
@@ -39,7 +40,7 @@ export class ApexMigration extends BaseRelatedObjectMigration {
     this.vlocityOpenInterface = new InterfaceImplements(VLOCITY_OPEN_INTERFACE, this.namespace);
   }
   public processObjectType(): string {
-    return 'apex';
+    return Constants.Apex;
   }
   // public identifyObjects(migrationResults: MigrationResult[]): Promise<JSON[]> {
   //   throw new Error('Method not implemented.');

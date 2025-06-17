@@ -1,5 +1,11 @@
 import { DataRaptorAssessmentInfo } from '../interfaces';
-import { Filter, HeaderColumn, ReportHeaderFormat, TableColumn } from '../reportGenerator/reportInterfaces';
+import {
+  Filter,
+  HeaderColumn,
+  ReportFrameworkParameters,
+  ReportHeaderFormat,
+  TableColumn,
+} from '../reportGenerator/reportInterfaces';
 import { generateHtmlTable } from '../reportGenerator/reportGenerator';
 import { reportingHelper } from './reportingHelper';
 
@@ -109,17 +115,26 @@ export class DRAssessmentReporter {
       },
     ];
 
-    const filters: Filter[] = [];
-    // Render table
-    const tableHtml = generateHtmlTable(
-      headerColumn,
+    const filters: Filter[] = [
+      {
+        label: 'Type',
+        filterOptions: Array.from(new Set(dataRaptorAssessmentInfos.map((row: DataRaptorAssessmentInfo) => row.type))),
+        key: 'type',
+      },
+    ];
+
+    const reportFrameworkParameters: ReportFrameworkParameters<DRAssessmentReporter> = {
+      headerColumns: headerColumn,
       columns,
-      dataRaptorAssessmentInfos,
-      org,
+      rows: dataRaptorAssessmentInfos,
+      orgDetails: org,
       filters,
-      undefined,
-      'Data Mapper Assessment'
-    );
-    return `<div class="slds-text-heading_large">Data Mapper Assessment Report</div>${tableHtml}`;
+      ctaSummary: [],
+      reportHeaderLabel: 'Data Mapper Assessment',
+      showMigrationBanner: true,
+    };
+    // Render table
+    const tableHtml = generateHtmlTable(reportFrameworkParameters);
+    return `${tableHtml}`;
   }
 }

@@ -11,6 +11,7 @@ import { DebugTimer } from '../../../utils';
 import { Logger } from '../../../utils/logger';
 import OmnistudioRelatedObjectMigrationFacade from '../../../migration/related/OmnistudioRelatedObjectMigrationFacade';
 import { OmnistudioOrgDetails, OrgUtils } from '../../../utils/orgUtils';
+import { Constants } from '../../../utils/constants/stringContants';
 
 Messages.importMessagesDirectory(__dirname);
 const messages = Messages.loadMessages('@salesforce/plugin-omnistudio-migration-tool', 'assess');
@@ -45,24 +46,28 @@ export default class Assess extends OmniStudioBaseCommand {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public async run(): Promise<any> {
     DebugTimer.getInstance().start();
-    const namespace = (this.flags.namespace || 'vlocity_ins') as string;
     const apiVersion = (this.flags.apiversion || '55.0') as string;
     const allVersions = (this.flags.allversions || false) as boolean;
     const assessOnly = (this.flags.only || '') as string;
     const relatedObjects = (this.flags.relatedobjects || '') as string;
     const conn = this.org.getConnection();
-    const orgs: OmnistudioOrgDetails = await OrgUtils.getOrgDetails(conn, namespace);
+    const orgs: OmnistudioOrgDetails = await OrgUtils.getOrgDetails(conn, this.flags.namespace);
 
-    if (orgs.packageDetails.length === 0) {
-      this.ux.log('No package installed on given org.');
+    if (!orgs.hasValidNamespace) {
+      this.ux.warn(messages.getMessage('invalidNamespace') + orgs.packageDetails.namespace);
+    }
+
+    if (!orgs.packageDetails) {
+      this.ux.error(messages.getMessage('noPackageInstalled'));
       return;
     }
 
     if (orgs.omniStudioOrgPermissionEnabled) {
-      this.ux.log('The org is already on standard data model.');
+      this.ux.error(messages.getMessage('alreadyStandardModel'));
       return;
     }
 
+    const namespace = orgs.packageDetails.namespace;
     Logger.initialiseLogger(this.ux, this.logger);
     conn.setApiVersion(apiVersion);
 
@@ -80,10 +85,11 @@ export default class Assess extends OmniStudioBaseCommand {
     // Assess OmniStudio components
     await this.assessOmniStudioComponents(assesmentInfo, assessOnly, namespace, conn, allVersions);
 
+    let objectsToProcess: string[];
     // Assess related objects if specified
     if (relatedObjects) {
-      const validOptions = ['apex', 'lwc'];
-      const objectsToProcess = relatedObjects.split(',').map((obj) => obj.trim());
+      const validOptions = [Constants.Apex, Constants.LWC];
+      objectsToProcess = relatedObjects.split(',').map((obj) => obj.trim());
 
       // Validate input
       for (const obj of objectsToProcess) {
@@ -103,7 +109,7 @@ export default class Assess extends OmniStudioBaseCommand {
       assesmentInfo.apexAssessmentInfos = relatedObjectAssessmentResult.apexAssessmentInfos;
     }
 
-    await AssessmentReporter.generate(assesmentInfo, conn.instanceUrl, orgs);
+    await AssessmentReporter.generate(assesmentInfo, conn.instanceUrl, orgs, assessOnly, objectsToProcess);
     return assesmentInfo;
   }
 
@@ -125,16 +131,16 @@ export default class Assess extends OmniStudioBaseCommand {
     }
 
     switch (assessOnly) {
-      case 'dr':
+      case Constants.DataMapper:
         await this.assessDataRaptors(assesmentInfo, namespace, conn);
         break;
-      case 'fc':
+      case Constants.Flexcard:
         await this.assessFlexCards(assesmentInfo, namespace, conn, allVersions);
         break;
-      case 'os':
+      case Constants.Omniscript:
         await this.assessOmniScripts(assesmentInfo, namespace, conn, allVersions, OmniScriptExportType.OS);
         break;
-      case 'ip':
+      case Constants.IntegrationProcedure:
         await this.assessOmniScripts(assesmentInfo, namespace, conn, allVersions, OmniScriptExportType.IP);
         break;
       default:

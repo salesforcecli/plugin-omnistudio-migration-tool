@@ -8,6 +8,7 @@ import {
   ComponentDetail,
   Filter,
   HeaderColumn,
+  ReportFrameworkParameters,
   ReportHeaderFormat,
   TableColumn,
 } from '../reportGenerator/reportInterfaces';
@@ -193,7 +194,7 @@ export class ResultsBuilder {
       },
       {
         key: 'Namespace',
-        value: orgDetails.packageDetails[0].namespace,
+        value: orgDetails.packageDetails.namespace,
       },
       {
         key: 'Data Model',
@@ -318,23 +319,23 @@ export class ResultsBuilder {
     ];
 
     this.logger.info(`Generating table body for result: ${result.name}`);
-    tablebody = generateHtmlTable(
+    const reportFrameworkParameters: ReportFrameworkParameters<MigratedRecordInfo> = {
       headerColumns,
       columns,
-      result.data,
-      this.formattedOrgDetails(orgDetails),
+      rows: result.data || [],
+      orgDetails: this.formattedOrgDetails(orgDetails),
       filters,
-      undefined,
-      '',
-      undefined,
-      false
-    );
+      ctaSummary: [],
+      reportHeaderLabel: `${resultConstants.title}`,
+      showMigrationBanner: true,
+    };
+
+    tablebody = generateHtmlTable(reportFrameworkParameters);
+
     this.logger.info(`Table body generated for result: ${result.name}`);
     const html = `<html>${this.createHeadWithScript(
       `${resultConstants.title} Migration Report`
-    )}<body><div class="slds-m-around_medium"><div class="slds-text-heading_large">${
-      resultConstants.title
-    }</div>${tablebody}</div></body></html>`;
+    )}<body>${tablebody}</body></html>`;
     fs.writeFileSync(resultsDir + '/' + resultConstants.componentName + '.html', html);
   }
 
@@ -418,21 +419,20 @@ export class ResultsBuilder {
       },
     ];
 
-    const html = `<html>${this.createHeadWithScript(
-      `${apexConstants.title} Migration Report`
-    )}<body><div class="slds-m-around_medium"><div class="slds-text-heading_large">${
-      apexConstants.title
-    }</div>${generateHtmlTable(
+    const reportFrameworkParameters: ReportFrameworkParameters<ApexAssessmentInfo> = {
       headerColumns,
       columns,
-      result,
-      this.formattedOrgDetails(orgDetails),
+      rows: result,
+      orgDetails: this.formattedOrgDetails(orgDetails),
       filters,
-      undefined,
-      '',
-      undefined,
-      false
-    )}</div></body></html>`;
+      ctaSummary: [],
+      reportHeaderLabel: `${apexConstants.title}`,
+      showMigrationBanner: false,
+    };
+
+    const html = `<html>${this.createHeadWithScript(
+      `${apexConstants.title} Migration Report`
+    )}<body>${generateHtmlTable(reportFrameworkParameters)}</div></body></html>`;
     fs.writeFileSync(resultsDir + '/' + apexConstants.componentName + '.html', html);
   }
 

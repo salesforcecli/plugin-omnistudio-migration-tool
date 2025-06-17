@@ -1,6 +1,13 @@
 import { OSAssessmentInfo } from '../interfaces';
 import { generateHtmlTable } from '../reportGenerator/reportGenerator';
-import { Filter, HeaderColumn, ReportHeaderFormat, TableColumn } from '../reportGenerator/reportInterfaces';
+import {
+  CTASummary,
+  Filter,
+  HeaderColumn,
+  ReportFrameworkParameters,
+  ReportHeaderFormat,
+  TableColumn,
+} from '../reportGenerator/reportInterfaces';
 import { reportingHelper } from './reportingHelper';
 
 export class OSAssessmentReporter {
@@ -87,6 +94,7 @@ export class OSAssessmentReporter {
         cell: (row: OSAssessmentInfo): string => row.oldName,
         filterValue: (row: OSAssessmentInfo): string => row.oldName,
         title: (row: OSAssessmentInfo): string => row.oldName,
+        icon: (row: OSAssessmentInfo): string => this.getIconOnRow(row.migrationStatus),
       },
       {
         key: 'id',
@@ -147,27 +155,57 @@ export class OSAssessmentReporter {
     ];
 
     const filters: Filter[] = [
-      { label: 'Type', filterOptions: ['Angular', 'LWC'], key: 'type' },
+      {
+        label: 'Type',
+        filterOptions: Array.from(new Set(osAssessmentInfos.map((row: OSAssessmentInfo) => row.type))),
+        key: 'type',
+      },
       {
         label: 'Assessment Status',
-        filterOptions: ['Can be Automated', 'Need Manual Intervention'],
+        filterOptions: Array.from(new Set(osAssessmentInfos.map((row: OSAssessmentInfo) => row.migrationStatus))),
         key: 'assessmentStatus',
       },
     ];
-    // Render table
-    const tableHtml = generateHtmlTable(
-      headerColumn,
+
+    const ctaSummary: CTASummary[] = [
+      {
+        name: 'Angular Omniscripts',
+        message: 'converts to LWC omniscripts',
+        link: 'https://google.com',
+      },
+      {
+        name: 'Duplicate Name',
+        message: 'rename the OS prior to running migration',
+        link: 'https://google.com',
+      },
+    ];
+
+    const reportFrameworkParameters: ReportFrameworkParameters<OSAssessmentInfo> = {
+      headerColumns: headerColumn,
       columns,
-      osAssessmentInfos,
-      org,
+      rows: osAssessmentInfos,
+      orgDetails: org,
       filters,
-      undefined,
-      'OmniScript Assessment'
-    );
-    return `<div class="slds-text-heading_large">Omniscript Assessment Report</div>${tableHtml}`;
+      ctaSummary,
+      reportHeaderLabel: 'Omniscript Assessment',
+      showMigrationBanner: true,
+    };
+
+    // Render table
+    const tableHtml = generateHtmlTable(reportFrameworkParameters);
+    return `${tableHtml}`;
   }
 
   private static getMigrationStatusStyles(assessmentStatus: string): string {
     return assessmentStatus === 'Can be Automated' ? 'color:green; font-weight:500;' : 'color:red; font-weight:500;';
+  }
+
+  private static getIconOnRow(assessmentStatus: string): string {
+    return assessmentStatus === 'Need Manual Intervention'
+      ? `<span class='row-'><svg width='16' height='16' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'>
+      <circle cx='50' cy='50' r='45' stroke='red' stroke-width='10' fill='none'/>
+      <line x1='25' y1='75' x2='75' y2='25' stroke='red' stroke-width='10'/>
+    </svg></span>`
+      : '';
   }
 }

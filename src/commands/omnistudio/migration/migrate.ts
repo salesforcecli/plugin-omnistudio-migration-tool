@@ -22,6 +22,7 @@ import { Logger } from '../../../utils/logger';
 import OmnistudioRelatedObjectMigrationFacade from '../../../migration/related/OmnistudioRelatedObjectMigrationFacade';
 import { generatePackageXml } from '../../../utils/generatePackageXml';
 import { OmnistudioOrgDetails, OrgUtils } from '../../../utils/orgUtils';
+import { Constants } from '../../../utils/constants/stringContants';
 
 // Initialize Messages with the current plugin directory
 Messages.importMessagesDirectory(__dirname);
@@ -59,7 +60,6 @@ export default class Migrate extends OmniStudioBaseCommand {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public async run(): Promise<any> {
-    const namespace = (this.flags.namespace || 'vlocity_ins') as string;
     const apiVersion = (this.flags.apiversion || '55.0') as string;
     const migrateOnly = (this.flags.only || '') as string;
     const allVersions = this.flags.allversions || false;
@@ -71,25 +71,30 @@ export default class Migrate extends OmniStudioBaseCommand {
     const conn = this.org.getConnection();
     conn.setApiVersion(apiVersion);
 
-    const orgs: OmnistudioOrgDetails = await OrgUtils.getOrgDetails(conn, namespace);
+    const orgs: OmnistudioOrgDetails = await OrgUtils.getOrgDetails(conn, this.flags.namespace);
 
-    if (orgs.packageDetails.length === 0) {
-      this.ux.log('No package installed on given org.');
+    if (!orgs.hasValidNamespace) {
+      this.ux.warn(messages.getMessage('invalidNamespace') + orgs.packageDetails.namespace);
+    }
+
+    if (!orgs.packageDetails) {
+      this.ux.error(messages.getMessage('noPackageInstalled'));
       return;
     }
 
     if (orgs.omniStudioOrgPermissionEnabled) {
-      this.ux.log('The org is already on standard data model.');
+      this.ux.error(messages.getMessage('alreadyStandardModel'));
       return;
     }
 
+    const namespace = orgs.packageDetails.namespace;
     // Let's time every step
     DebugTimer.getInstance().start();
     let projectPath: string;
     let objectsToProcess: string[] = [];
     let targetApexNamespace: string;
     if (relatedObjects) {
-      const validOptions = ['apex', 'lwc'];
+      const validOptions = [Constants.Apex, Constants.LWC];
       objectsToProcess = relatedObjects.split(',').map((obj) => obj.trim());
       // Validate input
       for (const obj of objectsToProcess) {
@@ -207,7 +212,7 @@ export default class Migrate extends OmniStudioBaseCommand {
       ];
     } else {
       switch (migrateOnly) {
-        case 'os':
+        case Constants.Omniscript:
           migrationObjects.push(
             new OmniScriptMigrationTool(
               OmniScriptExportType.OS,
@@ -220,7 +225,7 @@ export default class Migrate extends OmniStudioBaseCommand {
             )
           );
           break;
-        case 'ip':
+        case Constants.IntegrationProcedure:
           migrationObjects.push(
             new OmniScriptMigrationTool(
               OmniScriptExportType.IP,
@@ -233,10 +238,10 @@ export default class Migrate extends OmniStudioBaseCommand {
             )
           );
           break;
-        case 'fc':
+        case Constants.Flexcard:
           migrationObjects.push(new CardMigrationTool(namespace, conn, this.logger, messages, this.ux, allVersions));
           break;
-        case 'dr':
+        case Constants.DataMapper:
           migrationObjects.push(new DataRaptorMigrationTool(namespace, conn, this.logger, messages, this.ux));
           break;
         default:
@@ -262,7 +267,7 @@ export default class Migrate extends OmniStudioBaseCommand {
   }
 
   private async getTargetApexNamespace(objectsToProcess: string[], targetApexNamespace: string): Promise<string> {
-    if (objectsToProcess.includes('apex')) {
+    if (objectsToProcess.includes(Constants.Apex)) {
       targetApexNamespace = await this.ux.prompt(
         'Enter the target namespace to be used for calling package Apex classes'
       );

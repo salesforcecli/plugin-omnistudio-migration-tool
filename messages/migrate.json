@@ -29,5 +29,8 @@
   "errorWhileUploadingCard": "An error ocurred while uploading Card: ",
   "errorWhileCreatingElements": "An error ocurred while saving OmniScript elements: ",
   "allVersionsDescription": "Migrate all versions of a component",
-  "apexLwc": "Please select the type of components to migrate: 'apex' for Apex classes, 'lwc' for Lightning Web Components, or 'apex,lwc' if you want to include both types."
+  "apexLwc": "Please select the type of components to migrate: 'apex' for Apex classes, 'lwc' for Lightning Web Components, or 'apex,lwc' if you want to include both types.",
+  "invalidNamespace": "The namespace you have passed is not valid namespace, the valid namespace of your org is ",
+  "noPackageInstalled": "No package installed on given org.",
+  "alreadyStandardModel": "The org is already on standard data model."
 }

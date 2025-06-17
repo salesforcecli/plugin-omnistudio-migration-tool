@@ -1,7 +1,13 @@
 import { LWCAssessmentInfo } from '../interfaces';
 import { FileDiffUtil } from '../lwcparser/fileutils/FileDiffUtil';
 import { generateHtmlTable } from '../reportGenerator/reportGenerator';
-import { Filter, HeaderColumn, ReportHeaderFormat, TableColumn } from '../reportGenerator/reportInterfaces';
+import {
+  Filter,
+  HeaderColumn,
+  ReportFrameworkParameters,
+  ReportHeaderFormat,
+  TableColumn,
+} from '../reportGenerator/reportInterfaces';
 
 type RowType = {
   name: string;
@@ -106,8 +112,18 @@ export class LWCAssessmentReporter {
       },
     ];
 
+    const reportFrameworkParameters: ReportFrameworkParameters<RowType> = {
+      headerColumns: headerColumn,
+      columns,
+      rows,
+      orgDetails: org,
+      filters,
+      ctaSummary: [],
+      reportHeaderLabel: 'LWC Assessment',
+      showMigrationBanner: true,
+    };
     // Render table
-    const tableHtml = generateHtmlTable(headerColumn, columns, rows, org, filters, undefined, 'LWC Assessment');
+    const tableHtml = generateHtmlTable(reportFrameworkParameters);
     return `${tableHtml}`;
   }
 

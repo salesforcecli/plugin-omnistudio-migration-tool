@@ -1,20 +1,28 @@
-import { Filter, HeaderColumn, ReportHeader, TableColumn, TableHeaderCell } from './reportInterfaces';
-
+import {
+  CTASummary,
+  Filter,
+  HeaderColumn,
+  ReportFrameworkParameters,
+  ReportHeader,
+  TableColumn,
+  TableHeaderCell,
+} from './reportInterfaces';
 let reportTableInstance = 0;
 let dataItemInstance = 0;
 const dataItemClass = 'data-row-';
-export function generateHtmlTable<T>(
-  headerRows: HeaderColumn[],
-  columns: Array<TableColumn<T>>,
-  rows: T[],
-  reportHeader: ReportHeader[],
-  filters: Filter[] = [],
-  tableClass = 'slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped slds-table_col-bordered',
-  ariaLabel = '',
-  indexedKey: string | undefined = undefined,
-  showMigrationBanner = true
-): string {
-  const transformedHeader: TableHeaderCell[][] = transform(headerRows);
+export function generateHtmlTable<T>(reportFrameworkParameters: ReportFrameworkParameters<T>): string {
+  const headerColumns: HeaderColumn[] = reportFrameworkParameters.headerColumns;
+  const columns: Array<TableColumn<T>> = reportFrameworkParameters.columns;
+  const rows: T[] = reportFrameworkParameters.rows;
+  const orgDetails: ReportHeader[] = reportFrameworkParameters.orgDetails;
+  const filters: Filter[] = reportFrameworkParameters.filters || [];
+  const ctaSummary: CTASummary[] = reportFrameworkParameters.ctaSummary || [];
+  const tableClass = 'slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped slds-table_col-bordered';
+  const reportHeaderLabel: string = reportFrameworkParameters.reportHeaderLabel;
+  const indexedKey: string = reportFrameworkParameters.indexedKey;
+  const showMigrationBanner: boolean = reportFrameworkParameters.showMigrationBanner;
+
+  const transformedHeader: TableHeaderCell[][] = transform(headerColumns);
   const tableId = `report-table-${reportTableInstance++}`;
 
   const thead = `
@@ -44,9 +52,7 @@ export function generateHtmlTable<T>(
     </thead>
   `;
 
-  const filterAndSearchPanel =
-    filters.length > 0
-      ? `
+  const filterAndSearchPanel = `
   <div class="filter-dropdown-container">
   <div class="filter-header-bar">
     <!-- Row count display -->
@@ -67,8 +73,9 @@ export function generateHtmlTable<T>(
         oninput="filterAndSearchTable('${tableId}')"
       />
     </div>
- 
-    <div class="filter-toggle-button" onclick="toggleFilterDropdown('${tableId}')">
+    ${
+      filters.length > 0
+        ? `<div class="filter-toggle-button" onclick="toggleFilterDropdown('${tableId}')">
       Filters
       <svg id="chevron-down" class="chevron-icon" xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 16 16">
         <path fill-rule="none" stroke="currentColor" stroke-width="2" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708"/>
@@ -76,7 +83,9 @@ export function generateHtmlTable<T>(
       <svg id="chevron-up" class="chevron-icon hidden" xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 16 16">
         <path fill-rule="none" stroke="currentColor" stroke-width="2" d="M7.646 4.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 5.707l-5.646 5.647a.5.5 0 0 1-.708-.708z"/>
       </svg>
-    </div>
+    </div>`
+        : ''
+    }
   </div>
 
   <div id="filter-dropdown" class="filter-dropdown">
@@ -109,14 +118,7 @@ export function generateHtmlTable<T>(
       )
       .join('')}
   </div>
-</div>`
-      : `
-  <div class="filter-header-bar">
-    <!-- Row count display -->
-    <div class="row-count-display" id="row-count">
-      Showing ${rows.length} records
-    </div>
-  </div>`;
+</div>`;
 
   const tbody = `
     <tbody id="filterable-table-body">
@@ -127,17 +129,15 @@ export function generateHtmlTable<T>(
             : `
         <tr class="${dataItemClass}${dataItemInstance++}">
           ${columns
-            /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-            /* eslint-disable @typescript-eslint/no-unsafe-call */
-            /* eslint-disable @typescript-eslint/no-unsafe-member-access */
             .map((col) => {
               const key: string = col.key;
               const title: string = col.title ? col.title(row) : '';
-              const value: string = col.filterValue(row).toString();
+              const value: string = col.filterValue ? col.filterValue(row).toString() : '';
               const cellContent: string = col.cell(row);
               const style: string = col.styles ? col.styles(row) : '';
+              const icon: string = col.icon ? col.icon(row) : '';
               const dataAttr: string = ['name', 'oldName'].includes(key) ? `data-name="${value.toLowerCase()}"` : '';
-              return `<td ${dataAttr} title="${title}" key="${key}" value="${value}" style="${style}">${cellContent}</td>`;
+              return `<td ${dataAttr} title="${title}" key="${key}" value="${value}" style="${style}">${icon} ${cellContent}</td>`;
             })
             .join('')}
         </tr>
@@ -152,9 +152,9 @@ export function generateHtmlTable<T>(
     </tbody>
   `;
 
-  const pageHeader = `
+  const orgDetailSection = `
     <div class="header-container">
-      ${reportHeader
+      ${orgDetails
         .map(
           (header) => `
         <div class="org-details-section">
@@ -178,28 +178,67 @@ export function generateHtmlTable<T>(
   `
     : '';
 
+  const ctaButton = `
+  <div class="cta-button-container">
+    <button class="cta-summary-button" onclick="toggleCtaSummaryPanel()">Call to Action Summary</button>
+  </div>
+  `;
+
+  const ctaSumm = `
+  ${ctaSummary
+    .map(
+      (cta) => `
+      <ul class="slds-list_dotted">
+        <li>${cta.name} - ${cta.message} <a target="_blank" href=${cta.link}>Learn more</a></li>
+      </ul>
+     `
+    )
+    .join('')}
+  `;
+
+  const reportPageHeading = `
+    <div class="report-page-header">
+      <div class="slds-text-heading_large"> ${reportHeaderLabel} Report </div>
+      ${ctaSummary && ctaSummary.length > 0 ? ctaButton : ''}
+  </div>`;
+
   return `
-    <div class="rpt-table-container" id="${tableId}">
-      ${migrationBanner}
-      ${pageHeader}
-      ${filterAndSearchPanel}
-      <div class="table-container">
-        <table class="${tableClass}" aria-label="${ariaLabel}">
-          ${thead}
-          ${tbody}
-        </table>
-        <script src="./reportGeneratorUtility.js" defer></script>
-        <link rel="stylesheet" href="./reportGenerator.css">
+   <div class="report-wrapper">
+    <div id="scrollable-wrapper" class="scrollable-wrapper">
+      <div class="table-summary-wrapper rpt-table-container" id="${tableId}">
+        ${reportPageHeading}
+        ${migrationBanner}
+        ${orgDetailSection}
+        ${filterAndSearchPanel}
+        <div class="table-container">
+          <table class="${tableClass}" aria-label="${reportHeaderLabel}">
+            ${thead}
+            ${tbody}
+          </table>
+        </div>
+      </div>
+      <div id="cta-summary-panel" class="cta-summary-panel hidden">
+        <div class="cta-header">
+          <div class="cta-header-label">Call to Action Summary</div> 
+          <div class="close-icon" onclick="toggleCtaSummaryPanel()">
+            <svg width="16px" height="16px" viewBox="-2.4 -2.4 28.80 28.80" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round" stroke="#CCCCCC" stroke-width="1.056"></g><g id="SVGRepo_iconCarrier"> <path fill-rule="evenodd" clip-rule="evenodd" d="M5.29289 5.29289C5.68342 4.90237 6.31658 4.90237 6.70711 5.29289L12 10.5858L17.2929 5.29289C17.6834 4.90237 18.3166 4.90237 18.7071 5.29289C19.0976 5.68342 19.0976 6.31658 18.7071 6.70711L13.4142 12L18.7071 17.2929C19.0976 17.6834 19.0976 18.3166 18.7071 18.7071C18.3166 19.0976 17.6834 19.0976 17.2929 18.7071L12 13.4142L6.70711 18.7071C6.31658 19.0976 5.68342 19.0976 5.29289 18.7071C4.90237 18.3166 4.90237 17.6834 5.29289 17.2929L10.5858 12L5.29289 6.70711C4.90237 6.31658 4.90237 5.68342 5.29289 5.29289Z" fill="#0F1729"></path> </g></svg>
+          </div>
+        </div>
+        <div class="line-separator"></div>
+        ${ctaSumm}
       </div>
     </div>
+    <script src="./reportGeneratorUtility.js" defer></script>
+    <link rel="stylesheet" href="./reportGenerator.css">
+  </div>
   `;
 }
 
-function transform(columnInput): TableHeaderCell[][] {
-  const row1 = [];
-  const row2 = [];
+function transform(columnInput: HeaderColumn[]): TableHeaderCell[][] {
+  const row1: TableHeaderCell[] = [];
+  const row2: TableHeaderCell[] = [];
 
-  columnInput.forEach((item) => {
+  columnInput.forEach((item: HeaderColumn) => {
     if (item.subColumn && item.subColumn.length > 0) {
       row1.push({
         label: item.label,
@@ -233,7 +272,8 @@ function transform(columnInput): TableHeaderCell[][] {
 
 function createIndexedRow<T>(row: T, indexedKey: string, columns: Array<TableColumn<T>>): string {
   let rows = '';
-  const indexedTill = row[indexedKey].length;
+  const indexedValue = row[indexedKey] as { length: number };
+  const indexedTill = indexedValue.length;
   const dataRowClass = `${dataItemClass}${dataItemInstance++}`;
   for (let i = 0; i < indexedTill; i++) {
     rows += `

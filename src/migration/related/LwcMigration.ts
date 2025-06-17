@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-shadow */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import * as shell from 'shelljs';
-import { fileUtil, File } from '../../utils/file/fileUtil';
+import { FileUtil, File } from '../../utils/file/fileUtil';
 import { sfProject } from '../../utils/sfcli/project/sfProject';
 import { Logger } from '../../utils/logger';
 import { FileProcessorFactory } from '../../utils/lwcparser/fileutils/FileProcessorFactory';
@@ -52,7 +52,7 @@ export class LwcMigration extends BaseRelatedObjectMigration {
     dir += LWC_DIR_PATH;
     let filesMap: Map<string, File[]>;
     try {
-      filesMap = fileUtil.readAndProcessFiles(dir, 'OmniScript Auto-generated');
+      filesMap = FileUtil.readAndProcessFiles(dir, 'OmniScript Auto-generated');
     } catch (error) {
       Logger.logger.error('Error in reading files', error);
     }

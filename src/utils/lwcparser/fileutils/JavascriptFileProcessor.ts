@@ -4,7 +4,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/explicit-member-accessibility */
 import { FileProcessor } from '../../../utils';
-import { File, fileUtil } from '../../file/fileUtil';
+import { File, FileUtil } from '../../file/fileUtil';
 import { JavaScriptParser } from '../../lwcparser/jsParser/JavaScriptParser';
 import { FileConstant } from '../fileutils/FileConstant';
 import { FileDiffUtil } from './FileDiffUtil';
@@ -26,7 +26,7 @@ export class JavascriptFileProcessor implements FileProcessor {
         fileContent.get(FileConstant.MODIFIED_CONTENT)
       );
       if (type != null && type === 'migration') {
-        fileUtil.saveToFile(filePath, fileContent.get(FileConstant.MODIFIED_CONTENT));
+        FileUtil.saveToFile(filePath, fileContent.get(FileConstant.MODIFIED_CONTENT));
       }
       return JSON.stringify(diff);
     }

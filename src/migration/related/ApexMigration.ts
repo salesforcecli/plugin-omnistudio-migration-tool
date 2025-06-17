@@ -13,7 +13,7 @@ import {
   TokenUpdater,
 } from '../../utils/apex/parser/apexparser';
 import { sfProject } from '../../utils/sfcli/project/sfProject';
-import { fileUtil, File } from '../../utils/file/fileUtil';
+import { FileUtil, File } from '../../utils/file/fileUtil';
 import { Logger } from '../../utils/logger';
 import { ApexAssessmentInfo } from '../../utils';
 import { FileDiffUtil } from '../../utils/lwcparser/fileutils/FileDiffUtil';
@@ -72,7 +72,7 @@ export class ApexMigration extends BaseRelatedObjectMigration {
   public processApexFiles(dir: string): ApexAssessmentInfo[] {
     dir += APEX_CLASS_PATH;
     let files: File[] = [];
-    files = fileUtil.readFilesSync(dir);
+    files = FileUtil.readFilesSync(dir);
     const fileAssessmentInfo: ApexAssessmentInfo[] = [];
     for (const file of files) {
       if (file.ext !== '.cls') continue;

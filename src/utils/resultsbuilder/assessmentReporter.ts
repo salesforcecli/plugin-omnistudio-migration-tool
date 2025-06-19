@@ -192,28 +192,7 @@ export class AssessmentReporter {
                         </head>
                         <body>
                             <div class="slds-p-around_medium">
-                                <h1 class="slds-text-heading_medium">Assessment Reports</h1>
-                                
-                                <!-- Static Banner with HTML Content -->
-                                <div class="slds-box slds-theme_info slds-m-bottom_medium">
-                                    <div class="slds-media slds-media_center">
-                                        <div class="slds-media__figure">
-                                            <span class="slds-icon_container slds-icon-utility-info" title="Information">
-                                                <svg class="slds-icon slds-icon_small slds-icon-text-default" aria-hidden="true">
-                                                    <use xlink:href="/assets/icons/utility-sprite/svg/symbols.svg#info"></use>
-                                                </svg>
-                                                <span class="slds-assistive-text">Information</span>
-                                            </span>
-                                        </div>
-                                        <div class="slds-media__body">
-                                            <h2 class="slds-text-heading_small">Migration Assessment Summary</h2>
-                                            <p>This report provides a comprehensive overview of all components that need to be migrated from OmniStudio custom objects to standard objects.</p>
-                                            <p class="slds-m-top_small">Please review each section carefully and address any warnings or errors before proceeding with the migration.</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <!-- End of Static Banner -->
-                                
+                                <h1 class="slds-text-heading_medium">Assessment Reports</h1>                                
                                 <ul class="slds-list_vertical slds-has-dividers_left-space">
                                     ${listBody}
                                 </ul>

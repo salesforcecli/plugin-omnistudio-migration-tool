@@ -86,9 +86,10 @@
   "fileImplementsVlocityOpenInterface": "file %s implements VlocityOpenInterface no changes will be applied",
   "methodCallBundleNameUpdated": "Method call bundle name will be updated in %s for class %s method %s",
   "cardNameChangeMessage": "Card name will be changed from {0} to {1} to follow API naming standards",
-  "duplicateCardNameMessage": "Potential duplicate: Another card has the same name {0} after name cleaning. This may cause conflicts during migration",
   "authordNameChangeMessage": "Author name will be changed from {0} to {1} to follow API naming standards",
   "omniScriptNameChangeMessage": "OmniScript reference part {0} will be changed to {1} during migration.",
-  "integrationProcedureManualUpdateMessage": "Integration Procedure Actions will need manual updates, please verify: {0}"
+  "dataRaptorNameChangeMessage": "DataRaptor reference {0} will be changed to {1} during migration.",
+  "integrationProcedureNameChangeMessage": "Integration Procedure reference {0} will be changed to {1} during migration.",
+  "integrationProcedureManualUpdateMessage": "Integration Procedure reference {0} may need manual updates after migration."
 
 }

@@ -11,6 +11,7 @@ import { OSAssessmentReporter } from './OSAssessmentReporter';
 import { ApexAssessmentReporter } from './ApexAssessmentReporter';
 import { IPAssessmentReporter } from './IPAssessmentReporter';
 import { DRAssessmentReporter } from './DRAssessmentReporter';
+import { FlexcardAssessmentReporter } from './FlexcardAssessmentReporter';
 
 export class AssessmentReporter {
   public static async generate(
@@ -39,17 +40,17 @@ export class AssessmentReporter {
 
       this.createDocument(
         flexcardAssessmentFilePath,
-        this.generateCardAssesment(result.flexCardAssessmentInfos, instanceUrl)
+        FlexcardAssessmentReporter.generateFlexcardAssesment(result.flexCardAssessmentInfos, instanceUrl, orgDetails)
       );
       this.createDocument(
-       apexAssessmentFilePath,
+        apexAssessmentFilePath,
         ApexAssessmentReporter.generateApexAssesment(result.apexAssessmentInfos, instanceUrl, orgDetails)
       );
-      
-    // this.createDocument(
-    //   lwcAssessmentFilePath,
-    //   LWCAssessmentReporter.generateLwcAssesment(result.lwcAssessmentInfos, instanceUrl, orgDetails)
-    // );
+
+      // this.createDocument(
+      //   lwcAssessmentFilePath,
+      //   LWCAssessmentReporter.generateLwcAssesment(result.lwcAssessmentInfos, instanceUrl, orgDetails)
+      // );
 
       this.createDocument(
         integrationProcedureAssessmentFilePath,

@@ -72,5 +72,10 @@
   "metadataRetrieved": "Metadata %s retrieved from %s",
   "deployingMetadata": "Deploying metadata %s to %s",
   "metadataDeployed": "Metadata %s deployed to %s",
-  "sfProjectCommandError": "Error executing command: %s"
+  "sfProjectCommandError": "Error executing command: %s",
+  "dataRaptorNameChangeMessage": "DataRaptor reference {0} will be changed to {1} during migration.",
+  "integrationProcedureNameChangeMessage": "Integration Procedure reference {0} will be changed to {1} during migration.",
+  "integrationProcedureManualUpdateMessage": "Integration Procedure reference {0} may need manual updates after migration.",
+  "cardAuthorNameChangeMessage": "Card author name has been modified to fit naming rules: {0}",
+  "cardNameChangeMessage": "Card name has been modified to fit naming rules: {0}"
 }

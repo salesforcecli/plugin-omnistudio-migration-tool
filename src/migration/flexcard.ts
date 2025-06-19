@@ -119,9 +119,10 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 
     // Now process each OmniScript and its elements
     for (const flexCard of limitedFlexCards) {
-      Logger.info(this.messages.getMessage('processingFlexCard', [flexCard['Name']]));
+      const flexCardName = flexCard['Name'];
+      Logger.info(this.messages.getMessage('processingFlexCard', [flexCardName]));
       const flexCardAssessmentInfo: FlexCardAssessmentInfo = {
-        name: flexCard['Name'],
+        name: flexCardName,
         id: flexCard['Id'],
         dependenciesIP: [],
         dependenciesDR: [],
@@ -132,18 +133,18 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       };
 
       // Check for name changes due to API naming requirements
-      const originalName = flexCard['Name'];
-      const cleanedName = this.cleanName(originalName);
+      const originalName:string = flexCardName;
+      const cleanedName:string = this.cleanName(originalName);
       if (cleanedName !== originalName) {
         flexCardAssessmentInfo.warnings.push(
-          `Card name will be changed from "${originalName}" to "${cleanedName}" to follow API naming standards.`
+          this.messages.getMessage('cardNameChangeMessage', [originalName, cleanedName])
         );
       }
 
       // Check for duplicate names
       if (uniqueNames.has(cleanedName)) {
         flexCardAssessmentInfo.warnings.push(
-          `Potential duplicate: Another card has the same name "${cleanedName}" after name cleaning. This may cause conflicts during migration.`
+          this.messages.getMessage('duplicateCardNameMessage', [cleanedName])
         );
       }
       uniqueNames.add(cleanedName);
@@ -154,7 +155,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         const cleanedAuthor = this.cleanName(originalAuthor);
         if (cleanedAuthor !== originalAuthor) {
           flexCardAssessmentInfo.warnings.push(
-            `Author name will be changed from "${originalAuthor}" to "${cleanedAuthor}" to follow API naming standards.`
+            this.messages.getMessage('authordNameChangeMessage', [originalAuthor, cleanedAuthor])
           );
         }
       }
@@ -179,13 +180,13 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     if (dataSource.type === 'DataRaptor') {
       const originalBundle = dataSource.value?.bundle;
       if (originalBundle) {
-        const cleanedBundle = this.cleanName(originalBundle);
+        const cleanedBundle:string = this.cleanName(originalBundle);
         flexCardAssessmentInfo.dependenciesDR.push(cleanedBundle);
 
         // Add warning if DataRaptor name will change
         if (originalBundle !== cleanedBundle) {
           flexCardAssessmentInfo.warnings.push(
-            `DataRaptor reference "${originalBundle}" will be changed to "${cleanedBundle}" during migration.`
+            this.messages.getMessage('dataRaptorNameChangeMessage', [originalBundle, cleanedBundle])
           );
         }
       }
@@ -201,14 +202,14 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         // Add warning if IP name will change
         if (originalIpMethod !== cleanedIpMethod) {
           flexCardAssessmentInfo.warnings.push(
-            `Integration Procedure reference "${originalIpMethod}" will be changed to "${cleanedIpMethod}" during migration.`
+            this.messages.getMessage('integrationProcedureNameChangeMessage', [originalIpMethod, cleanedIpMethod])
           );
         }
 
         // Add warning for IP references with more than 2 parts (which potentially need manual updates)
         if (parts.length > 2) {
           flexCardAssessmentInfo.warnings.push(
-            `Integration Procedure reference "${originalIpMethod}" may need manual updates after migration.`
+            this.messages.getMessage('integrationProcedureManualUpdateMessage', [originalIpMethod])
           );
         }
       }
@@ -268,7 +269,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
                 for (let i = 0; i < parts.length; i++) {
                   if (parts[i] !== cleanedParts[i]) {
                     flexCardAssessmentInfo.warnings.push(
-                      `OmniScript reference part "${parts[i]}" will be changed to "${cleanedParts[i]}" during migration.`
+                      this.messages.getMessage('omniScriptNameChangeMessage', [parts[i], cleanedParts[i]])
                     );
                   }
                 }
@@ -298,7 +299,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
                 for (let i = 0; i < parts.length; i++) {
                   if (parts[i] !== cleanedParts[i]) {
                     flexCardAssessmentInfo.warnings.push(
-                      `OmniScript reference part "${parts[i]}" will be changed to "${cleanedParts[i]}" during migration.`
+                      this.messages.getMessage('omniScriptNameChangeMessage', [parts[i], cleanedParts[i]])
                     );
                   }
                 }
@@ -479,13 +480,13 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         uploadResult.warnings = uploadResult.warnings || [];
         if (transformedCardAuthorName !== card[this.namespacePrefix + 'Author__c']) {
           uploadResult.warnings.unshift(
-            'WARNING: Card author name has been modified to fit naming rules: ' + transformedCardAuthorName
+            this.messages.getMessage('cardAuthorNameChangeMessage', [transformedCardAuthorName])
           );
         }
         if (transformedCardName !== card['Name']) {
           uploadResult.newName = transformedCardName;
           uploadResult.warnings.unshift(
-            'WARNING: Card name has been modified to fit naming rules: ' + transformedCardName
+            this.messages.getMessage('cardNameChangeMessage', [transformedCardName])
           );
         }
 
@@ -493,7 +494,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           const val = Array.from(invalidIpNames.entries())
             .map((e) => e[0])
             .join(', ');
-          uploadResult.errors.push('Integration Procedure Actions will need manual updates, please verify: ' + val);
+          uploadResult.errors.push(this.messages.getMessage('integrationProcedureManualUpdateMessage', [val]));
         }
 
         cardsUploadInfo.set(recordId, uploadResult);

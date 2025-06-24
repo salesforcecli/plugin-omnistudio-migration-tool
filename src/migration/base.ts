@@ -18,7 +18,9 @@ export type ComponentType = 'Data Mapper' | 'Flexcard' | 'Omniscript and Integra
  */
 export const createProgressBar = (action: string, componentType: ComponentType): cliProgress.SingleBar => {
   return new cliProgress.SingleBar({
-    format: `${action} ${componentType} |${componentType === 'Omniscript and Integration Procedure' ? '' : '\t\t\t\t'} {bar} | {percentage}% || {value}/{total} Tasks`,
+    format: `${action} ${componentType} |${
+      componentType === 'Omniscript and Integration Procedure' ? '' : '\t\t\t\t'
+    } {bar} | {percentage}% || {value}/{total} Tasks`,
     barCompleteChar: '\u2588',
     barIncompleteChar: '\u2591',
     hideCursor: true,

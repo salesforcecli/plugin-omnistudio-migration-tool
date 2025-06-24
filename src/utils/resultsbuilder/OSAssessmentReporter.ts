@@ -185,7 +185,7 @@ export class OSAssessmentReporter {
       headerColumns: headerColumn,
       columns,
       rows: osAssessmentInfos,
-      orgDetails: orgDetails,
+      orgDetails,
       filters,
       ctaSummary,
       reportHeaderLabel: 'Omniscript Assessment',

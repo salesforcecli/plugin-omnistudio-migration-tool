@@ -10,6 +10,7 @@ import { UX } from '@salesforce/command';
 import { FlexCardAssessmentInfo } from '../../src/utils';
 import { Logger } from '../utils/logger';
 import { createProgressBar } from './base';
+import { Constants } from '../utils/constants/stringContants';
 
 export class CardMigrationTool extends BaseMigrationTool implements MigrationTool {
   static readonly VLOCITYCARD_NAME = 'VlocityCard__c';
@@ -177,7 +178,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     }
 
     // Check if it's a DataRaptor source
-    if (dataSource.type === 'DataRaptor') {
+    if (dataSource.type === Constants.DataRaptorComponentName) {
       const originalBundle = dataSource.value?.bundle;
       if (originalBundle) {
         const cleanedBundle:string = this.cleanName(originalBundle);
@@ -190,7 +191,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           );
         }
       }
-    } else if (dataSource.type === 'IntegrationProcedures') {
+    } else if (dataSource.type === Constants.IntegrationProcedurePluralName) {
       const originalIpMethod = dataSource.value?.ipMethod;
       if (originalIpMethod) {
         const parts = originalIpMethod.split('_');
@@ -242,7 +243,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       }
     } catch (err) {
       // Log the error but continue processing
-      this.logger.error(`Error parsing definition for card ${flexCard.Name}: ${err.message}`);
+      Logger.error(`Error parsing definition for card ${flexCard.Name}: ${err.message}`);
     }
   }
 
@@ -253,7 +254,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       for (const action of component.property.actionList) {
         if (action.stateAction) {
           // Case 1: Direct OmniScript reference
-          if (action.stateAction.type === 'OmniScript' && action.stateAction.omniType) {
+          if (action.stateAction.type === Constants.OmniScriptComponentName && action.stateAction.omniType) {
             const omniType = action.stateAction.omniType;
             if (omniType.Name && typeof omniType.Name === 'string') {
               const originalName = omniType.Name;
@@ -280,7 +281,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           // Case 2: Flyout OmniScript reference
           else if (
             action.stateAction.type === 'Flyout' &&
-            action.stateAction.flyoutType === 'OmniScripts' &&
+            action.stateAction.flyoutType === Constants.OmniScriptPluralName &&
             action.stateAction.osName
           ) {
             const osName = action.stateAction.osName;
@@ -609,9 +610,9 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     const datasource = JSON.parse(mappedObject[CardMappings.Datasource__c] || '{}');
     if (datasource.dataSource) {
       const type = datasource.dataSource.type;
-      if (type === 'DataRaptor') {
+      if (type === Constants.DataRaptorComponentName) {
         datasource.dataSource.value.bundle = this.cleanName(datasource.dataSource.value.bundle);
-      } else if (type === 'IntegrationProcedures') {
+      } else if (type === Constants.IntegrationProcedurePluralName) {
         const ipMethod: string = datasource.dataSource.value.ipMethod || '';
 
         const parts = ipMethod.split('_');

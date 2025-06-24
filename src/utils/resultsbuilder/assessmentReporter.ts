@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
 import fs from 'fs';
 import open from 'open';
-import { AssessmentInfo, FlexCardAssessmentInfo, nameLocation } from '../interfaces';
+import { AssessmentInfo, nameLocation } from '../interfaces';
 import { ReportHeaderFormat } from '../reportGenerator/reportInterfaces';
 import { OmnistudioOrgDetails } from '../orgUtils';
 import { Constants } from '../constants/stringContants';
@@ -29,7 +29,7 @@ export class AssessmentReporter {
     const dataMapperAssessmentFilePath = basePath + '/datamapper_assessment.html';
     const apexAssessmentFilePath = basePath + '/apex_assessment.html';
     // TODO: Uncomment code once MVP for migration is completed
-    const lwcAssessmentFilePath = basePath + '/lwc_assessment.html';
+    // const lwcAssessmentFilePath = basePath + '/lwc_assessment.html';
     const orgDetails: ReportHeaderFormat[] = this.formattedOrgDetails(omnistudioOrgDetails);
 
     if (!assessOnly) {
@@ -78,7 +78,7 @@ export class AssessmentReporter {
         case Constants.Flexcard:
           this.createDocument(
             flexcardAssessmentFilePath,
-            this.generateCardAssesment(result.flexCardAssessmentInfos, instanceUrl)
+            FlexcardAssessmentReporter.generateFlexcardAssesment(result.flexCardAssessmentInfos, instanceUrl, orgDetails)
           );
           break;
 
@@ -214,50 +214,6 @@ export class AssessmentReporter {
     fs.writeFileSync(filePath, doc);
   }
 
-  private static generateCardAssesment(flexCardAssessmentInfos: FlexCardAssessmentInfo[], instanceUrl: string): string {
-    let tableBody = '';
-    tableBody += '<div class="slds-text-heading_large">Flexcard Components Assessment</div>';
-    for (const card of flexCardAssessmentInfos) {
-      // Generate warnings HTML
-      let warningsHtml = '';
-      if (card.warnings && card.warnings.length > 0) {
-        warningsHtml = '<ul class="slds-list_dotted">';
-        for (const warning of card.warnings) {
-          warningsHtml += `<li class="slds-text-color_warning">${warning}</li>`;
-        }
-        warningsHtml += '</ul>';
-      }
-
-      const row = `
-              <tr class="slds-hint_parent">
-                  <td style="word-wrap: break-word; white-space: normal; max-width: 200px;">
-                      <div class="slds-truncate" title="${card.name}">${card.name}</div>
-                  </td>
-                  <td style="word-wrap: break-word; white-space: normal; max-width: 100px;">
-                      <div class="slds-truncate" title="${card.id}"><a href="${instanceUrl}/${card.id}">${card.id}</div>
-                  </td>
-                  <td style="word-wrap: break-word; white-space: normal; max-width: 60%; overflow: hidden;">
-                      <div title="${card.dependenciesOS}">${card.dependenciesOS}</div>
-                  </td>
-                  <td style="word-wrap: break-word; white-space: normal; max-width: 60%; overflow: hidden;">
-                      <div title="${card.dependenciesIP}">${card.dependenciesIP}</div>
-                  </td>
-                  <td style="word-wrap: break-word; white-space: normal; max-width: 60%; overflow: hidden;">
-                      <div title="${card.dependenciesDR}">${card.dependenciesDR}</div>
-                  </td>
-                  <td style="word-wrap: break-word; white-space: normal; max-width: 60%; overflow: hidden;">
-                      <div title="${card.dependenciesLWC}">${card.dependenciesLWC}</div>
-                  </td>
-                  <td style="word-wrap: break-word; white-space: normal; max-width: 100%; overflow: hidden;">
-                      <div>${warningsHtml}</div>
-                  </td>
-              </tr>`;
-      tableBody += row;
-    }
-
-    return this.getCardAssessmentReport(tableBody);
-  }
-
   private static generateDocument(resultsAsHtml: string): string {
     const document = `
         <html>
@@ -274,43 +230,6 @@ export class AssessmentReporter {
         </html>
         `;
     return document;
-  }
-
-  private static getCardAssessmentReport(tableContent: string): string {
-    const tableBody = `
-        <div style="margin-block:15px">        
-            <table style="width: 100%; table-layout: auto;" class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped slds-table_col-bordered" aria-label="Results for Flexcards updates">
-            <thead>
-                <tr class="slds-line-height_reset">
-                    <th class="" scope="col" style="width: 15%; word-wrap: break-word; white-space: normal; text-align: left;">
-                        <div class="slds-truncate" title="Name">Name</div>
-                    </th>
-                    <th class="" scope="col" style="width: 10%; word-wrap: break-word; white-space: normal; text-align: left;">
-                        <div class="slds-truncate" title="ID">ID</div>
-                    </th>
-                    <th class="" scope="col" style="width: 12%; word-wrap: break-word; white-space: normal; text-align: left;">
-                        <div title="Dependencies">Omniscript Dependencies</div>
-                    </th>
-                    <th class="" scope="col" style="width: 12%; word-wrap: break-word; white-space: normal; text-align: left;">
-                        <div title="Dependencies">Integration Procedures Dependencies</div>
-                    </th>
-                    <th class="" scope="col" style="width: 12%; word-wrap: break-word; white-space: normal; text-align: left;">
-                        <div title="Dependencies">Data Mapper Dependencies</div>
-                    </th>
-                    <th class="" scope="col" style="width: 12%; word-wrap: break-word; white-space: normal; text-align: left;">
-                        <div title="Dependencies">LWC Dependencies</div>
-                    </th>
-                    <th class="" scope="col" style="width: 22%; word-wrap: break-word; white-space: normal; text-align: left;">
-                        <div title="Warnings">Summary</div>
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
-            ${tableContent}
-            </tbody>
-            </table>
-        </div>`;
-    return tableBody;
   }
 
 }

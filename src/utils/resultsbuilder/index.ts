@@ -46,7 +46,7 @@ export class ResultsBuilder {
 
     this.logger.info('Generating migration report dashboard');
     this.generateMigrationReportDashboard(orgDetails, this.getFormattedDetails(results, relatedObjectMigrationResult));
-    
+
     this.logger.info('Pushing assets');
     pushAssestUtilites('javascripts', resultsDir);
     pushAssestUtilites('styles', resultsDir);
@@ -320,7 +320,7 @@ export class ResultsBuilder {
     ];
 
     this.logger.info(`Generating table body for result: ${result.name}`);
-    
+
     // Determine which rollback flag to use based on component type
     let rollbackFlagNames: string[] = [];
     const componentName = result.name.toLowerCase();
@@ -329,7 +329,7 @@ export class ResultsBuilder {
     } else if (componentName.includes('omniscript') || componentName.includes('integration procedure')) {
       rollbackFlagNames = ['RollbackOSChanges', 'RollbackIPChanges'];
     }
-    
+
     const reportFrameworkParameters: ReportFrameworkParameters<MigratedRecordInfo> = {
       headerColumns,
       columns,

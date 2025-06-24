@@ -108,7 +108,7 @@ export class IPAssessmentReporter {
       headerColumns: headerColumn,
       columns,
       rows: ipAssessmentInfos,
-      orgDetails: orgDetails,
+      orgDetails,
       filters: [],
       ctaSummary: [],
       reportHeaderLabel: 'Integration Procedure Assessment',

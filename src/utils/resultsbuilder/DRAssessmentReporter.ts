@@ -128,7 +128,7 @@ export class DRAssessmentReporter {
       headerColumns: headerColumn,
       columns,
       rows: dataRaptorAssessmentInfos,
-      orgDetails: orgDetails,
+      orgDetails,
       filters,
       ctaSummary: [],
       reportHeaderLabel: 'Data Mapper Assessment',

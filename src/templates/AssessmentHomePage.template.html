@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Omnistudio Migration to Core Assessment Reports</title>
+</head>
+
+<body>
+
+  <div className="dashboard-root">
+    <h2>Omnistudio Migration to Core Assessment Reports</h2>
+    <div className="dashboard-warning">
+      <span>
+        ⚠️ Warning scoped notification message. <a href="#">Learn more</a>
+      </span>
+    </div>
+    <div className="dashboard-orginfo">
+      <div>
+        <strong>Name</strong>
+        <br />
+        {data.orgInfo.name}
+      </div>
+      <div>
+        <strong>Org ID</strong>
+        <br />
+        {data.orgInfo.orgId}
+      </div>
+      <div>
+        <strong>Package Name</strong>
+        <br />
+        {data.orgInfo.packageName}
+      </div>
+      <div>
+        <strong>Data Model Type</strong>
+        <br />
+        {data.orgInfo.dataModelType}
+      </div>
+      <div>
+        <strong>Assessment Date and Time</strong>
+        <br />
+        {data.orgInfo.assessmentDateTime}
+      </div>
+    </div>
+    <div className="dashboard-modules">
+      {data.modules.map((mod: Module) => (
+      <div key={mod.title} className="dashboard-module-card">
+        <div>
+          <div className="dashboard-module-title">{mod.title}</div>
+          <div className="dashboard-module-total">{mod.total}</div>
+          <div className="dashboard-module-row">
+            With Warning and Errors
+            <span className="dashboard-module-warn">{mod.withWarningAndErrors.toString().padStart(2, '0')}</span>
+          </div>
+          <div className="dashboard-module-row">
+            No Migration needed
+            <span className="dashboard-module-neutral">{mod.noMigrationNeeded.toString().padStart(2, '0')}</span>
+          </div>
+          <div className="dashboard-module-row">
+            With No Errors (Automated)
+            <span className="dashboard-module-success">{mod.withNoErrors.toString().padStart(2, '0')}</span>
+          </div>
+        </div>
+        <button className="dashboard-module-btn">View Assessment Report</button>
+      </div>
+      ))}
+    </div>
+  </div>
+</body>
+
+</html>

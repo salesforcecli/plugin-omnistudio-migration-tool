@@ -8,6 +8,7 @@ import { MigrationResult, MigrationTool, ObjectMapping, UploadRecordResult } fro
 import { Connection, Logger, Messages } from '@salesforce/core';
 import { UX } from '@salesforce/command';
 import { FlexCardAssessmentInfo } from '../../src/utils';
+import { Constants } from '../utils/constants/stringContants';
 
 export class CardMigrationTool extends BaseMigrationTool implements MigrationTool {
   static readonly VLOCITYCARD_NAME = 'VlocityCard__c';
@@ -167,7 +168,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     }
 
     // Check if it's a DataRaptor source
-    if (dataSource.type === 'DataRaptor') {
+    if (dataSource.type === Constants.DataMapperLabel) {
       const originalBundle = dataSource.value?.bundle;
       if (originalBundle) {
         const cleanedBundle:string = this.cleanName(originalBundle);
@@ -180,7 +181,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           );
         }
       }
-    } else if (dataSource.type === 'IntegrationProcedures') {
+    } else if (dataSource.type === Constants.IntegrationProcedureLabel) {
       const originalIpMethod = dataSource.value?.ipMethod;
       if (originalIpMethod) {
         const parts = originalIpMethod.split('_');
@@ -243,7 +244,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       for (const action of component.property.actionList) {
         if (action.stateAction) {
           // Case 1: Direct OmniScript reference
-          if (action.stateAction.type === 'OmniScript' && action.stateAction.omniType) {
+          if (action.stateAction.type === Constants.OmniScriptLabel && action.stateAction.omniType) {
             const omniType = action.stateAction.omniType;
             if (omniType.Name && typeof omniType.Name === 'string') {
               const originalName = omniType.Name;
@@ -302,6 +303,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 
     // Check for Custom LWC component
     if (component.element === 'customLwc' && component.property) {
+      
       // Check customlwcname property
       /*if (component.property.customlwcname) {
         flexCardAssessmentInfo.dependenciesLWC.push(component.property.customlwcname);
@@ -597,9 +599,9 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     const datasource = JSON.parse(mappedObject[CardMappings.Datasource__c] || '{}');
     if (datasource.dataSource) {
       const type = datasource.dataSource.type;
-      if (type === 'DataRaptor') {
+      if (type === Constants.DataMapperLabel) {
         datasource.dataSource.value.bundle = this.cleanName(datasource.dataSource.value.bundle);
-      } else if (type === 'IntegrationProcedures') {
+      } else if (type === Constants.IntegrationProcedureLabel) {
         const ipMethod: string = datasource.dataSource.value.ipMethod || '';
 
         const parts = ipMethod.split('_');
@@ -619,9 +621,9 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     if (propertySet) {
       if (propertySet.dataSource) {
         const type = propertySet.dataSource.type;
-        if (type === 'DataRaptor') {
+        if (type === Constants.DataMapperLabel) {
           propertySet.dataSource.value.bundle = this.cleanName(propertySet.dataSource.value.bundle);
-        } else if (type === 'IntegrationProcedures') {
+        } else if (type === Constants.IntegrationProcedureLabel) {
           const ipMethod: string = propertySet.dataSource.value.ipMethod || '';
 
           const parts = ipMethod.split('_');

@@ -20,8 +20,6 @@ const APEXCLASS = 'Apexclass';
 
 const defaultProjectName = 'omnistudio_migration';
 export default class OmnistudioRelatedObjectMigrationFacade {
-  // public static description = messages.getMessage('commandDescription');
-  // public static examples = messages.getMessage('examples').split(os.EOL);
   public static args = [{ name: 'file' }];
 
   protected readonly namespace: string;

@@ -1,4 +1,5 @@
 import { OSAssessmentInfo } from '../interfaces';
+import { Logger } from '../logger';
 import { OmnistudioOrgDetails } from '../orgUtils';
 import {
   FilterGroupParam,
@@ -17,6 +18,7 @@ export class OSAssessmentReporter {
     instanceUrl: string,
     omnistudioOrgDetails: OmnistudioOrgDetails
   ): ReportParam {
+    Logger.logVerbose(`raw data: ${JSON.stringify(OSAssessmentInfos)}`);
     return {
       title: 'OmniScript Migration Assessment',
       heading: 'OmniScript',

@@ -1,5 +1,6 @@
 import { Messages } from '@salesforce/core';
 import { DashboardParam, ReportParam } from '../reportGenerator/reportInterfaces';
+import { Logger } from '../logger';
 import { TemplateParserUtil } from './util';
 
 /**
@@ -21,6 +22,7 @@ export class TemplateParser {
       return template;
     }
 
+    Logger.logVerbose(`param data: ${JSON.stringify(data)}`);
     const node = TemplateParserUtil.parseHtmlToNode(template, messages);
     const keypair = TemplateParserUtil.parseKeyPair(data, messages);
     const html = node.toHtml(keypair);

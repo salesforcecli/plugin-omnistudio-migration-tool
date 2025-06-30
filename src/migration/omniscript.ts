@@ -386,7 +386,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
         const nameVal = `${elemName}`;
         const className = propertySet['remoteClass'];
         const methodName = propertySet['remoteMethod'];
-        dependenciesRA.push({ name: className + '.' + methodName, location: nameVal });
+        if (className && methodName) dependenciesRA.push({ name: className + '.' + methodName, location: nameVal });
       }
       // To handle radio , multiselect
       if (propertySet['optionSource'] && propertySet['optionSource']['type'] === 'Custom') {

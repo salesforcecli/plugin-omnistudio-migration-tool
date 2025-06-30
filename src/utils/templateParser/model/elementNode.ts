@@ -106,6 +106,10 @@ export class ElementNode {
     const indexVarName = this.properties.get('index') || 'index';
 
     array.forEach((item, index) => {
+      if (item == null) {
+        Logger.warn('skipping item in for loop, found to be null or undefined');
+        return;
+      }
       this.addProps(props, index.toString(), item, itemVarName, indexVarName);
       html += this.children.map((child) => child.toHtml(props)).join('');
       this.removeProps(props, item, itemVarName, indexVarName);

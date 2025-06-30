@@ -1,3 +1,5 @@
+import { MessageService } from './MessageService';
+
 /**
  * Replaces placeholders in a string with corresponding values from arguments.
  * Placeholders are in the format {key}.
@@ -23,4 +25,20 @@ export function formatUnicorn(
   }
 
   return str;
+}
+
+export function getMigrationHeading(name: string): string {
+  if (name.toLowerCase().includes('data')) {
+    return MessageService.getMessage('reportHeadingDM');
+  } else if (name.toLowerCase().includes('flexcard')) {
+    return MessageService.getMessage('reportHeadingFC');
+  } else if (name.toLowerCase().includes('omniscript')) {
+    return MessageService.getMessage('reportHeadingOS');
+  } else if (name.toLowerCase().includes('integration')) {
+    return MessageService.getMessage('reportHeadingIP');
+  } else if (name.toLowerCase().includes('apex')) {
+    return MessageService.getMessage('reportHeadingApex');
+  } else {
+    return name;
+  }
 }

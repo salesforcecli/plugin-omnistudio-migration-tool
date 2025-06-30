@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable no-eval */
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
-import { Messages } from '@salesforce/core';
 import { Logger } from '../../logger';
 import { TemplateParserUtil } from '../util';
+import { MessageService } from '../../MessageService';
 import { NodeType } from './nodeTypes';
 
 /**
@@ -15,20 +15,12 @@ export class ElementNode {
   public name: string;
   public properties: Map<string, string>;
   public children: ElementNode[];
-  public messages: Messages;
 
-  public constructor(
-    type: NodeType,
-    name: string,
-    properties: Map<string, string>,
-    children: ElementNode[],
-    messages: Messages
-  ) {
+  public constructor(type: NodeType, name: string, properties: Map<string, string>, children: ElementNode[]) {
     this.type = type;
     this.name = name;
     this.properties = properties;
     this.children = children;
-    this.messages = messages;
   }
 
   /**
@@ -51,7 +43,9 @@ export class ElementNode {
           return this.ifToHtml(props);
       }
     } catch (error) {
-      Logger.error(this.messages.getMessage('errorGeneratingHTML', [JSON.stringify(this), this.getPropertiesString()]));
+      Logger.error(
+        MessageService.getMessage('errorGeneratingHTML', [JSON.stringify(this), this.getPropertiesString()])
+      );
       throw error;
     }
   }
@@ -159,7 +153,7 @@ export class ElementNode {
       props.set(itemVarName, value);
       return;
     }
-    TemplateParserUtil.parseKeyPair(value, this.messages, itemVarName).forEach((val, key) => {
+    TemplateParserUtil.parseKeyPair(value, itemVarName).forEach((val, key) => {
       props.set(key, val);
     });
   }
@@ -179,7 +173,7 @@ export class ElementNode {
       props.delete(itemVarName);
       return;
     }
-    TemplateParserUtil.parseKeyPair(value, this.messages, itemVarName).forEach((_value, key) => {
+    TemplateParserUtil.parseKeyPair(value, itemVarName).forEach((_value, key) => {
       props.delete(key);
     });
   }
@@ -206,7 +200,7 @@ export class ElementNode {
     try {
       return eval(expression) as boolean;
     } catch (error) {
-      Logger.error(this.messages.getMessage('errorEvaluatingExpression', [expression, error]));
+      Logger.error(MessageService.getMessage('errorEvaluatingExpression', [expression, error]));
       return false;
     }
   }

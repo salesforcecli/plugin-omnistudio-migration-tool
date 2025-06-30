@@ -1,10 +1,11 @@
 import { UX } from '@salesforce/command';
-import { Connection, Messages } from '@salesforce/core';
+import { Connection } from '@salesforce/core';
 import cliProgress from 'cli-progress';
 import { DebugTimer, QueryTools } from '../utils';
 import { NetUtils } from '../utils/net';
 import { Stringutil } from '../utils/StringValue/stringutil';
 import { Logger } from '../utils/logger';
+import { MessageService } from '../utils/MessageService';
 import { TransformData, UploadRecordResult } from './interfaces';
 
 export type ComponentType = 'Data Mapper' | 'Flexcard' | 'Omniscript and Integration Procedure';
@@ -34,14 +35,12 @@ export class BaseMigrationTool {
   protected readonly connection: Connection;
   protected readonly namespacePrefix: string;
   protected readonly logger: Logger;
-  protected readonly messages: Messages;
   protected readonly ux: UX;
 
-  public constructor(namespace: string, connection: Connection, logger: Logger, messages: Messages, ux: UX) {
+  public constructor(namespace: string, connection: Connection, logger: Logger, ux: UX) {
     this.namespace = namespace;
     this.connection = connection;
     this.logger = logger;
-    this.messages = messages;
     this.ux = ux;
     this.namespacePrefix = namespace ? namespace + '__' : '';
   }
@@ -91,7 +90,7 @@ export class BaseMigrationTool {
 
     const success: boolean = await NetUtils.delete(this.connection, ids);
     if (!success) {
-      throw new Error(this.messages.getMessage('couldNotTruncate', [objectName]));
+      throw new Error(MessageService.getMessage('couldNotTruncate', [objectName]));
     }
   }
 

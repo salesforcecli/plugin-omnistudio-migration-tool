@@ -1,13 +1,15 @@
 import fs from 'fs';
 import path from 'path';
 import open from 'open';
-import { Logger, Messages } from '@salesforce/core';
+import { Logger } from '@salesforce/core';
 import { pushAssestUtilites } from '../file/fileUtil';
 import { ApexAssessmentInfo, MigratedObject, MigratedRecordInfo, RelatedObjectAssesmentInfo } from '../interfaces';
-import { ReportParam } from '../reportGenerator/reportInterfaces';
+import { DashboardParam, ReportParam } from '../reportGenerator/reportInterfaces';
 import { OmnistudioOrgDetails } from '../orgUtils';
 import { TemplateParser } from '../templateParser/generate';
 import { createFilterGroupParam, createRowDataParam } from '../reportGenerator/reportUtil';
+import { MessageService } from '../MessageService';
+import { getMigrationHeading } from '../stringUtils';
 
 const resultsDir = path.join(process.cwd(), 'migration_report');
 // const lwcConstants = { componentName: 'lwc', title: 'LWC Components Migration Result' };
@@ -25,19 +27,18 @@ export class ResultsBuilder {
     results: MigratedObject[],
     relatedObjectMigrationResult: RelatedObjectAssesmentInfo,
     instanceUrl: string,
-    orgDetails: OmnistudioOrgDetails,
-    messages: Messages
+    orgDetails: OmnistudioOrgDetails
   ): Promise<void> {
     fs.mkdirSync(resultsDir, { recursive: true });
-    this.logger.info(messages.getMessage('generatingComponentReports'));
+    this.logger.info(MessageService.getMessage('generatingComponentReports'));
     for (const result of results) {
-      this.generateReportForResult(result, instanceUrl, orgDetails, messages);
+      this.generateReportForResult(result, instanceUrl, orgDetails);
     }
-    this.logger.info(messages.getMessage('generatingRelatedObjectReports'));
-    this.generateReportForRelatedObject(relatedObjectMigrationResult, instanceUrl, orgDetails, messages);
+    this.logger.info(MessageService.getMessage('generatingRelatedObjectReports'));
+    this.generateReportForRelatedObject(relatedObjectMigrationResult, instanceUrl, orgDetails);
 
-    this.logger.info(messages.getMessage('generatingMigrationReportDashboard'));
-    this.generateMigrationReportDashboard(orgDetails, results, relatedObjectMigrationResult, messages);
+    this.logger.info(MessageService.getMessage('generatingMigrationReportDashboard'));
+    this.generateMigrationReportDashboard(orgDetails, results, relatedObjectMigrationResult);
     pushAssestUtilites('javascripts', resultsDir);
     pushAssestUtilites('styles', resultsDir);
     await open(path.join(resultsDir, migrationReportHTMLfileName));
@@ -46,8 +47,7 @@ export class ResultsBuilder {
   private static generateReportForResult(
     result: MigratedObject,
     instanceUrl: string,
-    orgDetails: OmnistudioOrgDetails,
-    messages: Messages
+    orgDetails: OmnistudioOrgDetails
   ): void {
     // Determine which rollback flag to use based on component type
     let rollbackFlagNames: string[] = [];
@@ -60,8 +60,8 @@ export class ResultsBuilder {
     const rollbackFlags = orgDetails.rollbackFlags || [];
     const flags = rollbackFlagNames.filter((flag) => rollbackFlags.includes(flag));
     const data: ReportParam = {
-      title: result.name,
-      heading: result.name,
+      title: getMigrationHeading(result.name),
+      heading: getMigrationHeading(result.name),
       org: {
         name: orgDetails.orgDetails.Name,
         id: orgDetails.orgDetails.Id,
@@ -70,32 +70,38 @@ export class ResultsBuilder {
       },
       assessmentDate: new Date().toString(),
       total: result.data?.length || 0,
-      filterGroups: [createFilterGroupParam('Filter By Migration Status', 'status', ['Complete', 'Error', 'Skipped'])],
+      filterGroups: [
+        createFilterGroupParam(MessageService.getMessage('reportFilterGroupStatusLabel'), 'status', [
+          MessageService.getMessage('reportDashboardCardLabelCompleted'),
+          MessageService.getMessage('reportDashboardCardLabelError'),
+          MessageService.getMessage('reportDashboardCardLabelSkipped'),
+        ]),
+      ],
       headerGroups: [
         {
           header: [
             {
-              name: 'In Package',
+              name: MessageService.getMessage('reportTableHeaderInPackage'),
               colspan: 2,
               rowspan: 1,
             },
             {
-              name: 'In Core',
+              name: MessageService.getMessage('reportTableHeaderInCore'),
               colspan: 2,
               rowspan: 1,
             },
             {
-              name: 'Migration Status',
+              name: MessageService.getMessage('reportMigrationTableHeaderStatus'),
               colspan: 1,
               rowspan: 2,
             },
             {
-              name: 'Errors',
+              name: MessageService.getMessage('reportMigrationTableHeaderError'),
               colspan: 1,
               rowspan: 2,
             },
             {
-              name: 'Warnings',
+              name: MessageService.getMessage('reportMigrationTableHeaderWarning'),
               colspan: 1,
               rowspan: 2,
             },
@@ -104,22 +110,22 @@ export class ResultsBuilder {
         {
           header: [
             {
-              name: 'Record ID',
+              name: MessageService.getMessage('reportTableHeaderId'),
               colspan: 1,
               rowspan: 1,
             },
             {
-              name: 'Record Name',
+              name: MessageService.getMessage('reportTableHeaderName'),
               colspan: 1,
               rowspan: 1,
             },
             {
-              name: 'Record ID',
+              name: MessageService.getMessage('reportTableHeaderId'),
               colspan: 1,
               rowspan: 1,
             },
             {
-              name: 'Record Name',
+              name: MessageService.getMessage('reportTableHeaderName'),
               colspan: 1,
               rowspan: 1,
             },
@@ -162,28 +168,26 @@ export class ResultsBuilder {
     };
 
     const reportTemplate = fs.readFileSync(reportTemplateFilePath, 'utf8');
-    const html = TemplateParser.generate(reportTemplate, data, messages);
+    const html = TemplateParser.generate(reportTemplate, data);
     fs.writeFileSync(path.join(resultsDir, result.name.replace(/ /g, '_').replace(/\//g, '_') + '.html'), html);
   }
 
   private static generateReportForRelatedObject(
     result: RelatedObjectAssesmentInfo,
     instanceUrl: string,
-    orgDetails: OmnistudioOrgDetails,
-    messages: Messages
+    orgDetails: OmnistudioOrgDetails
   ): void {
-    this.generateReportForApex(result.apexAssessmentInfos, instanceUrl, orgDetails, messages);
+    this.generateReportForApex(result.apexAssessmentInfos, instanceUrl, orgDetails);
   }
 
   private static generateReportForApex(
     result: ApexAssessmentInfo[],
     instanceUrl: string,
-    orgDetails: OmnistudioOrgDetails,
-    messages: Messages
+    orgDetails: OmnistudioOrgDetails
   ): void {
     const data: ReportParam = {
-      title: 'Apex Classes',
-      heading: 'Apex Classes',
+      title: getMigrationHeading('Apex'),
+      heading: getMigrationHeading('Apex'),
       org: {
         name: orgDetails.orgDetails.Name,
         id: orgDetails.orgDetails.Id,
@@ -192,32 +196,37 @@ export class ResultsBuilder {
       },
       assessmentDate: new Date().toString(),
       total: result.length,
-      filterGroups: [createFilterGroupParam('Filter by Errors', 'errors', ['Has Errors', 'Has No Errors'])],
+      filterGroups: [
+        createFilterGroupParam(MessageService.getMessage('reportFilterGroupErrorsLabel'), 'errors', [
+          MessageService.getMessage('reportFilterHasError'),
+          MessageService.getMessage('reportFilterHasNoError'),
+        ]),
+      ],
       headerGroups: [
         {
           header: [
             {
-              name: 'Class Name',
+              name: MessageService.getMessage('reportTableHeaderName'),
               colspan: 1,
               rowspan: 1,
             },
             {
-              name: 'File Reference',
+              name: MessageService.getMessage('reportTableHeaderFileRef'),
               colspan: 1,
               rowspan: 1,
             },
             {
-              name: 'Diff',
+              name: MessageService.getMessage('reportTableHeaderDiff'),
               colspan: 1,
               rowspan: 1,
             },
             {
-              name: 'Comments',
+              name: MessageService.getMessage('reportTableHeaderSummary'),
               colspan: 1,
               rowspan: 1,
             },
             {
-              name: 'Errors',
+              name: MessageService.getMessage('reportMigrationTableHeaderError'),
               colspan: 1,
               rowspan: 1,
             },
@@ -258,7 +267,7 @@ export class ResultsBuilder {
     };
 
     const reportTemplate = fs.readFileSync(reportTemplateFilePath, 'utf8');
-    const html = TemplateParser.generate(reportTemplate, data, messages);
+    const html = TemplateParser.generate(reportTemplate, data);
     fs.writeFileSync(path.join(resultsDir, apexFileName), html);
 
     // call generate html from template
@@ -267,12 +276,12 @@ export class ResultsBuilder {
   private static generateMigrationReportDashboard(
     orgDetails: OmnistudioOrgDetails,
     results: MigratedObject[],
-    relatedObjectMigrationResult: RelatedObjectAssesmentInfo,
-    messages: Messages
+    relatedObjectMigrationResult: RelatedObjectAssesmentInfo
   ): void {
-    const data = {
-      title: 'Migration Report Dashboard',
-      heading: 'Migration Report Dashboard',
+    const data: DashboardParam = {
+      mode: 'migrate',
+      title: MessageService.getMessage('reportMigrationDashboardHeading'),
+      heading: MessageService.getMessage('reportMigrationDashboardHeading'),
       org: {
         name: orgDetails.orgDetails.Name,
         id: orgDetails.orgDetails.Id,
@@ -282,13 +291,13 @@ export class ResultsBuilder {
       assessmentDate: new Date().toString(),
       summaryItems: [
         ...results.map((result) => ({
-          name: result.name,
+          name: getMigrationHeading(result.name),
           total: result.data?.length || 0,
           data: this.getDifferentStatusDataForResult(result.data),
           file: result.name.replace(/ /g, '_').replace(/\//g, '_') + '.html',
         })),
         {
-          name: 'Apex Classes',
+          name: getMigrationHeading('Apex'),
           total: relatedObjectMigrationResult.apexAssessmentInfos?.length || 0,
           data: this.getDifferentStatusDataForApex(relatedObjectMigrationResult.apexAssessmentInfos),
           file: apexFileName,
@@ -297,7 +306,7 @@ export class ResultsBuilder {
     };
 
     const dashboardTemplate = fs.readFileSync(dashboardTemplateFilePath, 'utf8');
-    const html = TemplateParser.generate(dashboardTemplate, data, messages);
+    const html = TemplateParser.generate(dashboardTemplate, data);
     fs.writeFileSync(path.join(resultsDir, 'dashboard.html'), html);
   }
 
@@ -308,14 +317,18 @@ export class ResultsBuilder {
     let error = 0;
     let skip = 0;
     data.forEach((item) => {
-      if (item.status === 'Complete') complete++;
-      if (item.status === 'Error') error++;
-      if (item.status === 'Skipped') skip++;
+      if (item.status === MessageService.getMessage('reportDashboardCardLabelCompleted')) complete++;
+      if (item.status === MessageService.getMessage('reportDashboardCardLabelError')) error++;
+      if (item.status === MessageService.getMessage('reportDashboardCardLabelSkipped')) skip++;
     });
     return [
-      { name: 'Completed without errors', count: complete, cssClass: 'text-success' },
-      { name: 'Error', count: error, cssClass: 'text-error' },
-      { name: 'Skipped', count: skip, cssClass: 'text-warning' },
+      {
+        name: MessageService.getMessage('reportDashboardCardLabelCompleted'),
+        count: complete,
+        cssClass: 'text-success',
+      },
+      { name: MessageService.getMessage('reportDashboardCardLabelError'), count: error, cssClass: 'text-error' },
+      { name: MessageService.getMessage('reportDashboardCardLabelSkipped'), count: skip, cssClass: 'text-warning' },
     ];
   }
 
@@ -329,8 +342,12 @@ export class ResultsBuilder {
       else error++;
     });
     return [
-      { name: 'Completed without errors', count: complete, cssClass: 'text-success' },
-      { name: 'Error', count: error, cssClass: 'text-error' },
+      {
+        name: MessageService.getMessage('reportDashboardCardLabelCompleted'),
+        count: complete,
+        cssClass: 'text-success',
+      },
+      { name: MessageService.getMessage('reportDashboardCardLabelError'), count: error, cssClass: 'text-error' },
     ];
   }
 }

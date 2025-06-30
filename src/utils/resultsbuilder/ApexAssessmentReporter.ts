@@ -1,4 +1,5 @@
 import { ApexAssessmentInfo } from '../interfaces';
+import { MessageService } from '../MessageService';
 import { OmnistudioOrgDetails } from '../orgUtils';
 import {
   FilterGroupParam,
@@ -17,8 +18,8 @@ export class ApexAssessmentReporter {
     omnistudioOrgDetails: OmnistudioOrgDetails
   ): ReportParam {
     return {
-      title: 'Apex Migration Assessment',
-      heading: 'Apex',
+      title: MessageService.getMessage('reportHeadingApex'),
+      heading: MessageService.getMessage('reportHeadingApex'),
       org: getOrgDetailsForReport(omnistudioOrgDetails),
       assessmentDate: new Date().toString(),
       total: apexAssessmentInfos?.length || 0,
@@ -31,14 +32,14 @@ export class ApexAssessmentReporter {
   public static getSummaryData(apexAssessmentInfos: ApexAssessmentInfo[]): SummaryItemDetailParam[] {
     return [
       {
-        name: 'Can be Automated',
+        name: MessageService.getMessage('reportDashboardCanBeAutomated'),
         count: apexAssessmentInfos.filter(
           (apexAssessmentInfo) => !apexAssessmentInfo.warnings || apexAssessmentInfo.warnings.length === 0
         ).length,
         cssClass: 'text-success',
       },
       {
-        name: 'Has Warnings',
+        name: MessageService.getMessage('reportLabelHasWarning'),
         count: apexAssessmentInfos.filter((info) => info.warnings && info.warnings.length > 0).length,
         cssClass: 'text-warning',
       },
@@ -79,12 +80,12 @@ export class ApexAssessmentReporter {
   private static getFilterGroupsForReport(apexAssessmentInfos: ApexAssessmentInfo[]): FilterGroupParam[] {
     return [
       createFilterGroupParam(
-        'Filter By Comments',
+        MessageService.getMessage('reportFilterGroupSummaryLabel'),
         'comments',
         Array.from(new Set(apexAssessmentInfos.map((row: ApexAssessmentInfo) => row.infos.join(', '))))
       ),
       createFilterGroupParam(
-        'Filter By Errors',
+        MessageService.getMessage('reportFilterGroupErrorsLabel'),
         'errors',
         Array.from(new Set(apexAssessmentInfos.map((row: ApexAssessmentInfo) => row.warnings.join(', '))))
       ),
@@ -96,27 +97,27 @@ export class ApexAssessmentReporter {
       {
         header: [
           {
-            name: 'Name',
+            name: MessageService.getMessage('reportTableHeaderName'),
             colspan: 1,
             rowspan: 1,
           },
           {
-            name: 'File Reference',
+            name: MessageService.getMessage('reportTableHeaderFileRef'),
             colspan: 1,
             rowspan: 1,
           },
           {
-            name: 'Diff',
+            name: MessageService.getMessage('reportTableHeaderDiff'),
             colspan: 1,
             rowspan: 1,
           },
           {
-            name: 'Comments',
+            name: MessageService.getMessage('reportTableHeaderSummary'),
             colspan: 1,
             rowspan: 1,
           },
           {
-            name: 'Errors',
+            name: MessageService.getMessage('reportDashboardError'),
             colspan: 1,
             rowspan: 1,
           },

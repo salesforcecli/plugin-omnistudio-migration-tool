@@ -1,4 +1,3 @@
-import { Messages } from '@salesforce/core';
 import { DashboardParam, ReportParam } from '../reportGenerator/reportInterfaces';
 import { TemplateParserUtil } from './util';
 
@@ -16,13 +15,13 @@ export class TemplateParser {
    * @param data - The data object (ReportParam or DashboardParam) to bind to the template
    * @returns The generated HTML string with data substituted into the template
    */
-  public static generate(template: string, data: ReportParam | DashboardParam, messages: Messages): string {
+  public static generate(template: string, data: ReportParam | DashboardParam): string {
     if (!data) {
       return template;
     }
 
-    const node = TemplateParserUtil.parseHtmlToNode(template, messages);
-    const keypair = TemplateParserUtil.parseKeyPair(data, messages);
+    const node = TemplateParserUtil.parseHtmlToNode(template);
+    const keypair = TemplateParserUtil.parseKeyPair(data);
     const html = node.toHtml(keypair);
     return html;
   }

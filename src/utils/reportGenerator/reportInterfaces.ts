@@ -25,6 +25,7 @@ export interface SummaryItemDetailParam {
 }
 
 export interface DashboardParam {
+  mode: 'assess' | 'migrate';
   title: string;
   heading: string;
   org: OrgParam;

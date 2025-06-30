@@ -55,9 +55,7 @@ function filterAndSearchTable(tableId) {
     const visibleRows = Array.from(table.rows).filter(
       (row) => row.style.display !== 'none' && row.id !== 'no-rows-message'
     );
-    reportTable.querySelector('#row-count').textContent = `Showing ${visibleRows.length} record${
-      visibleRows.length !== 1 ? 's' : ''
-    }`;
+    reportTable.querySelector('#row-count').textContent = `Total Records: ${visibleRows.length}`;
     return;
   }
 

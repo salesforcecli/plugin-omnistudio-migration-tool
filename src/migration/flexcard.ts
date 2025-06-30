@@ -5,27 +5,21 @@ import { DebugTimer, QueryTools, SortDirection } from '../utils';
 import { NetUtils } from '../utils/net';
 import { BaseMigrationTool } from './base';
 import { MigrationResult, MigrationTool, ObjectMapping, UploadRecordResult } from './interfaces';
-import { Connection, Messages } from '@salesforce/core';
+import { Connection } from '@salesforce/core';
 import { UX } from '@salesforce/command';
 import { FlexCardAssessmentInfo } from '../../src/utils';
 import { Logger } from '../utils/logger';
 import { createProgressBar } from './base';
 import { Constants } from '../utils/constants/stringContants';
+import { MessageService } from '../utils/MessageService';
 
 export class CardMigrationTool extends BaseMigrationTool implements MigrationTool {
   static readonly VLOCITYCARD_NAME = 'VlocityCard__c';
   static readonly OMNIUICARD_NAME = 'OmniUiCard';
   private readonly allVersions: boolean;
 
-  constructor(
-    namespace: string,
-    connection: Connection,
-    logger: Logger,
-    messages: Messages,
-    ux: UX,
-    allVersions: boolean
-  ) {
-    super(namespace, connection, logger, messages, ux);
+  constructor(namespace: string, connection: Connection, logger: Logger, ux: UX, allVersions: boolean) {
+    super(namespace, connection, logger, ux);
     this.allVersions = allVersions;
   }
 
@@ -67,7 +61,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 
     const success: boolean = await NetUtils.delete(this.connection, ids);
     if (!success) {
-      throw new Error(this.messages.getMessage('couldNotTruncate', [objectName]));
+      throw new Error(MessageService.getMessage('couldNotTruncate', [objectName]));
     }
   }
 
@@ -75,7 +69,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
   async migrate(): Promise<MigrationResult[]> {
     // Get All the Active VlocityCard__c records
     const cards = await this.getAllActiveCards();
-    Logger.log(this.messages.getMessage('foundFlexCardsToMigrate', [cards.length]));
+    Logger.log(MessageService.getMessage('foundFlexCardsToMigrate', [cards.length]));
 
     const progressBar = createProgressBar('Migrating', 'Flexcard');
     // Save the Vlocity Cards in OmniUiCard
@@ -97,14 +91,14 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 
   public async assess(): Promise<FlexCardAssessmentInfo[]> {
     try {
-      Logger.log(this.messages.getMessage('startingFlexCardAssessment'));
+      Logger.log(MessageService.getMessage('startingFlexCardAssessment'));
       const flexCards = await this.getAllActiveCards();
-      Logger.log(this.messages.getMessage('foundFlexCardsToAssess', [flexCards.length]));
+      Logger.log(MessageService.getMessage('foundFlexCardsToAssess', [flexCards.length]));
 
       const flexCardsAssessmentInfos = this.processCardComponents(flexCards);
       return flexCardsAssessmentInfos;
     } catch (err) {
-      Logger.error(this.messages.getMessage('errorDuringFlexCardAssessment'));
+      Logger.error(MessageService.getMessage('errorDuringFlexCardAssessment'));
       Logger.error(JSON.stringify(err));
       Logger.error(err.stack);
     }
@@ -134,7 +128,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           dependenciesOS: [],
           dependenciesLWC: [],
           infos: [],
-          warnings: [this.messages.getMessage('unexpectedError')],
+          warnings: [MessageService.getMessage('unexpectedError')],
         });
         const error = e as Error;
         Logger.error(JSON.stringify(error));
@@ -147,7 +141,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 
   private async processFlexCard(flexCard: AnyJson, uniqueNames: Set<string>): Promise<FlexCardAssessmentInfo> {
     const flexCardName = flexCard['Name'];
-    Logger.info(this.messages.getMessage('processingFlexCard', [flexCardName]));
+    Logger.info(MessageService.getMessage('processingFlexCard', [flexCardName]));
     const flexCardAssessmentInfo: FlexCardAssessmentInfo = {
       name: flexCardName,
       id: flexCard['Id'],
@@ -165,13 +159,13 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     const cleanedName: string = this.cleanName(originalName);
     if (cleanedName !== originalName) {
       flexCardAssessmentInfo.warnings.push(
-        this.messages.getMessage('cardNameChangeMessage', [originalName, cleanedName])
+        MessageService.getMessage('cardNameChangeMessage', [originalName, cleanedName])
       );
     }
 
     // Check for duplicate names
     if (uniqueNames.has(cleanedName)) {
-      flexCardAssessmentInfo.warnings.push(this.messages.getMessage('duplicateCardNameMessage', [cleanedName]));
+      flexCardAssessmentInfo.warnings.push(MessageService.getMessage('duplicateCardNameMessage', [cleanedName]));
     }
     uniqueNames.add(cleanedName);
 
@@ -181,7 +175,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       const cleanedAuthor = this.cleanName(originalAuthor);
       if (cleanedAuthor !== originalAuthor) {
         flexCardAssessmentInfo.warnings.push(
-          this.messages.getMessage('authordNameChangeMessage', [originalAuthor, cleanedAuthor])
+          MessageService.getMessage('authordNameChangeMessage', [originalAuthor, cleanedAuthor])
         );
       }
     }
@@ -210,7 +204,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         // Add warning if DataRaptor name will change
         if (originalBundle !== cleanedBundle) {
           flexCardAssessmentInfo.warnings.push(
-            this.messages.getMessage('dataRaptorNameChangeMessage', [originalBundle, cleanedBundle])
+            MessageService.getMessage('dataRaptorNameChangeMessage', [originalBundle, cleanedBundle])
           );
         }
       }
@@ -226,14 +220,14 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         // Add warning if IP name will change
         if (originalIpMethod !== cleanedIpMethod) {
           flexCardAssessmentInfo.warnings.push(
-            this.messages.getMessage('integrationProcedureNameChangeMessage', [originalIpMethod, cleanedIpMethod])
+            MessageService.getMessage('integrationProcedureNameChangeMessage', [originalIpMethod, cleanedIpMethod])
           );
         }
 
         // Add warning for IP references with more than 2 parts (which potentially need manual updates)
         if (parts.length > 2) {
           flexCardAssessmentInfo.warnings.push(
-            this.messages.getMessage('integrationProcedureManualUpdateMessage', [originalIpMethod])
+            MessageService.getMessage('integrationProcedureManualUpdateMessage', [originalIpMethod])
           );
         }
       }
@@ -310,7 +304,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
                 for (let i = 0; i < parts.length; i++) {
                   if (parts[i] !== cleanedParts[i]) {
                     flexCardAssessmentInfo.warnings.push(
-                      this.messages.getMessage('omniScriptNameChangeMessage', [parts[i], cleanedParts[i]])
+                      MessageService.getMessage('omniScriptNameChangeMessage', [parts[i], cleanedParts[i]])
                     );
                   }
                 }
@@ -340,7 +334,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
                 for (let i = 0; i < parts.length; i++) {
                   if (parts[i] !== cleanedParts[i]) {
                     flexCardAssessmentInfo.warnings.push(
-                      this.messages.getMessage('omniScriptNameChangeMessage', [parts[i], cleanedParts[i]])
+                      MessageService.getMessage('omniScriptNameChangeMessage', [parts[i], cleanedParts[i]])
                     );
                   }
                 }
@@ -494,7 +488,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       const transformedCardAuthorName = transformedCard['AuthorName'];
 
       if (uniqueNames.has(transformedCardName)) {
-        this.setRecordErrors(card, this.messages.getMessage('duplicatedCardName'));
+        this.setRecordErrors(card, MessageService.getMessage('duplicatedCardName'));
         originalRecords.set(recordId, card);
         return;
       }
@@ -524,19 +518,19 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         uploadResult.warnings = uploadResult.warnings || [];
         if (transformedCardAuthorName !== card[this.namespacePrefix + 'Author__c']) {
           uploadResult.warnings.unshift(
-            this.messages.getMessage('cardAuthorNameChangeMessage', [transformedCardAuthorName])
+            MessageService.getMessage('cardAuthorNameChangeMessage', [transformedCardAuthorName])
           );
         }
         if (transformedCardName !== card['Name']) {
           uploadResult.newName = transformedCardName;
-          uploadResult.warnings.unshift(this.messages.getMessage('cardNameChangeMessage', [transformedCardName]));
+          uploadResult.warnings.unshift(MessageService.getMessage('cardNameChangeMessage', [transformedCardName]));
         }
 
         if (uploadResult.id && invalidIpNames.size > 0) {
           const val = Array.from(invalidIpNames.entries())
             .map((e) => e[0])
             .join(', ');
-          uploadResult.errors.push(this.messages.getMessage('integrationProcedureManualUpdateMessage', [val]));
+          uploadResult.errors.push(MessageService.getMessage('integrationProcedureManualUpdateMessage', [val]));
         }
 
         cardsUploadInfo.set(recordId, uploadResult);
@@ -555,11 +549,11 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           uploadResult.hasErrors = true;
           uploadResult.errors = uploadResult.errors || [];
 
-          uploadResult.errors.push(this.messages.getMessage('errorWhileActivatingCard') + updateResult.errors);
+          uploadResult.errors.push(MessageService.getMessage('errorWhileActivatingCard') + updateResult.errors);
         }
       }
     } catch (err) {
-      this.setRecordErrors(card, this.messages.getMessage('errorWhileUploadingCard') + err);
+      this.setRecordErrors(card, MessageService.getMessage('errorWhileUploadingCard') + err);
       originalRecords.set(recordId, card);
 
       cardsUploadInfo.set(recordId, {

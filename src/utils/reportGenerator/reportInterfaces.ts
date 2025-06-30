@@ -25,11 +25,13 @@ export interface SummaryItemDetailParam {
 }
 
 export interface DashboardParam {
+  mode: 'assess' | 'migrate';
   title: string;
   heading: string;
   org: OrgParam;
   assessmentDate: string;
   summaryItems: SummaryItemParam[];
+  actionItems?: string[];
 }
 
 export interface ReportDataParam {

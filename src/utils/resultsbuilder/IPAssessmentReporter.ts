@@ -1,5 +1,6 @@
 import { IPAssessmentInfo } from '../interfaces';
 import { Logger } from '../logger';
+import { MessageService } from '../MessageService';
 import { OmnistudioOrgDetails } from '../orgUtils';
 import {
   FilterGroupParam,
@@ -21,8 +22,8 @@ export class IPAssessmentReporter {
   ): ReportParam {
     Logger.captureVerboseData('IP data', ipAssessmentInfos);
     return {
-      title: 'Integration Procedure Migration Assessment',
-      heading: 'Integration Procedure',
+      title: MessageService.getMessage('reportHeadingIP'),
+      heading: MessageService.getMessage('reportHeadingIP'),
       org: getOrgDetailsForReport(omnistudioOrgDetails),
       assessmentDate: new Date().toString(),
       total: ipAssessmentInfos?.length || 0,
@@ -39,14 +40,14 @@ export class IPAssessmentReporter {
   public static getSummaryData(ipAssessmentInfos: IPAssessmentInfo[]): SummaryItemDetailParam[] {
     return [
       {
-        name: 'Can be Automated',
+        name: MessageService.getMessage('reportDashboardCanBeAutomated'),
         count: ipAssessmentInfos.filter(
           (ipAssessmentInfo) => !ipAssessmentInfo.errors || ipAssessmentInfo.errors.length === 0
         ).length,
         cssClass: 'text-success',
       },
       {
-        name: 'Has Errors',
+        name: MessageService.getMessage('reportFilterHasError'),
         count: ipAssessmentInfos.filter(
           (ipAssessmentInfo) => ipAssessmentInfo.errors && ipAssessmentInfo.errors.length > 0
         ).length,
@@ -117,32 +118,32 @@ export class IPAssessmentReporter {
       {
         header: [
           {
-            name: 'In Package',
+            name: MessageService.getMessage('reportTableHeaderInPackage'),
             colspan: 2,
             rowspan: 1,
           },
           {
-            name: 'In Core',
+            name: MessageService.getMessage('reportTableHeaderInCore'),
             colspan: 1,
             rowspan: 1,
           },
           {
-            name: 'Summary',
+            name: MessageService.getMessage('reportTableHeaderSummary'),
             colspan: 1,
             rowspan: 2,
           },
           {
-            name: 'Integration Procedure Dependencies',
+            name: MessageService.getMessage('reportTableHeaderIPDependencies'),
             colspan: 1,
             rowspan: 2,
           },
           {
-            name: 'Data Mapper Dependencies',
+            name: MessageService.getMessage('reportTableHeaderDMDependencies'),
             colspan: 1,
             rowspan: 2,
           },
           {
-            name: 'Remote Action Dependencies',
+            name: MessageService.getMessage('reportTableHeaderRemoteActionDependencies'),
             colspan: 1,
             rowspan: 2,
           },
@@ -151,17 +152,17 @@ export class IPAssessmentReporter {
       {
         header: [
           {
-            name: 'Name',
+            name: MessageService.getMessage('reportTableHeaderName'),
             colspan: 1,
             rowspan: 1,
           },
           {
-            name: 'Record ID',
+            name: MessageService.getMessage('reportTableHeaderId'),
             colspan: 1,
             rowspan: 1,
           },
           {
-            name: 'Name',
+            name: MessageService.getMessage('reportTableHeaderName'),
             colspan: 1,
             rowspan: 1,
           },

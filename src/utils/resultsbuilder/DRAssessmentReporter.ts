@@ -1,5 +1,6 @@
 import { DataRaptorAssessmentInfo } from '../interfaces';
 import { Logger } from '../logger';
+import { MessageService } from '../MessageService';
 import { OmnistudioOrgDetails } from '../orgUtils';
 import {
   FilterGroupParam,
@@ -21,8 +22,8 @@ export class DRAssessmentReporter {
   ): ReportParam {
     Logger.captureVerboseData('DM data', dataRaptorAssessmentInfos);
     return {
-      title: 'Data Mapper Migration Assessment',
-      heading: 'Data Mapper',
+      title: MessageService.getMessage('reportHeadingDM'),
+      heading: MessageService.getMessage('reportHeadingDM'),
       org: getOrgDetailsForReport(omnistudioOrgDetails),
       assessmentDate: new Date().toString(),
       total: dataRaptorAssessmentInfos?.length || 0,
@@ -39,7 +40,7 @@ export class DRAssessmentReporter {
   public static getSummaryData(dataRaptorAssessmentInfos: DataRaptorAssessmentInfo[]): SummaryItemDetailParam[] {
     return [
       {
-        name: 'Can be Automated',
+        name: MessageService.getMessage('reportDashboardCanBeAutomated'),
         count: dataRaptorAssessmentInfos.filter(
           (dataRaptorAssessmentInfo) =>
             !dataRaptorAssessmentInfo.warnings || dataRaptorAssessmentInfo.warnings.length === 0
@@ -47,7 +48,7 @@ export class DRAssessmentReporter {
         cssClass: 'text-success',
       },
       {
-        name: 'Has Warnings',
+        name: MessageService.getMessage('reportLabelHasWarning'),
         count: dataRaptorAssessmentInfos.filter(
           (dataRaptorAssessmentInfo) =>
             dataRaptorAssessmentInfo.warnings && dataRaptorAssessmentInfo.warnings.length > 0
@@ -64,7 +65,7 @@ export class DRAssessmentReporter {
 
     const distinctTypes = [...new Set(dataRaptorAssessmentInfos.map((info) => info.type))];
     if (distinctTypes.length > 0 && distinctTypes.filter((type) => type).length > 0) {
-      return [createFilterGroupParam('Filter By Type', 'type', distinctTypes)];
+      return [createFilterGroupParam(MessageService.getMessage('reportFilterGroupDMTypeLabel'), 'type', distinctTypes)];
     }
     return [];
   }
@@ -74,32 +75,32 @@ export class DRAssessmentReporter {
       {
         header: [
           {
-            name: 'In Package',
+            name: MessageService.getMessage('reportTableHeaderInPackage'),
             colspan: 2,
             rowspan: 1,
           },
           {
-            name: 'In Core',
+            name: MessageService.getMessage('reportTableHeaderInCore'),
             colspan: 1,
             rowspan: 1,
           },
           {
-            name: 'Type',
+            name: MessageService.getMessage('reportTableHeaderType'),
             colspan: 1,
             rowspan: 2,
           },
           {
-            name: 'Summary',
+            name: MessageService.getMessage('reportTableHeaderSummary'),
             colspan: 1,
             rowspan: 2,
           },
           {
-            name: 'Custom Function Dependencies',
+            name: MessageService.getMessage('reportTableHeaderCustomFunctionDependencies'),
             colspan: 1,
             rowspan: 2,
           },
           {
-            name: 'Apex Dependencies',
+            name: MessageService.getMessage('reportTableHeaderApexDependencies'),
             colspan: 1,
             rowspan: 2,
           },
@@ -108,17 +109,17 @@ export class DRAssessmentReporter {
       {
         header: [
           {
-            name: 'Name',
+            name: MessageService.getMessage('reportTableHeaderName'),
             colspan: 1,
             rowspan: 1,
           },
           {
-            name: 'Record ID',
+            name: MessageService.getMessage('reportTableHeaderId'),
             colspan: 1,
             rowspan: 1,
           },
           {
-            name: 'Name',
+            name: MessageService.getMessage('reportTableHeaderName'),
             colspan: 1,
             rowspan: 1,
           },

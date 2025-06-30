@@ -16,6 +16,7 @@ import {
 import { StringVal } from '../utils/StringValue/stringval';
 import { Logger } from '../utils/logger';
 import { createProgressBar } from './base';
+import { MessageService } from '../utils/MessageService';
 
 export class DataRaptorMigrationTool extends BaseMigrationTool implements MigrationTool {
   static readonly DRBUNDLE_NAME = 'DRBundle__c';
@@ -84,7 +85,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
             Logger.error(JSON.stringify(ex));
             Logger.error(ex.stack);
             Logger.logVerbose(
-              this.messages.getMessage('formulaSyntaxError', [drItem[this.namespacePrefix + 'Formula__c']])
+              MessageService.getMessage('formulaSyntaxError', [drItem[this.namespacePrefix + 'Formula__c']])
             );
           }
         }
@@ -94,7 +95,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
     let nonMigrationDataRaptors = dataRaptors.filter(
       (dr) => dr[this.namespacePrefix + 'Type__c'] !== 'Migration'
     ).length;
-    Logger.log(this.messages.getMessage('foundDataRaptorsToMigrate', [nonMigrationDataRaptors]));
+    Logger.log(MessageService.getMessage('foundDataRaptorsToMigrate', [nonMigrationDataRaptors]));
     const progressBar = createProgressBar('Migrating', 'Data Mapper');
     progressBar.start(nonMigrationDataRaptors, progressCounter);
     for (let dr of dataRaptors) {
@@ -152,7 +153,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 
       // Verify duplicated names before trying to submitt
       if (duplicatedNames.has(transformedDataRaptor['Name'])) {
-        this.setRecordErrors(dr, this.messages.getMessage('duplicatedDrName'));
+        this.setRecordErrors(dr, MessageService.getMessage('duplicatedDrName'));
         originalDrRecords.set(recordId, dr);
         continue;
       }
@@ -210,7 +211,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
   public async assess(): Promise<DataRaptorAssessmentInfo[]> {
     try {
       DebugTimer.getInstance().lap('Query data raptors');
-      Logger.log(this.messages.getMessage('startingDataRaptorAssessment'));
+      Logger.log(MessageService.getMessage('startingDataRaptorAssessment'));
       const dataRaptors = await this.getAllDataRaptors();
 
       const dataRaptorAssessmentInfos = this.processDRComponents(dataRaptors);
@@ -234,7 +235,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
     let nonMigrationDataRaptors = dataRaptors.filter(
       (dr) => dr[this.namespacePrefix + 'Type__c'] !== 'Migration'
     ).length;
-    Logger.log(this.messages.getMessage('foundDataRaptorsToAssess', [nonMigrationDataRaptors]));
+    Logger.log(MessageService.getMessage('foundDataRaptorsToAssess', [nonMigrationDataRaptors]));
     progressBar.start(nonMigrationDataRaptors, progressCounter);
     // Now process each OmniScript and its elements
     for (const dataRaptor of dataRaptors) {
@@ -255,7 +256,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
           type: dataRaptor[this.namespacePrefix + 'Type__c'] || '',
           formulaChanges: [],
           infos: [],
-          warnings: [this.messages.getMessage('unexpectedError')],
+          warnings: [MessageService.getMessage('unexpectedError')],
           apexDependencies: [],
         });
         const error = e as Error;
@@ -276,13 +277,13 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
   ): Promise<DataRaptorAssessmentInfo> {
     const drName = dataRaptor['Name'];
     // Await here since processOSComponents is now async
-    Logger.info(this.messages.getMessage('processingDataRaptor', [drName]));
+    Logger.info(MessageService.getMessage('processingDataRaptor', [drName]));
     const warnings: string[] = [];
     const existingDRNameVal = new StringVal(drName, 'name');
 
     if (!existingDRNameVal.isNameCleaned()) {
       warnings.push(
-        this.messages.getMessage('changeMessage', [
+        MessageService.getMessage('changeMessage', [
           existingDRNameVal.type,
           existingDRNameVal.val,
           existingDRNameVal.cleanName(),
@@ -290,7 +291,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
       );
     }
     if (existingDataRaptorNames.has(existingDRNameVal.cleanName())) {
-      warnings.push(this.messages.getMessage('duplicatedName') + '  ' + existingDRNameVal.cleanName());
+      warnings.push(MessageService.getMessage('duplicatedName') + '  ' + existingDRNameVal.cleanName());
     } else {
       existingDataRaptorNames.add(existingDRNameVal.cleanName());
     }
@@ -320,7 +321,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
           } catch (ex) {
             Logger.error(JSON.stringify(ex));
             Logger.error(ex.stack);
-            Logger.logVerbose(this.messages.getMessage('formulaSyntaxError', [formula]));
+            Logger.logVerbose(MessageService.getMessage('formulaSyntaxError', [formula]));
           }
         }
       }

@@ -8,12 +8,11 @@ import { ApexAssessmentInfo, DebugTimer, LWCAssessmentInfo, RelatedObjectAssesme
 import { sfProject } from '../../utils/sfcli/project/sfProject';
 import { Logger } from '../../utils/logger';
 import { Constants } from '../../utils/constants/stringContants';
+import { MessageService } from '../../utils/MessageService';
 import { ApexMigration } from './ApexMigration';
 import { LwcMigration } from './LwcMigration';
 
 Messages.importMessagesDirectory(__dirname);
-const assessMessages = Messages.loadMessages('@salesforce/plugin-omnistudio-migration-tool', 'assess');
-const migrateMessages = Messages.loadMessages('@salesforce/plugin-omnistudio-migration-tool', 'migrate');
 
 // TODO: Uncomment code once MVP for migration is completed
 // const LWCTYPE = 'LightningComponentBundle';
@@ -75,12 +74,12 @@ export default class OmnistudioRelatedObjectMigrationFacade {
     // Start the debug timer
     DebugTimer.getInstance().start();
     Logger.logVerbose(
-      assessMessages.getMessage('startingProcessRelatedObjects', [String(relatedObjects), this.projectPath])
+      MessageService.getMessage('startingProcessRelatedObjects', [String(relatedObjects), this.projectPath])
     );
 
     // Retrieve metadata if needed
     if (isMigration) {
-      Logger.logVerbose(migrateMessages.getMessage('retrievingMetadata', [String(relatedObjects), this.projectPath]));
+      Logger.logVerbose(MessageService.getMessage('retrievingMetadata', [String(relatedObjects), this.projectPath]));
       this.retrieveMetadata(relatedObjects);
     }
 

@@ -1,5 +1,6 @@
 import { FlexCardAssessmentInfo } from '../interfaces';
 import { Logger } from '../logger';
+import { MessageService } from '../MessageService';
 import { OmnistudioOrgDetails } from '../orgUtils';
 import {
   FilterGroupParam,
@@ -20,8 +21,8 @@ export class FlexcardAssessmentReporter {
   ): ReportParam {
     Logger.captureVerboseData('fc data:', flexCardAssessmentInfos);
     return {
-      title: 'Flexcard Migration Assessment',
-      heading: 'Flexcard',
+      title: MessageService.getMessage('reportHeadingFC'),
+      heading: MessageService.getMessage('reportHeadingFC'),
       org: getOrgDetailsForReport(omnistudioOrgDetails),
       assessmentDate: new Date().toString(),
       total: flexCardAssessmentInfos?.length || 0,
@@ -34,14 +35,14 @@ export class FlexcardAssessmentReporter {
   public static getSummaryData(flexCardAssessmentInfos: FlexCardAssessmentInfo[]): SummaryItemDetailParam[] {
     return [
       {
-        name: 'Can be Automated',
+        name: MessageService.getMessage('reportDashboardCanBeAutomated'),
         count: flexCardAssessmentInfos.filter(
           (flexCardAssessmentInfo) => !flexCardAssessmentInfo.warnings || flexCardAssessmentInfo.warnings.length === 0
         ).length,
         cssClass: 'text-success',
       },
       {
-        name: 'Has Warnings',
+        name: MessageService.getMessage('reportLabelHasWarning'),
         count: flexCardAssessmentInfos.filter(
           (flexCardAssessmentInfo) => flexCardAssessmentInfo.warnings && flexCardAssessmentInfo.warnings.length > 0
         ).length,
@@ -55,32 +56,32 @@ export class FlexcardAssessmentReporter {
       {
         header: [
           {
-            name: 'In Package',
+            name: MessageService.getMessage('reportTableHeaderInPackage'),
             colspan: 2,
             rowspan: 1,
           },
           {
-            name: 'In Core',
+            name: MessageService.getMessage('reportTableHeaderInCore'),
             colspan: 1,
             rowspan: 1,
           },
           {
-            name: 'OmniScript Dependencies',
+            name: MessageService.getMessage('reportTableHeaderOSDependencies'),
             colspan: 1,
             rowspan: 2,
           },
           {
-            name: 'Integration Procedure Dependencies',
+            name: MessageService.getMessage('reportTableHeaderIPDependencies'),
             colspan: 1,
             rowspan: 2,
           },
           {
-            name: 'Data Mapper Dependencies',
+            name: MessageService.getMessage('reportTableHeaderDMDependencies'),
             colspan: 1,
             rowspan: 2,
           },
           {
-            name: 'Flexcard Dependencies',
+            name: MessageService.getMessage('reportTableHeaderFCDependencies'),
             colspan: 1,
             rowspan: 2,
           },
@@ -99,17 +100,17 @@ export class FlexcardAssessmentReporter {
       {
         header: [
           {
-            name: 'Name',
+            name: MessageService.getMessage('reportTableHeaderName'),
             colspan: 1,
             rowspan: 1,
           },
           {
-            name: 'Record ID',
+            name: MessageService.getMessage('reportTableHeaderId'),
             colspan: 1,
             rowspan: 1,
           },
           {
-            name: 'Name',
+            name: MessageService.getMessage('reportTableHeaderName'),
             colspan: 1,
             rowspan: 1,
           },

@@ -1,5 +1,6 @@
 import { OSAssessmentInfo } from '../interfaces';
 import { Logger } from '../logger';
+import { MessageService } from '../MessageService';
 import { OmnistudioOrgDetails } from '../orgUtils';
 import {
   FilterGroupParam,
@@ -21,8 +22,8 @@ export class OSAssessmentReporter {
   ): ReportParam {
     Logger.captureVerboseData('OS data:', OSAssessmentInfos);
     return {
-      title: 'OmniScript Migration Assessment',
-      heading: 'OmniScript',
+      title: MessageService.getMessage('reportHeadingOS'),
+      heading: MessageService.getMessage('reportHeadingOS'),
       org: getOrgDetailsForReport(omnistudioOrgDetails),
       assessmentDate: new Date().toString(),
       total: OSAssessmentInfos?.length || 0,
@@ -39,24 +40,27 @@ export class OSAssessmentReporter {
   public static getSummaryData(osAssessmentInfos: OSAssessmentInfo[]): SummaryItemDetailParam[] {
     return [
       {
-        name: 'Can be Automated',
-        count: osAssessmentInfos.filter((osAssessmentInfo) => osAssessmentInfo.migrationStatus === 'Can be Automated')
-          .length,
+        name: MessageService.getMessage('reportDashboardCanBeAutomated'),
+        count: osAssessmentInfos.filter(
+          (osAssessmentInfo) =>
+            osAssessmentInfo.migrationStatus === MessageService.getMessage('reportDashboardCanBeAutomated')
+        ).length,
         cssClass: 'text-success',
       },
       {
-        name: 'Need Manual Intervention',
+        name: MessageService.getMessage('reportDashboardNeedManualIntervention'),
         count: osAssessmentInfos.filter(
-          (osAssessmentInfo) => osAssessmentInfo.migrationStatus === 'Need Manual Intervention'
+          (osAssessmentInfo) =>
+            osAssessmentInfo.migrationStatus === MessageService.getMessage('reportDashboardNeedManualIntervention')
         ).length,
         cssClass: 'text-warning',
       },
       {
-        name: 'Error',
+        name: MessageService.getMessage('reportDashboardError'),
         count: osAssessmentInfos.filter(
           (osAssessmentInfo) =>
-            osAssessmentInfo.migrationStatus !== 'Can be Automated' &&
-            osAssessmentInfo.migrationStatus !== 'Need Manual Intervention'
+            osAssessmentInfo.migrationStatus !== MessageService.getMessage('reportDashboardCanBeAutomated') &&
+            osAssessmentInfo.migrationStatus !== MessageService.getMessage('reportDashboardNeedManualIntervention')
         ).length,
         cssClass: 'text-error',
       },
@@ -163,52 +167,52 @@ export class OSAssessmentReporter {
       {
         header: [
           {
-            name: 'In Package',
+            name: MessageService.getMessage('reportTableHeaderInPackage'),
             colspan: 2,
             rowspan: 1,
           },
           {
-            name: 'In Core',
+            name: MessageService.getMessage('reportTableHeaderInCore'),
             colspan: 1,
             rowspan: 1,
           },
           {
-            name: 'Type',
+            name: MessageService.getMessage('reportTableHeaderType'),
             colspan: 1,
             rowspan: 2,
           },
           {
-            name: 'Assessment Status',
+            name: MessageService.getMessage('reportTableHeaderStatus'),
             colspan: 1,
             rowspan: 2,
           },
           {
-            name: 'Summary',
+            name: MessageService.getMessage('reportTableHeaderSummary'),
             colspan: 1,
             rowspan: 2,
           },
           {
-            name: 'OmniScript Dependencies',
+            name: MessageService.getMessage('reportTableHeaderOSDependencies'),
             colspan: 1,
             rowspan: 2,
           },
           {
-            name: 'Integration Procedure Dependencies',
+            name: MessageService.getMessage('reportTableHeaderIPDependencies'),
             colspan: 1,
             rowspan: 2,
           },
           {
-            name: 'Data Mapper Dependencies',
+            name: MessageService.getMessage('reportTableHeaderDMDependencies'),
             colspan: 1,
             rowspan: 2,
           },
           {
-            name: 'Remote action Dependencies',
+            name: MessageService.getMessage('reportTableHeaderRemoteActionDependencies'),
             colspan: 1,
             rowspan: 2,
           },
           {
-            name: 'Custom LWCs Dependencies',
+            name: MessageService.getMessage('reportTableHeaderCustomLWCDependencies'),
             colspan: 1,
             rowspan: 2,
           },
@@ -217,17 +221,17 @@ export class OSAssessmentReporter {
       {
         header: [
           {
-            name: 'Name',
+            name: MessageService.getMessage('reportTableHeaderName'),
             colspan: 1,
             rowspan: 1,
           },
           {
-            name: 'Record ID',
+            name: MessageService.getMessage('reportTableHeaderId'),
             colspan: 1,
             rowspan: 1,
           },
           {
-            name: 'Name',
+            name: MessageService.getMessage('reportTableHeaderName'),
             colspan: 1,
             rowspan: 1,
           },
@@ -245,12 +249,12 @@ export class OSAssessmentReporter {
     const distinctTypes = [...new Set(OSAssessmentInfos.map((info) => info.type))];
     const typeFilterGroupParam: FilterGroupParam[] =
       distinctTypes.length > 0 && distinctTypes.filter((type) => type).length > 0
-        ? [createFilterGroupParam('Filter By Type', 'type', distinctTypes)]
+        ? [createFilterGroupParam(MessageService.getMessage('reportFilterGroupOSTypeLabel'), 'type', distinctTypes)]
         : [];
     const distinctStatuses = [...new Set(OSAssessmentInfos.map((info) => info.migrationStatus))];
     const statusFilterGroupParam: FilterGroupParam[] =
       distinctStatuses.length > 0 && distinctStatuses.filter((status) => status).length > 0
-        ? [createFilterGroupParam('Filter By Assessment Status', 'status', distinctStatuses)]
+        ? [createFilterGroupParam(MessageService.getMessage('reportFilterGroupStatusLabel'), 'status', distinctStatuses)]
         : [];
 
     return [...typeFilterGroupParam, ...statusFilterGroupParam];

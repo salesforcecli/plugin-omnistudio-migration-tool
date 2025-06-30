@@ -2,8 +2,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 
-import { Messages } from '@salesforce/core';
 import { Logger } from '../logger';
+import { MessageService } from '../MessageService';
 import { ElementNode } from './model/elementNode';
 import { NodeType } from './model/nodeTypes';
 
@@ -20,7 +20,7 @@ export class TemplateParserUtil {
    * @param prefix - Optional prefix to prepend to all keys
    * @returns Map containing flattened key-value pairs
    */
-  public static parseKeyPair(data: any, messages: Messages, prefix?: string): Map<string, any> {
+  public static parseKeyPair(data: any, prefix?: string): Map<string, any> {
     try {
       prefix = prefix ? prefix + '.' : '';
       const keypair = new Map<string, any>();
@@ -29,7 +29,7 @@ export class TemplateParserUtil {
           keypair.set(`${prefix}${key}.length`, (data[key] as any[]).length.toString());
           keypair.set(`${prefix}${key}`, data[key]);
         } else if (data[key] instanceof Object) {
-          this.parseKeyPair(data[key], messages, `${prefix}${key}`).forEach((pairValue, pairKey) => {
+          this.parseKeyPair(data[key], `${prefix}${key}`).forEach((pairValue, pairKey) => {
             keypair.set(`${prefix}${pairKey}`, pairValue);
           });
         } else {
@@ -38,7 +38,7 @@ export class TemplateParserUtil {
       }
       return keypair;
     } catch (error) {
-      Logger.error(messages.getMessage('errorParsingData'));
+      Logger.error(MessageService.getMessage('errorParsingData'));
       throw error;
     }
   }
@@ -50,7 +50,7 @@ export class TemplateParserUtil {
    * @param html - The HTML template string to parse
    * @returns ElementNode representing the parsed template structure
    */
-  public static parseHtmlToNode(html: string, messages: Messages): ElementNode {
+  public static parseHtmlToNode(html: string): ElementNode {
     // Remove leading/trailing whitespace
     try {
       html = html.trim();
@@ -59,8 +59,8 @@ export class TemplateParserUtil {
       const ifMatch = /^<c:if\s+exp=\{([^}]+)\}>(.*?)<\/c:if>$/s.exec(html);
       if (ifMatch) {
         const [, expression, content] = ifMatch;
-        const children = this.parseChildren(content, messages);
-        return new ElementNode(NodeType.IF, expression.trim(), new Map(), children, messages);
+        const children = this.parseChildren(content);
+        return new ElementNode(NodeType.IF, expression.trim(), new Map(), children);
       }
 
       // Check for for loop using <c:for items=(itemsName) var="varName" index="indexName"></c:for> syntax
@@ -68,15 +68,15 @@ export class TemplateParserUtil {
       if (forLoopMatch) {
         const [, itemsName, attributesStr, content] = forLoopMatch;
         const properties = this.parseForLoopAttributes(attributesStr);
-        const children = this.parseChildren(content, messages);
-        return new ElementNode(NodeType.FOR_LOOP, itemsName, properties, children, messages);
+        const children = this.parseChildren(content);
+        return new ElementNode(NodeType.FOR_LOOP, itemsName, properties, children);
       }
 
       // Check for placeholder using {{name}} syntax
       const placeholderMatch = /^\{\{([^}]+)\}\}$/.exec(html);
       if (placeholderMatch) {
         const [, name] = placeholderMatch;
-        return new ElementNode(NodeType.PLACEHOLDER, name.trim(), new Map(), [], messages);
+        return new ElementNode(NodeType.PLACEHOLDER, name.trim(), new Map(), []);
       }
 
       // Check if it's a c:for tag that wasn't caught by the full pattern
@@ -87,8 +87,8 @@ export class TemplateParserUtil {
         const itemsMatch = /items=\(([^)]+)\)/.exec(attributesStr);
         const itemsName = itemsMatch ? itemsMatch[1] : 'items';
         const properties = this.parseForLoopAttributes(attributesStr);
-        const children = this.parseChildren(content, messages);
-        return new ElementNode(NodeType.FOR_LOOP, itemsName, properties, children, messages);
+        const children = this.parseChildren(content);
+        return new ElementNode(NodeType.FOR_LOOP, itemsName, properties, children);
       }
 
       // Check if it's a c:if tag that wasn't caught by the full pattern
@@ -98,14 +98,14 @@ export class TemplateParserUtil {
         // Extract expression from attributes
         const expMatch = /exp=\{([^}]+)\}/.exec(attributesStr);
         const expression = expMatch ? expMatch[1] : 'true';
-        const children = this.parseChildren(content, messages);
-        return new ElementNode(NodeType.IF, expression.trim(), new Map(), children, messages);
+        const children = this.parseChildren(content);
+        return new ElementNode(NodeType.IF, expression.trim(), new Map(), children);
       }
 
       // Parse as native HTML element
-      return this.parseNativeElement(html, messages);
+      return this.parseNativeElement(html);
     } catch (error) {
-      Logger.error(messages.getMessage('errorParsingHtmlTemplate'));
+      Logger.error(MessageService.getMessage('errorParsingHtmlTemplate'));
       throw error;
     }
   }
@@ -117,12 +117,12 @@ export class TemplateParserUtil {
    * @param html - The HTML element string to parse
    * @returns ElementNode representing the native HTML element
    */
-  private static parseNativeElement(html: string, messages: Messages): ElementNode {
+  private static parseNativeElement(html: string): ElementNode {
     // Find the first opening tag - updated to handle custom tags with colons
     const tagMatch = /^<([\w:]+)([^>]*)>/.exec(html);
     if (!tagMatch) {
       // If no tag found, treat as text content
-      return new ElementNode(NodeType.NATIVE, 'text', new Map([['content', html]]), [], messages);
+      return new ElementNode(NodeType.NATIVE, 'text', new Map([['content', html]]), []);
     }
 
     const [, tagName, attributesStr] = tagMatch;
@@ -130,7 +130,7 @@ export class TemplateParserUtil {
 
     // Check if it's a self-closing tag - updated to handle custom tags with colons
     if (/^<([\w:]+)([^>]*)\/>/.exec(html)) {
-      return new ElementNode(NodeType.NATIVE, tagName, properties, [], messages);
+      return new ElementNode(NodeType.NATIVE, tagName, properties, []);
     }
 
     // Find the closing tag
@@ -139,7 +139,7 @@ export class TemplateParserUtil {
 
     if (closingIndex === -1) {
       // No closing tag found, treat as self-closing
-      return new ElementNode(NodeType.NATIVE, tagName, properties, [], messages);
+      return new ElementNode(NodeType.NATIVE, tagName, properties, []);
     }
 
     // Extract content between opening and closing tags
@@ -147,9 +147,9 @@ export class TemplateParserUtil {
     const content = html.substring(contentStart, closingIndex);
 
     // Parse children
-    const children = this.parseChildren(content, messages);
+    const children = this.parseChildren(content);
 
-    return new ElementNode(NodeType.NATIVE, tagName, properties, children, messages);
+    return new ElementNode(NodeType.NATIVE, tagName, properties, children);
   }
 
   /**
@@ -208,7 +208,7 @@ export class TemplateParserUtil {
    * @param content - The content string to parse
    * @returns Array of ElementNode children
    */
-  private static parseChildren(content: string, messages: Messages): ElementNode[] {
+  private static parseChildren(content: string): ElementNode[] {
     const children: ElementNode[] = [];
 
     if (!content.trim()) {
@@ -220,7 +220,7 @@ export class TemplateParserUtil {
 
     for (const part of parts) {
       if (part.trim()) {
-        children.push(this.parseHtmlToNode(part, messages));
+        children.push(this.parseHtmlToNode(part));
       }
     }
 

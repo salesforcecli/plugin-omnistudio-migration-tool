@@ -6,33 +6,31 @@
  */
 import * as os from 'os';
 import { flags, SfdxCommand } from '@salesforce/command';
-import { Messages, SfdxError } from '@salesforce/core';
+import { SfdxError } from '@salesforce/core';
 import { AnyJson } from '@salesforce/ts-types';
 import { Logger } from '../../../utils/logger';
+import { MessageService } from '../../../utils/MessageService';
 
 // Initialize Messages with the current plugin directory
-Messages.importMessagesDirectory(__dirname);
 
 // Load the specific messages for this file. Messages from @salesforce/command, @salesforce/core,
 // or any library that is using the messages framework can also be loaded this way.
-const messages = Messages.loadMessages('@salesforce/plugin-omnistudio-migration-tool', 'info');
 
 export default class Org extends SfdxCommand {
-  public static description = messages.getMessage('commandDescription');
+  public static description = MessageService.getMessage('infoCommandDescription');
 
-  public static examples = messages.getMessage('examples').split(os.EOL);
+  public static examples = MessageService.getMessage('infoExamples').split(os.EOL);
 
   public static args = [{ name: 'file' }];
 
   protected static flagsConfig = {
-    // flag with a value (-n, --name=VALUE)
     name: flags.string({
       char: 'n',
-      description: messages.getMessage('nameFlagDescription'),
+      description: MessageService.getMessage('nameFlagDescription'),
     }),
     allversions: flags.boolean({
       char: 'a',
-      description: messages.getMessage('allVersionsDescription'),
+      description: MessageService.getMessage('migrateAllVersionsDescription'),
       required: false,
     }),
     verbose: flags.builtin({
@@ -49,6 +47,12 @@ export default class Org extends SfdxCommand {
 
   // Set this to true if your command requires a project workspace; 'requiresProject' is false by default
   protected static requiresProject = false;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  public constructor(argv: string[], context: any) {
+    super(argv, context);
+    MessageService.init('info');
+  }
 
   public async run(): Promise<AnyJson> {
     try {
@@ -81,7 +85,7 @@ export default class Org extends SfdxCommand {
     // Organization will always return one result, but this is an example of throwing an error
     // The output and --json will automatically be handled for you.
     if (!result.records || result.records.length <= 0) {
-      throw new SfdxError(messages.getMessage('errorNoOrgResults', [this.org.getOrgId()]));
+      throw new SfdxError(MessageService.getMessage('errorNoOrgResults', [this.org.getOrgId()]));
     }
 
     // Organization always only returns one result
@@ -91,20 +95,20 @@ export default class Org extends SfdxCommand {
     let outputString = '';
     if (trialExpirationDate) {
       const date = new Date(trialExpirationDate).toDateString();
-      outputString = messages.getMessage('greetingOrgInfoWithDate', [name, orgName, date]);
+      outputString = MessageService.getMessage('greetingOrgInfoWithDate', [name, orgName, date]);
     } else {
-      outputString = messages.getMessage('greetingOrgInfo', [name, orgName]);
+      outputString = MessageService.getMessage('greetingOrgInfo', [name, orgName]);
     }
     Logger.log(outputString);
 
     // this.hubOrg is NOT guaranteed because supportsHubOrgUsername=true, as opposed to requiresHubOrgUsername.
     if (this.hubOrg) {
       const hubOrgId = this.hubOrg.getOrgId();
-      Logger.log(messages.getMessage('hubOrgId', [hubOrgId]));
+      Logger.log(MessageService.getMessage('hubOrgId', [hubOrgId]));
     }
 
     if (allVersions) {
-      outputString = outputString + messages.getMessage('allVersionsAppended');
+      outputString = outputString + MessageService.getMessage('allVersionsAppended');
     }
 
     // Return an object to be displayed with --json

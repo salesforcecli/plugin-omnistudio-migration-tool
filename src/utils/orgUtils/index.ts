@@ -1,11 +1,9 @@
 /* eslint-disable */
 
-import { Connection, Messages } from '@salesforce/core';
+import { Connection } from '@salesforce/core';
 import { QueryTools } from '../query';
 import { Logger } from '../logger';
-
-// Load messages
-const messages = Messages.loadMessages('@salesforce/plugin-omnistudio-migration-tool', 'migrate');
+import { MessageService } from '../MessageService';
 
 interface InstalledPackage {
   MajorVersion: number;
@@ -328,7 +326,7 @@ export class OrgUtils {
 
     // Handle multiple packages by prompting user to select one
     if (installedOmniPackages.length > 1) {
-      Logger.log(messages.getMessage('multiplePackagesFound'));
+      Logger.log(MessageService.getMessage('multiplePackagesFound'));
       installedOmniPackages.sort((a, b) => a.NamespacePrefix.localeCompare(b.NamespacePrefix));
       // Display available packages
       for (let i = 0; i < installedOmniPackages.length; i++) {
@@ -340,12 +338,12 @@ export class OrgUtils {
       let selectedIndex: number;
       do {
         const selection = await Logger.prompt(
-          messages.getMessage('packageSelectionPrompt', [installedOmniPackages.length.toString()])
+          MessageService.getMessage('packageSelectionPrompt', [installedOmniPackages.length.toString()])
         );
         selectedIndex = parseInt(selection, 10) - 1;
 
         if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= installedOmniPackages.length) {
-          Logger.warn(messages.getMessage('invalidPackageSelection', [installedOmniPackages.length.toString()]));
+          Logger.warn(MessageService.getMessage('invalidPackageSelection', [installedOmniPackages.length.toString()]));
         }
       } while (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= installedOmniPackages.length);
 
@@ -354,7 +352,9 @@ export class OrgUtils {
       packageDetails.version = `${selectedPackage.MajorVersion}.${selectedPackage.MinorVersion}`;
       packageDetails.namespace = selectedPackage.NamespacePrefix;
 
-      Logger.log(messages.getMessage('selectedPackage', [selectedPackage.NamespacePrefix, packageDetails.version]));
+      Logger.log(
+        MessageService.getMessage('selectedPackage', [selectedPackage.NamespacePrefix, packageDetails.version])
+      );
     } else if (installedOmniPackages.length === 1) {
       // Only one package found, use it automatically
       const pkg = installedOmniPackages[0];

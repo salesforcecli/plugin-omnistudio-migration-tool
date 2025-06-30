@@ -3,7 +3,6 @@
 import fs from 'fs';
 import path from 'path';
 import open from 'open';
-import { Messages } from '@salesforce/core';
 import { AssessmentInfo } from '../interfaces';
 import { DashboardParam } from '../reportGenerator/reportInterfaces';
 import { OmnistudioOrgDetails } from '../orgUtils';
@@ -11,6 +10,8 @@ import { Constants } from '../constants/stringContants';
 import { pushAssestUtilites } from '../file/fileUtil';
 import { TemplateParser } from '../templateParser/generate';
 import { getOrgDetailsForReport } from '../reportGenerator/reportUtil';
+import { MessageService } from '../MessageService';
+import { getMigrationHeading } from '../stringUtils';
 import { OSAssessmentReporter } from './OSAssessmentReporter';
 import { ApexAssessmentReporter } from './ApexAssessmentReporter';
 import { IPAssessmentReporter } from './IPAssessmentReporter';
@@ -36,10 +37,11 @@ export class AssessmentReporter {
     instanceUrl: string,
     omnistudioOrgDetails: OmnistudioOrgDetails,
     assessOnly: string,
-    relatedObjects: string[],
-    messages: Messages
+    relatedObjects: string[]
   ): Promise<void> {
     fs.mkdirSync(this.basePath, { recursive: true });
+
+    fs.writeFileSync(path.join(this.basePath, 'assess_data.json'), JSON.stringify(result));
 
     const assessmentReportTemplate = fs.readFileSync(
       path.join(__dirname, '..', '..', this.templateDir, this.reportTemplateName),
@@ -54,8 +56,7 @@ export class AssessmentReporter {
             result.omniAssessmentInfo.osAssessmentInfos,
             instanceUrl,
             omnistudioOrgDetails
-          ),
-          messages
+          )
         )
       );
 
@@ -67,16 +68,14 @@ export class AssessmentReporter {
             result.flexCardAssessmentInfos,
             instanceUrl,
             omnistudioOrgDetails
-          ),
-          messages
+          )
         )
       );
       this.createDocument(
         path.join(this.basePath, this.apexAssessmentFileName),
         TemplateParser.generate(
           assessmentReportTemplate,
-          ApexAssessmentReporter.getApexAssessmentData(result.apexAssessmentInfos, omnistudioOrgDetails),
-          messages
+          ApexAssessmentReporter.getApexAssessmentData(result.apexAssessmentInfos, omnistudioOrgDetails)
         )
       );
 
@@ -93,8 +92,7 @@ export class AssessmentReporter {
             result.omniAssessmentInfo.ipAssessmentInfos,
             instanceUrl,
             omnistudioOrgDetails
-          ),
-          messages
+          )
         )
       );
 
@@ -106,8 +104,7 @@ export class AssessmentReporter {
             result.dataRaptorAssessmentInfos,
             instanceUrl,
             omnistudioOrgDetails
-          ),
-          messages
+          )
         )
       );
     } else {
@@ -121,8 +118,7 @@ export class AssessmentReporter {
                 result.omniAssessmentInfo.osAssessmentInfos,
                 instanceUrl,
                 omnistudioOrgDetails
-              ),
-              messages
+              )
             )
           );
           break;
@@ -136,8 +132,7 @@ export class AssessmentReporter {
                 result.flexCardAssessmentInfos,
                 instanceUrl,
                 omnistudioOrgDetails
-              ),
-              messages
+              )
             )
           );
           break;
@@ -151,8 +146,7 @@ export class AssessmentReporter {
                 result.omniAssessmentInfo.ipAssessmentInfos,
                 instanceUrl,
                 omnistudioOrgDetails
-              ),
-              messages
+              )
             )
           );
           break;
@@ -166,8 +160,7 @@ export class AssessmentReporter {
                 result.dataRaptorAssessmentInfos,
                 instanceUrl,
                 omnistudioOrgDetails
-              ),
-              messages
+              )
             )
           );
           break;
@@ -181,8 +174,7 @@ export class AssessmentReporter {
         path.join(this.basePath, this.apexAssessmentFileName),
         TemplateParser.generate(
           assessmentReportTemplate,
-          ApexAssessmentReporter.getApexAssessmentData(result.apexAssessmentInfos, omnistudioOrgDetails),
-          messages
+          ApexAssessmentReporter.getApexAssessmentData(result.apexAssessmentInfos, omnistudioOrgDetails)
         )
       );
     }
@@ -195,7 +187,7 @@ export class AssessmentReporter {
     // }
 
     // await this.createMasterDocument(nameUrls, basePath);
-    this.createDashboard(this.basePath, result, omnistudioOrgDetails, messages);
+    this.createDashboard(this.basePath, result, omnistudioOrgDetails);
     pushAssestUtilites('javascripts', this.basePath);
     pushAssestUtilites('styles', this.basePath);
     await open(path.join(this.basePath, this.dashboardFileName));
@@ -203,13 +195,12 @@ export class AssessmentReporter {
   private static createDashboard(
     basePath: string,
     result: AssessmentInfo,
-    omnistudioOrgDetails: OmnistudioOrgDetails,
-    messages: Messages
+    omnistudioOrgDetails: OmnistudioOrgDetails
   ): void {
     const dashboardTemplate = fs.readFileSync(this.dashboardTemplate, 'utf8');
     this.createDocument(
       path.join(basePath, this.dashboardFileName),
-      TemplateParser.generate(dashboardTemplate, this.createDashboardParam(result, omnistudioOrgDetails), messages)
+      TemplateParser.generate(dashboardTemplate, this.createDashboardParam(result, omnistudioOrgDetails))
     );
   }
   private static createDashboardParam(
@@ -217,37 +208,38 @@ export class AssessmentReporter {
     omnistudioOrgDetails: OmnistudioOrgDetails
   ): DashboardParam {
     return {
-      title: 'Assessment Reports',
-      heading: 'Assessment Reports',
+      mode: 'assess',
+      title: MessageService.getMessage('reportDashboardHeading'),
+      heading: MessageService.getMessage('reportDashboardHeading'),
       org: getOrgDetailsForReport(omnistudioOrgDetails),
       assessmentDate: new Date().toISOString(),
       summaryItems: [
         {
-          name: 'DataMapper',
+          name: getMigrationHeading('datamapper'),
           total: result.dataRaptorAssessmentInfos.length,
           data: DRAssessmentReporter.getSummaryData(result.dataRaptorAssessmentInfos),
           file: this.dataMapperAssessmentFileName,
         },
         {
-          name: 'Integration Procedure',
+          name: getMigrationHeading('integrationprocedure'),
           total: result.omniAssessmentInfo.ipAssessmentInfos.length,
           data: IPAssessmentReporter.getSummaryData(result.omniAssessmentInfo.ipAssessmentInfos),
           file: this.integrationProcedureAssessmentFileName,
         },
         {
-          name: 'OmniScript',
+          name: getMigrationHeading('omniscript'),
           total: result.omniAssessmentInfo.osAssessmentInfos.length,
           data: OSAssessmentReporter.getSummaryData(result.omniAssessmentInfo.osAssessmentInfos),
           file: this.omniscriptAssessmentFileName,
         },
         {
-          name: 'Flexcard',
+          name: getMigrationHeading('flexcard'),
           total: result.flexCardAssessmentInfos.length,
           data: FlexcardAssessmentReporter.getSummaryData(result.flexCardAssessmentInfos),
           file: this.flexcardAssessmentFileName,
         },
         {
-          name: 'Apex',
+          name: getMigrationHeading('apex'),
           total: result.apexAssessmentInfos.length,
           data: ApexAssessmentReporter.getSummaryData(result.apexAssessmentInfos),
           file: this.apexAssessmentFileName,

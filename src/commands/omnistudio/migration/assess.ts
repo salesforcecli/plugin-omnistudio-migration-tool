@@ -1,6 +1,6 @@
 import * as os from 'os';
 import { flags } from '@salesforce/command';
-import { Messages, Connection } from '@salesforce/core';
+import { Connection } from '@salesforce/core';
 import OmniStudioBaseCommand from '../../basecommand';
 import { AssessmentInfo } from '../../../utils/interfaces';
 import { AssessmentReporter } from '../../../utils/resultsbuilder/assessmentReporter';
@@ -14,40 +14,45 @@ import { OmnistudioOrgDetails, OrgUtils } from '../../../utils/orgUtils';
 import { OrgPreferences } from '../../../utils/orgPreferences';
 import { Constants } from '../../../utils/constants/stringContants';
 import { ProjectPathUtil } from '../../../utils/projectPathUtil';
+import { MessageService } from '../../../utils/MessageService';
 
-Messages.importMessagesDirectory(__dirname);
-const messages = Messages.loadMessages('@salesforce/plugin-omnistudio-migration-tool', 'assess');
 
 export default class Assess extends OmniStudioBaseCommand {
-  public static description = messages.getMessage('commandDescription');
+  public static description = MessageService.getMessage('assessCommandDescription');
 
-  public static examples = messages.getMessage('examples').split(os.EOL);
+  public static examples = MessageService.getMessage('assessExamples').split(os.EOL);
 
   public static args = [{ name: 'file' }];
 
   protected static flagsConfig = {
     namespace: flags.string({
       char: 'n',
-      description: messages.getMessage('namespaceFlagDescription'),
+      description: MessageService.getMessage('namespaceFlagDescription'),
     }),
     only: flags.string({
       char: 'o',
-      description: messages.getMessage('onlyFlagDescription'),
+      description: MessageService.getMessage('migrateOnlyFlagDescription'),
     }),
     allversions: flags.boolean({
       char: 'a',
-      description: messages.getMessage('allVersionsDescription'),
+      description: MessageService.getMessage('assessAllVersionsDescription'),
       required: false,
     }),
     relatedobjects: flags.string({
       char: 'r',
-      description: messages.getMessage('apexLwc'),
+      description: MessageService.getMessage('migrateApexLwc'),
     }),
     verbose: flags.builtin({
       type: 'builtin',
-      description: messages.getMessage('enableVerboseOutput'),
+      description: MessageService.getMessage('enableVerboseOutput'),
     }),
   };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  public constructor(argv: string[], context: any) {
+    super(argv, context);
+    MessageService.init('assess');
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public async run(): Promise<any> {
@@ -56,7 +61,7 @@ export default class Assess extends OmniStudioBaseCommand {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return await this.runAssess();
     } catch (error) {
-      Logger.error(messages.getMessage('errorRunningAssess'));
+      Logger.error(MessageService.getMessage('errorRunningAssess'));
       Logger.error(error);
       process.exit(1);
     }
@@ -79,22 +84,22 @@ export default class Assess extends OmniStudioBaseCommand {
     const orgs: OmnistudioOrgDetails = await OrgUtils.getOrgDetails(conn, this.flags.namespace);
 
     if (!orgs.hasValidNamespace && this.flags.namespace) {
-      Logger.warn(messages.getMessage('invalidNamespace') + orgs.packageDetails.namespace);
+      Logger.warn(MessageService.getMessage('invalidNamespace') + orgs.packageDetails.namespace);
     }
 
     if (!orgs.packageDetails) {
-      Logger.error(messages.getMessage('noPackageInstalled'));
+      Logger.error(MessageService.getMessage('noPackageInstalled'));
       return;
     }
     if (orgs.omniStudioOrgPermissionEnabled) {
-      Logger.error(messages.getMessage('alreadyStandardModel'));
+      Logger.error(MessageService.getMessage('alreadyStandardModel'));
       return;
     }
 
     const namespace = orgs.packageDetails.namespace;
     let projectPath = '';
     if (relatedObjects) {
-      projectPath = await ProjectPathUtil.getProjectPath(messages, true);
+      projectPath = await ProjectPathUtil.getProjectPath(true);
     }
 
     const assesmentInfo: AssessmentInfo = {
@@ -108,11 +113,11 @@ export default class Assess extends OmniStudioBaseCommand {
       },
     };
 
-    Logger.log(messages.getMessage('assessmentInitialization', [String(namespace)]));
-    Logger.log(messages.getMessage('apiVersionInfo', [String(apiVersion)]));
-    Logger.logVerbose(messages.getMessage('assessmentTargets', [String(this.flags.only || 'all')]));
-    Logger.logVerbose(messages.getMessage('relatedObjectsInfo', [relatedObjects || 'none']));
-    Logger.logVerbose(messages.getMessage('allVersionsFlagInfo', [String(allVersions)]));
+    Logger.log(MessageService.getMessage('assessmentInitialization', [String(namespace)]));
+    Logger.logVerbose(MessageService.getMessage('apiVersionInfo', [String(apiVersion)]));
+    Logger.logVerbose(MessageService.getMessage('assessmentTargets', [String(this.flags.only || 'all')]));
+    Logger.logVerbose(MessageService.getMessage('relatedObjectsInfo', [relatedObjects || 'none']));
+    Logger.logVerbose(MessageService.getMessage('allVersionsFlagInfo', [String(allVersions)]));
     // Assess OmniStudio components
     await this.assessOmniStudioComponents(assesmentInfo, assessOnly, namespace, conn, allVersions);
 
@@ -126,7 +131,7 @@ export default class Assess extends OmniStudioBaseCommand {
       // Validate input
       for (const obj of objectsToProcess) {
         if (!validOptions.includes(obj)) {
-          Logger.error(messages.getMessage('invalidRelatedObjectsOption', [String(obj)]));
+          Logger.error(MessageService.getMessage('invalidRelatedObjectsOption', [String(obj)]));
           process.exit(1);
         }
       }
@@ -148,7 +153,7 @@ export default class Assess extends OmniStudioBaseCommand {
       Logger.log((error as Error).message);
       Logger.log((error as Error).stack);
     }
-    await AssessmentReporter.generate(assesmentInfo, conn.instanceUrl, orgs, assessOnly, objectsToProcess, messages);
+    await AssessmentReporter.generate(assesmentInfo, conn.instanceUrl, orgs, assessOnly, objectsToProcess);
     return assesmentInfo;
   }
 
@@ -181,17 +186,17 @@ export default class Assess extends OmniStudioBaseCommand {
         await this.assessOmniScripts(assesmentInfo, namespace, conn, allVersions, OmniScriptExportType.IP);
         break;
       default:
-        throw new Error(messages.getMessage('invalidOnlyFlag'));
+        throw new Error(MessageService.getMessage('invalidOnlyFlag'));
     }
   }
 
   private async assessDataRaptors(assesmentInfo: AssessmentInfo, namespace: string, conn: Connection): Promise<void> {
-    const drMigrator = new DataRaptorMigrationTool(namespace, conn, Logger, messages, this.ux);
+    const drMigrator = new DataRaptorMigrationTool(namespace, conn, Logger, this.ux);
     assesmentInfo.dataRaptorAssessmentInfos = await drMigrator.assess();
     Logger.logVerbose(
-      messages.getMessage('assessedDataRaptorsCount', [assesmentInfo.dataRaptorAssessmentInfos.length])
+      MessageService.getMessage('assessedDataRaptorsCount', [assesmentInfo.dataRaptorAssessmentInfos.length])
     );
-    Logger.log(messages.getMessage('dataRaptorAssessmentCompleted'));
+    Logger.log(MessageService.getMessage('dataRaptorAssessmentCompleted'));
   }
 
   private async assessFlexCards(
@@ -200,11 +205,13 @@ export default class Assess extends OmniStudioBaseCommand {
     conn: Connection,
     allVersions: boolean
   ): Promise<void> {
-    const flexMigrator = new CardMigrationTool(namespace, conn, Logger, messages, this.ux, allVersions);
-    Logger.logVerbose(messages.getMessage('flexCardAssessment'));
+    const flexMigrator = new CardMigrationTool(namespace, conn, Logger, this.ux, allVersions);
+    Logger.logVerbose(MessageService.getMessage('flexCardAssessment'));
     assesmentInfo.flexCardAssessmentInfos = await flexMigrator.assess();
-    Logger.logVerbose(messages.getMessage('assessedFlexCardsCount', [assesmentInfo.flexCardAssessmentInfos.length]));
-    Logger.log(messages.getMessage('flexCardAssessmentCompleted'));
+    Logger.logVerbose(
+      MessageService.getMessage('assessedFlexCardsCount', [assesmentInfo.flexCardAssessmentInfos.length])
+    );
+    Logger.log(MessageService.getMessage('flexCardAssessmentCompleted'));
   }
 
   private async assessOmniScripts(
@@ -214,20 +221,20 @@ export default class Assess extends OmniStudioBaseCommand {
     allVersions: boolean,
     exportType: OmniScriptExportType
   ): Promise<void> {
-    Logger.logVerbose(messages.getMessage('omniScriptAssessment'));
-    const osMigrator = new OmniScriptMigrationTool(exportType, namespace, conn, Logger, messages, this.ux, allVersions);
+    Logger.logVerbose(MessageService.getMessage('omniScriptAssessment'));
+    const osMigrator = new OmniScriptMigrationTool(exportType, namespace, conn, Logger, this.ux, allVersions);
     assesmentInfo.omniAssessmentInfo = await osMigrator.assess(
       assesmentInfo.dataRaptorAssessmentInfos,
       assesmentInfo.flexCardAssessmentInfos
     );
     Logger.logVerbose(
-      messages.getMessage('assessedOmniScriptsCount', [assesmentInfo.omniAssessmentInfo.osAssessmentInfos.length])
+      MessageService.getMessage('assessedOmniScriptsCount', [assesmentInfo.omniAssessmentInfo.osAssessmentInfos.length])
     );
     Logger.logVerbose(
-      messages.getMessage('assessedIntegrationProceduresCount', [
+      MessageService.getMessage('assessedIntegrationProceduresCount', [
         assesmentInfo.omniAssessmentInfo.ipAssessmentInfos.length,
       ])
     );
-    Logger.log(messages.getMessage('omniScriptAssessmentCompleted'));
+    Logger.log(MessageService.getMessage('omniScriptAssessmentCompleted'));
   }
 }

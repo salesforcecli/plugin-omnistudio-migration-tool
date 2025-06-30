@@ -1,14 +1,6 @@
 {
-  "commandDescription": "print a greeting and your org IDs",
-  "nameFlagDescription": "name to print",
   "forceFlagDescription": "example boolean flag",
   "errorNoOrgResults": "No results found for the org '%s'.",
-  "examples": [
-    "sfdx omnistudio:migration:info --targetusername myOrg@example.com --targetdevhubusername devhub@org.com",
-    "sfdx omnistudio:migration:info --name myname --targetusername myOrg@example.com"
-  ],
-  "allVersionsDescription": "Migrate all versions of a component",
-  "apexLwc": "Please select the type of components to migrate: 'apex' for Apex classes, 'lwc' for Lightning Web Components, or 'apex,lwc' if you want to include both types.",
   "greetingOrgInfo": "Hello %s! This is org: %s",
   "greetingOrgInfoWithDate": "Hello %s! This is org: %s and I will be around until %s!",
   "hubOrgId": "My hub org id is: %s",

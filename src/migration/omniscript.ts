@@ -16,7 +16,7 @@ import { BaseMigrationTool } from './base';
 import { MigrationResult, MigrationTool, TransformData, UploadRecordResult } from './interfaces';
 import { ObjectMapping } from './interfaces';
 import { NetUtils, RequestMethod } from '../utils/net';
-import { Connection, Messages } from '@salesforce/core';
+import { Connection } from '@salesforce/core';
 import { UX } from '@salesforce/command';
 import { OSAssessmentInfo, OmniAssessmentInfo, IPAssessmentInfo } from '../../src/utils';
 import {
@@ -28,6 +28,7 @@ import { StringVal } from '../utils/StringValue/stringval';
 import { formatUnicorn } from '../utils/stringUtils';
 import { Logger } from '../utils/logger';
 import { createProgressBar } from './base';
+import { MessageService } from '../utils/MessageService';
 
 export class OmniScriptMigrationTool extends BaseMigrationTool implements MigrationTool {
   private readonly exportType: OmniScriptExportType;
@@ -49,11 +50,10 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     namespace: string,
     connection: Connection,
     logger: Logger,
-    messages: Messages,
     ux: UX,
     allVersions: boolean
   ) {
-    super(namespace, connection, logger, messages, ux);
+    super(namespace, connection, logger, ux);
     this.exportType = exportType;
     this.allVersions = allVersions;
   }
@@ -106,7 +106,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
     let success: boolean = await NetUtils.delete(this.connection, ids);
     if (!success) {
-      throw new Error(formatUnicorn(this.messages.getMessage('couldNotTruncateOmnniProcess'), objectName));
+      throw new Error(formatUnicorn(MessageService.getMessage('couldNotTruncateOmnniProcess'), objectName));
     }
   }
 
@@ -183,9 +183,9 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     flexCardAssessmentInfos: FlexCardAssessmentInfo[]
   ): Promise<OmniAssessmentInfo> {
     try {
-      Logger.log(this.messages.getMessage('startingOmniScriptAssessment'));
+      Logger.log(MessageService.getMessage('startingOmniScriptAssessment'));
       const omniscripts = await this.getAllOmniScripts();
-      Logger.log(this.messages.getMessage('foundOmniScriptsToAssess', [omniscripts.length]));
+      Logger.log(MessageService.getMessage('foundOmniScriptsToAssess', [omniscripts.length]));
 
       const omniAssessmentInfos = await this.processOmniComponents(
         omniscripts,
@@ -194,7 +194,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
       );
       return omniAssessmentInfos;
     } catch (err) {
-      Logger.error(this.messages.getMessage('errorDuringOmniScriptAssessment'));
+      Logger.error(MessageService.getMessage('errorDuringOmniScriptAssessment'));
       Logger.error(JSON.stringify(err));
       Logger.error(err.stack);
     }
@@ -219,7 +219,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     // First, collect all OmniScript names from the omniscripts array
     // Now process each OmniScript and its elements
     for (const omniscript of omniscripts) {
-      Logger.info(this.messages.getMessage('processingOmniScript', [omniscript['Name']]));
+      Logger.info(MessageService.getMessage('processingOmniScript', [omniscript['Name']]));
       let omniAssessmentInfo: OSAssessmentInfo;
       try {
         omniAssessmentInfo = await this.processOmniScript(
@@ -244,7 +244,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
             dependenciesLWC: [],
             infos: [],
             warnings: [],
-            errors: [this.messages.getMessage('unexpectedError')],
+            errors: [MessageService.getMessage('unexpectedError')],
             migrationStatus: 'Can be Automated',
             type: 'OmniScript',
             missingIP: [],
@@ -262,7 +262,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
             dependenciesRemoteAction: [],
             infos: [],
             warnings: [],
-            errors: [this.messages.getMessage('unexpectedError')],
+            errors: [MessageService.getMessage('unexpectedError')],
             path: '',
           });
         }
@@ -275,7 +275,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
         const type = omniscript[this.namespacePrefix + 'IsLwcEnabled__c'] ? 'LWC' : 'Angular';
         let migrationStatus = 'Can be Automated';
         if (type === 'Angular') {
-          omniAssessmentInfo.warnings.unshift(this.messages.getMessage('angularOSWarning'));
+          omniAssessmentInfo.warnings.unshift(MessageService.getMessage('angularOSWarning'));
           migrationStatus = 'Need Manual Intervention';
         }
         const osAssessmentInfo: OSAssessmentInfo = {
@@ -434,7 +434,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
     if (!existingTypeVal.isNameCleaned()) {
       warnings.push(
-        this.messages.getMessage('changeMessage', [
+        MessageService.getMessage('changeMessage', [
           existingTypeVal.type,
           existingTypeVal.val,
           existingTypeVal.cleanName(),
@@ -443,7 +443,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     }
     if (!existingSubTypeVal.isNameCleaned()) {
       warnings.push(
-        this.messages.getMessage('changeMessage', [
+        MessageService.getMessage('changeMessage', [
           existingSubTypeVal.type,
           existingSubTypeVal.val,
           existingSubTypeVal.cleanName(),
@@ -452,7 +452,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     }
     if (!existingOmniScriptNameVal.isNameCleaned()) {
       warnings.push(
-        this.messages.getMessage('changeMessage', [
+        MessageService.getMessage('changeMessage', [
           existingOmniScriptNameVal.type,
           existingOmniScriptNameVal.val,
           existingOmniScriptNameVal.cleanName(),
@@ -460,7 +460,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
       );
     }
     if (existingOmniscriptNames.has(recordName)) {
-      warnings.push(this.messages.getMessage('duplicatedName') + '  ' + recordName);
+      warnings.push(MessageService.getMessage('duplicatedName') + '  ' + recordName);
     } else {
       existingOmniscriptNames.add(recordName);
     }
@@ -496,7 +496,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     // Variables to be returned After Migration
     let originalOsRecords = new Map<string, any>();
     let osUploadInfo = new Map<string, UploadRecordResult>();
-    Logger.log(this.messages.getMessage('foundOmniScriptsToMigrate', [omniscripts.length]));
+    Logger.log(MessageService.getMessage('foundOmniScriptsToMigrate', [omniscripts.length]));
     const progressBar = createProgressBar('Migrating', 'Omniscript and Integration Procedure');
     let progressCounter = 0;
     progressBar.start(omniscripts.length, progressCounter);
@@ -520,7 +520,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
         const type = omniscript[this.namespacePrefix + 'IsLwcEnabled__c'] ? 'LWC' : 'Angular';
         if (type === 'Angular') {
           // Skip Angular OmniScripts and add a warning record
-          const warningMessage = this.messages.getMessage('angularOmniscriptWarningMessage');
+          const warningMessage = MessageService.getMessage('angularOmniscriptWarningMessage');
           const skippedResponse: UploadRecordResult = {
             referenceId: recordId,
             id: '',
@@ -560,7 +560,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
                 Logger.error(JSON.stringify(ex));
                 Logger.error(ex.stack);
                 Logger.logVerbose(
-                  this.messages.getMessage('formulaSyntaxError', [ipElement[`${this.namespacePrefix}PropertySet__c`]])
+                  MessageService.getMessage('formulaSyntaxError', [ipElement[`${this.namespacePrefix}PropertySet__c`]])
                 );
               }
             }
@@ -600,7 +600,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
       }
 
       if (duplicatedNames.has(mappedOsName)) {
-        this.setRecordErrors(omniscript, this.messages.getMessage('duplicatedOSName'));
+        this.setRecordErrors(omniscript, MessageService.getMessage('duplicatedOSName'));
         originalOsRecords.set(recordId, omniscript);
         continue;
       }
@@ -673,7 +673,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
               osUploadResponse.hasErrors = true;
               osUploadResponse.errors = osUploadResponse.errors || [];
 
-              osUploadResponse.errors.push(this.messages.getMessage('errorWhileActivatingOs') + updateResult.errors);
+              osUploadResponse.errors.push(MessageService.getMessage('errorWhileActivatingOs') + updateResult.errors);
             }
           }
         } catch (e) {
@@ -696,7 +696,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
             }
           }
 
-          osUploadResponse.errors.push(this.messages.getMessage('errorWhileCreatingElements') + error);
+          osUploadResponse.errors.push(MessageService.getMessage('errorWhileCreatingElements') + error);
         } finally {
           // Create the return records and response which have been processed
           osUploadInfo.set(recordId, osUploadResponse);
@@ -752,7 +752,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
   // Get All OmniScript__c records i.e All IP & OS
   private async getAllOmniScripts(): Promise<AnyJson[]> {
     //DebugTimer.getInstance().lap('Query OmniScripts');
-    Logger.info(this.messages.getMessage('allVersionsInfo', [this.allVersions]));
+    Logger.info(MessageService.getMessage('allVersionsInfo', [this.allVersions]));
     const filters = new Map<string, any>();
 
     if (this.exportType === OmniScriptExportType.IP) {

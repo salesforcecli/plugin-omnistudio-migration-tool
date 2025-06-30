@@ -12,8 +12,8 @@ import { createFilterGroupParam, createRowDataParam } from '../reportGenerator/r
 const resultsDir = path.join(process.cwd(), 'migration_report');
 // const lwcConstants = { componentName: 'lwc', title: 'LWC Components Migration Result' };
 const migrationReportHTMLfileName = 'dashboard.html';
-const reportTemplateFilePath = path.join(process.cwd(), 'src', 'templates', 'migrationReport.template');
-const dashboardTemplateFilePath = path.join(process.cwd(), 'src', 'templates', 'dashboard.template');
+const reportTemplateFilePath = path.join(__dirname, '..', '..', 'templates', 'migrationReport.template');
+const dashboardTemplateFilePath = path.join(__dirname, '..', '..', 'templates', 'dashboard.template');
 const apexFileName = 'apex.html';
 
 export class ResultsBuilder {

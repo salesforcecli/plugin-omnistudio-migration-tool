@@ -158,7 +158,7 @@ export class File {
  * - The source files remain in place after copying.
  */
 export function pushAssestUtilites(folderName: string, destDir: string): void {
-  const sourceDir = path.join(process.cwd(), 'src', folderName);
+  const sourceDir = path.join(__dirname, '..', '..', folderName);
 
   if (!fs.existsSync(destDir)) {
     Logger.warn(`Destination directory does not exist: ${destDir}`);

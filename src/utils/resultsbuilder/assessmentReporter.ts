@@ -25,7 +25,7 @@ export class AssessmentReporter {
   private static dataMapperAssessmentFileName = 'datamapper_assessment.html';
   private static apexAssessmentFileName = 'apex_assessment.html';
   private static dashboardFileName = 'dashboard.html';
-  private static dashboardTemplate = path.join(process.cwd(), 'src/templates/dashboard.template');
+  private static dashboardTemplate = path.join(__dirname, '..', '..', 'templates', 'dashboard.template');
   // TODO: Uncomment code once MVP for migration is completed
   // private static lwcAssessmentFilePath = this.basePath + '/lwc_assessment.html';
   public static async generate(
@@ -39,7 +39,7 @@ export class AssessmentReporter {
     fs.mkdirSync(this.basePath, { recursive: true });
 
     const assessmentReportTemplate = fs.readFileSync(
-      process.cwd() + '/src/templates/assessmentReport.template',
+      path.join(__dirname, '..', '..', 'templates', 'assessmentReport.template'),
       'utf8'
     );
     if (!assessOnly) {

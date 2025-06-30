@@ -96,8 +96,7 @@ export default class OmnistudioRelatedObjectMigrationFacade {
       }
     } catch (Error) {
       // Log the error
-      Logger.error(JSON.stringify(Error));
-      Logger.error(Error.stack);
+      Logger.error('Error processing related objects', Error);
     }
     // TODO: Uncomment code once MVP for migration is completed
     // try {

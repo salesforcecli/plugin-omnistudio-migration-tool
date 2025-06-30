@@ -75,8 +75,7 @@ export default class Migrate extends OmniStudioBaseCommand {
       return await this.runMigration();
     } catch (e) {
       const error = e as Error;
-      Logger.error(`Error running migrate ${error.message}`);
-      Logger.error(error);
+      Logger.error('Error running migrate', error);
       process.exit(1);
     }
   }
@@ -227,8 +226,7 @@ export default class Migrate extends OmniStudioBaseCommand {
           })
         );
       } catch (ex: any) {
-        Logger.error(JSON.stringify(ex));
-        Logger.error(ex.stack);
+        Logger.error('Error migrating object', ex);
         objectMigrationResults.push({
           name: cls.getName(),
           errors: [ex.message],

@@ -60,8 +60,7 @@ export default class Assess extends OmniStudioBaseCommand {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return await this.runAssess();
     } catch (error) {
-      Logger.error('Error running assess');
-      Logger.error(error);
+      Logger.error('Error running assess', error);
       process.exit(1);
     }
   }

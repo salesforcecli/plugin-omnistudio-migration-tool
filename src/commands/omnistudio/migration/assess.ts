@@ -114,6 +114,10 @@ export default class Assess extends OmniStudioBaseCommand {
     }
 
     const namespace = orgs.packageDetails.namespace;
+    let projectPath = '';
+    if (relatedObjects) {
+      projectPath = await this.getProjectPath();
+    }
 
     const assesmentInfo: AssessmentInfo = {
       lwcAssessmentInfos: [],
@@ -137,7 +141,6 @@ export default class Assess extends OmniStudioBaseCommand {
     let objectsToProcess: string[];
     // Assess related objects if specified
     if (relatedObjects) {
-      const projectPath = await this.getProjectPath();
       const validOptions = [Constants.Apex, Constants.LWC];
       objectsToProcess = relatedObjects.split(',').map((obj) => obj.trim());
 

@@ -114,10 +114,6 @@ export default class Assess extends OmniStudioBaseCommand {
     }
 
     const namespace = orgs.packageDetails.namespace;
-    const projectPath = await this.getProjectPath();
-    if (projectPath == null) {
-      return;
-    }
 
     const assesmentInfo: AssessmentInfo = {
       lwcAssessmentInfos: [],
@@ -141,6 +137,7 @@ export default class Assess extends OmniStudioBaseCommand {
     let objectsToProcess: string[];
     // Assess related objects if specified
     if (relatedObjects) {
+      const projectPath = await this.getProjectPath();
       const validOptions = [Constants.Apex, Constants.LWC];
       objectsToProcess = relatedObjects.split(',').map((obj) => obj.trim());
 
@@ -259,21 +256,26 @@ export default class Assess extends OmniStudioBaseCommand {
     const askWithTimeout = PromptUtil.askWithTimeOut(messages);
     // Prompt: Existing project?
     let response = '';
-    try {
-      const resp = await askWithTimeout(Logger.prompt.bind(Logger), messages.getMessage('existingApexPrompt'));
-      response = typeof resp === 'string' ? resp.trim().toLowerCase() : '';
-    } catch (err) {
-      Logger.error(messages.getMessage('requestTimedOut'));
-      process.exit(1);
-    }
+    let validResponse = false;
 
-    if (response === YES_SHORT || response === YES_LONG) {
-      mode = EXISTING_MODE;
-    } else if (response === NO_SHORT || response === NO_LONG) {
-      mode = EMPTY_MODE;
-    } else {
-      Logger.error(messages.getMessage('invalidYesNoResponse'));
-      return undefined;
+    while (!validResponse) {
+      try {
+        const resp = await askWithTimeout(Logger.prompt.bind(Logger), messages.getMessage('existingApexPrompt'));
+        response = typeof resp === 'string' ? resp.trim().toLowerCase() : '';
+      } catch (err) {
+        Logger.error(messages.getMessage('requestTimedOut'));
+        process.exit(1);
+      }
+
+      if (response === YES_SHORT || response === YES_LONG) {
+        mode = EXISTING_MODE;
+        validResponse = true;
+      } else if (response === NO_SHORT || response === NO_LONG) {
+        mode = EMPTY_MODE;
+        validResponse = true;
+      } else {
+        Logger.error(messages.getMessage('invalidYesNoResponse'));
+      }
     }
 
     // Prompt for project path

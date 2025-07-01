@@ -1,4 +1,5 @@
 import { FlexCardAssessmentInfo } from '../interfaces';
+import { Logger } from '../logger';
 import { OmnistudioOrgDetails } from '../orgUtils';
 import {
   FilterGroupParam,
@@ -17,6 +18,7 @@ export class FlexcardAssessmentReporter {
     instanceUrl: string,
     omnistudioOrgDetails: OmnistudioOrgDetails
   ): ReportParam {
+    Logger.captureVerboseData('fc data:', flexCardAssessmentInfos);
     return {
       title: 'Flexcard Migration Assessment',
       heading: 'Flexcard',

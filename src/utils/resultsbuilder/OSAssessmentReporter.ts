@@ -18,7 +18,7 @@ export class OSAssessmentReporter {
     instanceUrl: string,
     omnistudioOrgDetails: OmnistudioOrgDetails
   ): ReportParam {
-    Logger.logVerbose(`raw data: ${JSON.stringify(OSAssessmentInfos)}`);
+    Logger.captureVerboseData('OS data:', OSAssessmentInfos);
     return {
       title: 'OmniScript Migration Assessment',
       heading: 'OmniScript',

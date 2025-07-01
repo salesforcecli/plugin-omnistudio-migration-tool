@@ -1,4 +1,5 @@
 import { DataRaptorAssessmentInfo } from '../interfaces';
+import { Logger } from '../logger';
 import { OmnistudioOrgDetails } from '../orgUtils';
 import {
   FilterGroupParam,
@@ -17,6 +18,7 @@ export class DRAssessmentReporter {
     instanceUrl: string,
     omnistudioOrgDetails: OmnistudioOrgDetails
   ): ReportParam {
+    Logger.captureVerboseData('DM data', dataRaptorAssessmentInfos);
     return {
       title: 'Data Mapper Migration Assessment',
       heading: 'Data Mapper',

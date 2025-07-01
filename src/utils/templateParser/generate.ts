@@ -22,7 +22,7 @@ export class TemplateParser {
       return template;
     }
 
-    Logger.logVerbose(`param data: ${JSON.stringify(data)}`);
+    Logger.captureVerboseData('sanitized param data:', data);
     const node = TemplateParserUtil.parseHtmlToNode(template, messages);
     const keypair = TemplateParserUtil.parseKeyPair(data, messages);
     const html = node.toHtml(keypair);

@@ -1,25 +1,28 @@
 import fs from 'fs';
 import path from 'path';
 import open from 'open';
-import { Logger, Messages } from '@salesforce/core';
+import { Messages } from '@salesforce/core';
 import { pushAssestUtilites } from '../file/fileUtil';
 import { ApexAssessmentInfo, MigratedObject, MigratedRecordInfo, RelatedObjectAssesmentInfo } from '../interfaces';
 import { ReportParam } from '../reportGenerator/reportInterfaces';
 import { OmnistudioOrgDetails } from '../orgUtils';
 import { TemplateParser } from '../templateParser/generate';
 import { createFilterGroupParam, createRowDataParam } from '../reportGenerator/reportUtil';
+import { Logger } from '../logger';
 
 const resultsDir = path.join(process.cwd(), 'migration_report');
 // const lwcConstants = { componentName: 'lwc', title: 'LWC Components Migration Result' };
 const migrationReportHTMLfileName = 'dashboard.html';
-const reportTemplateFilePath = path.join(__dirname, '..', '..', 'templates', 'migrationReport.template');
-const dashboardTemplateFilePath = path.join(__dirname, '..', '..', 'templates', 'dashboard.template');
+const templateDir = 'templates';
+const reportTemplateName = 'migrationReport.template';
+const dashboardTemplateName = 'dashboard.template';
+const reportTemplateFilePath = path.join(__dirname, '..', '..', templateDir, reportTemplateName);
+const dashboardTemplateFilePath = path.join(__dirname, '..', '..', templateDir, dashboardTemplateName);
 const apexFileName = 'apex.html';
 
 export class ResultsBuilder {
   private static rowClass = 'data-row-';
   private static rowId = 0;
-  private static logger: Logger = new Logger('ResultsBuilder');
 
   public static async generateReport(
     results: MigratedObject[],
@@ -29,14 +32,14 @@ export class ResultsBuilder {
     messages: Messages
   ): Promise<void> {
     fs.mkdirSync(resultsDir, { recursive: true });
-    this.logger.info(messages.getMessage('generatingComponentReports'));
+    Logger.info(messages.getMessage('generatingComponentReports'));
     for (const result of results) {
       this.generateReportForResult(result, instanceUrl, orgDetails, messages);
     }
-    this.logger.info(messages.getMessage('generatingRelatedObjectReports'));
+    Logger.info(messages.getMessage('generatingRelatedObjectReports'));
     this.generateReportForRelatedObject(relatedObjectMigrationResult, instanceUrl, orgDetails, messages);
 
-    this.logger.info(messages.getMessage('generatingMigrationReportDashboard'));
+    Logger.info(messages.getMessage('generatingMigrationReportDashboard'));
     this.generateMigrationReportDashboard(orgDetails, results, relatedObjectMigrationResult, messages);
     pushAssestUtilites('javascripts', resultsDir);
     pushAssestUtilites('styles', resultsDir);
@@ -49,6 +52,7 @@ export class ResultsBuilder {
     orgDetails: OmnistudioOrgDetails,
     messages: Messages
   ): void {
+    Logger.captureVerboseData(`${result.name} data`, result);
     // Determine which rollback flag to use based on component type
     let rollbackFlagNames: string[] = [];
     const componentName = result.name.toLowerCase();
@@ -181,6 +185,7 @@ export class ResultsBuilder {
     orgDetails: OmnistudioOrgDetails,
     messages: Messages
   ): void {
+    Logger.captureVerboseData('apex data', result);
     const data: ReportParam = {
       title: 'Apex Classes',
       heading: 'Apex Classes',

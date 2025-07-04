@@ -636,7 +636,9 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
         if (originalOsName !== mappedOsName) {
           osUploadResponse.newName = mappedOsName;
           osUploadResponse.warnings.unshift(
-            'WARNING: OmniScript name has been modified to fit naming rules: ' + mappedOsName
+            `WARNING: ${
+              omniProcessType === 'OmniScript' ? 'Omniscript' : 'Integration Procedure'
+            } name has been modified to fit naming rules: ${mappedOsName}`
           );
         }
 

@@ -33,7 +33,7 @@
         </div>
 
         <div class="org-details-section">
-          <div class="label-key">Data Model</div>
+          <div class="label-key">Data Model Type</div>
           <div class="label-value">{{org.dataModel}}</div>
         </div>
 

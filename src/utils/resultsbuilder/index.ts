@@ -297,8 +297,8 @@ export class ResultsBuilder {
     actionItems: string[]
   ): void {
     const data = {
-      title: 'Migration Report Dashboard',
-      heading: 'Migration Report Dashboard',
+      title: 'Omnistudio Migration to Core Assessment Reports',
+      heading: 'Omnistudio Migration to Core Assessment Reports',
       org: {
         name: orgDetails.orgDetails.Name,
         id: orgDetails.orgDetails.Id,

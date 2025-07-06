@@ -635,11 +635,6 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
           omniscript[this.namespacePrefix + 'Language__c'];
         if (originalOsName !== mappedOsName) {
           osUploadResponse.newName = mappedOsName;
-          osUploadResponse.warnings.unshift(
-            `WARNING: ${
-              omniProcessType === 'OmniScript' ? 'Omniscript' : 'Integration Procedure'
-            } name has been modified to fit naming rules: ${mappedOsName}`
-          );
         }
 
         try {

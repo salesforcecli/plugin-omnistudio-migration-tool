@@ -110,5 +110,5 @@
   "errorGeneratingHTML": "Error while generating HTML from template for {} with properties {}",
   "errorEvaluatingExpression": "Error evaluating expression: {0}, {1}",
   "manuallySwitchDesignerToStandardDataModel": "To complete the setup, please manually run the required Apex code to configure OmniStudio Designers to use the Standard Data Model <br> https://help.salesforce.com/s/articleView?id=xcloud.os_migrate_change_the_sobject_data_model_after_migration.htm&type=5",
-  "nameConversionMessage": "WARNING: {0} name has been modified to fit naming rules: {1}"
+  "nameConversionMessage": "WARNING: %s name has been modified to fit naming rules: %s"
 }

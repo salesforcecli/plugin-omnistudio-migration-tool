@@ -375,9 +375,12 @@ export default class Migrate extends OmniStudioBaseCommand {
         obj.errors = errors;
         obj.migratedId = recordResults.id;
         obj.warnings = recordResults.warnings || [];
-        if (recordResults.newName !== obj.name) {
-          const entityGroup = migrationResults.name;
-          const entity = entityGroup === 'Data Mapper' ? entityGroup : entityGroup.substring(0, entityGroup.length - 1);
+        const entityGroup = migrationResults.name;
+        if (
+          recordResults.newName !== obj.name &&
+          (entityGroup === 'Integration Procedures' || entityGroup === 'OmniScripts')
+        ) {
+          const entity = entityGroup === 'Integration Procedures' ? 'Integration Procedure' : 'Omniscript';
           obj.warnings.unshift(messages.getMessage('nameConversionMessage', [entity, recordResults.newName]));
         }
         obj.migratedName = recordResults.newName;

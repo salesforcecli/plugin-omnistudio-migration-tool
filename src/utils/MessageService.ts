@@ -1,5 +1,6 @@
 import { Messages } from '@salesforce/core';
 import { Tokens } from '@salesforce/core/lib/messages';
+import { Logger } from './logger';
 
 class MessagesService {
   private commonMessages: Messages;
@@ -17,7 +18,7 @@ class MessagesService {
     }
 
     if (msg === undefined) {
-      throw new Error(`Message not found for key: ${key}`);
+      Logger.error(`Message not found for key: ${key} with tokens: ${JSON.stringify(tokens)}`);
     }
 
     return msg;

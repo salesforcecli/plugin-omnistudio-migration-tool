@@ -235,6 +235,7 @@ export default class Migrate extends OmniStudioBaseCommand {
       } catch (ex: any) {
         objectMigrationResults.push({
           name: cls.getName(),
+          data: [],
           errors: [ex.message],
         });
         Logger.error(messages.getMessage('cleaningFailed', [cls.getName()]));
@@ -264,6 +265,7 @@ export default class Migrate extends OmniStudioBaseCommand {
         Logger.error(ex.stack);
         objectMigrationResults.push({
           name: cls.getName(),
+          data: [],
           errors: [ex.message],
         });
       }

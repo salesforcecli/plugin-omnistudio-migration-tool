@@ -239,6 +239,8 @@ describe('GlobalAutoNumberMigrationTool', () => {
 
       // Mock pre-migration checks to return true
       sandbox.stub(globalAutoNumberMigrationTool as any, 'performPreMigrationChecks').resolves(true);
+      // Set the instance variable directly to avoid the null check issue
+      (globalAutoNumberMigrationTool as any).preMigrationStatus = true;
 
       // Mock the base class dependencies to avoid actual truncation
       sandbox.stub(QueryTools, 'queryIds').resolves([]);
@@ -314,6 +316,8 @@ describe('GlobalAutoNumberMigrationTool', () => {
 
       // Mock pre-migration checks
       sandbox.stub(globalAutoNumberMigrationTool as any, 'performPreMigrationChecks').resolves(true);
+      // Set the instance variable directly to avoid the null check issue
+      (globalAutoNumberMigrationTool as any).preMigrationStatus = true;
 
       // Mock data retrieval to return 2 records
       sandbox.stub(QueryTools, 'queryAll').resolves(mockGlobalAutoNumbers);
@@ -365,6 +369,8 @@ describe('GlobalAutoNumberMigrationTool', () => {
 
       // Mock pre-migration checks
       sandbox.stub(globalAutoNumberMigrationTool as any, 'performPreMigrationChecks').resolves(true);
+      // Set the instance variable directly to avoid the null check issue
+      (globalAutoNumberMigrationTool as any).preMigrationStatus = true;
 
       // Mock data retrieval
       sandbox.stub(QueryTools, 'queryAll').resolves(mockGlobalAutoNumbers);

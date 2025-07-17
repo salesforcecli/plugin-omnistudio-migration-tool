@@ -116,6 +116,7 @@ export interface DataRaptorAssessmentInfo {
 }
 
 export interface GlobalAutoNumberAssessmentInfo {
+  oldName: string;
   name: string;
   id: string;
   infos: string[];

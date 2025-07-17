@@ -154,7 +154,7 @@ export class GlobalAutoNumberAssessmentReporter {
       return {
         rowId: `${this.rowIdPrefix}${this.rowId++}`,
         data: [
-          createRowDataParam('name', globalAutoNumberAssessmentInfo.name, true, 1, 1, false),
+          createRowDataParam('name', globalAutoNumberAssessmentInfo.oldName, true, 1, 1, false),
           createRowDataParam(
             'id',
             globalAutoNumberAssessmentInfo.id,

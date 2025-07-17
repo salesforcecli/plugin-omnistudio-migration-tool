@@ -1,9 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Messages } from '@salesforce/core';
 import { Logger } from './logger';
 import { sfProject } from './sfcli/project/sfProject';
 import { PromptUtil } from './promptUtil';
+import { MessageService } from './MessageService';
 
 export const EXISTING_MODE = 'existing';
 export const EMPTY_MODE = 'empty';
@@ -32,22 +32,21 @@ export class ProjectPathUtil {
    * @param enableRetrieval - Whether to enable the retrieval option for empty projects
    * @returns Promise<string> - The validated project path
    */
-  public static async getProjectPath(messages: Messages, enableRetrieval = true): Promise<string> {
-    const askWithTimeout = PromptUtil.askWithTimeOut(messages);
-    const mode = await ProjectPathUtil.promptForProjectType(messages, askWithTimeout);
+  public static async getProjectPath(enableRetrieval = true): Promise<string> {
+    const askWithTimeout = PromptUtil.askWithTimeOut();
+    const mode = await ProjectPathUtil.promptForProjectType(askWithTimeout);
 
     if (mode === EMPTY_MODE && enableRetrieval) {
-      await ProjectPathUtil.promptForRetrieval(messages, askWithTimeout);
+      await ProjectPathUtil.promptForRetrieval(askWithTimeout);
     }
 
-    return ProjectPathUtil.promptForProjectPath(messages, askWithTimeout, mode);
+    return ProjectPathUtil.promptForProjectPath(askWithTimeout, mode);
   }
 
   /**
    * Prompts user to choose between existing or empty project
    */
   private static async promptForProjectType(
-    messages: Messages,
     askWithTimeout: (promptFn: (...args: unknown[]) => Promise<unknown>, ...args: unknown[]) => Promise<string>
   ): Promise<string> {
     let validResponse = false;
@@ -55,7 +54,7 @@ export class ProjectPathUtil {
 
     while (!validResponse) {
       try {
-        const resp = await askWithTimeout(Logger.prompt.bind(Logger), messages.getMessage('existingApexPrompt'));
+        const resp = await askWithTimeout(Logger.prompt.bind(Logger), MessageService.getMessage('existingApexPrompt'));
         const response = typeof resp === 'string' ? resp.trim().toLowerCase() : '';
 
         if (response === YES_SHORT || response === YES_LONG) {
@@ -65,10 +64,10 @@ export class ProjectPathUtil {
           mode = EMPTY_MODE;
           validResponse = true;
         } else {
-          Logger.error(messages.getMessage('invalidYesNoResponse'));
+          Logger.error(MessageService.getMessage('invalidYesNoResponse'));
         }
       } catch (err) {
-        Logger.error(messages.getMessage('requestTimedOut'));
+        Logger.error(MessageService.getMessage('requestTimedOut'));
         process.exit(1);
       }
     }
@@ -80,26 +79,25 @@ export class ProjectPathUtil {
    * Prompts user to confirm if they want to retrieve APEX classes
    */
   private static async promptForRetrieval(
-    messages: Messages,
     askWithTimeout: (promptFn: (...args: unknown[]) => Promise<unknown>, ...args: unknown[]) => Promise<string>
   ): Promise<void> {
     let validResponse = false;
 
     while (!validResponse) {
       try {
-        const resp = await askWithTimeout(Logger.prompt.bind(Logger), messages.getMessage('retrieveApexPrompt'));
+        const resp = await askWithTimeout(Logger.prompt.bind(Logger), MessageService.getMessage('retrieveApexPrompt'));
         const response = typeof resp === 'string' ? resp.trim().toLowerCase() : '';
 
         if (response === YES_SHORT || response === YES_LONG) {
           validResponse = true;
         } else if (response === NO_SHORT || response === NO_LONG) {
-          Logger.error(messages.getMessage('operationCancelled'));
+          Logger.error(MessageService.getMessage('operationCancelled'));
           process.exit(0);
         } else {
-          Logger.error(messages.getMessage('invalidYesNoResponse'));
+          Logger.error(MessageService.getMessage('invalidYesNoResponse'));
         }
       } catch (err) {
-        Logger.error(messages.getMessage('requestTimedOut'));
+        Logger.error(MessageService.getMessage('requestTimedOut'));
         process.exit(1);
       }
     }
@@ -109,15 +107,14 @@ export class ProjectPathUtil {
    * Prompts user for project path and validates it
    */
   private static async promptForProjectPath(
-    messages: Messages,
     askWithTimeout: (promptFn: (...args: unknown[]) => Promise<unknown>, ...args: unknown[]) => Promise<string>,
     mode: string
   ): Promise<string> {
     let gotValidPath = false;
     let folderPath = '';
     while (!gotValidPath) {
-      folderPath = await ProjectPathUtil.getFolderPathFromUser(messages, askWithTimeout, mode);
-      if (ProjectPathUtil.isValidFolderPath(folderPath, mode, messages)) {
+      folderPath = await ProjectPathUtil.getFolderPathFromUser(askWithTimeout, mode);
+      if (ProjectPathUtil.isValidFolderPath(folderPath, mode)) {
         if (mode === EMPTY_MODE) {
           createSfdxProject(folderPath);
         }
@@ -131,7 +128,6 @@ export class ProjectPathUtil {
    * Gets folder path input from user
    */
   private static async getFolderPathFromUser(
-    messages: Messages,
     askWithTimeout: (promptFn: (...args: unknown[]) => Promise<unknown>, ...args: unknown[]) => Promise<string>,
     mode: string
   ): Promise<string> {
@@ -139,12 +135,12 @@ export class ProjectPathUtil {
       const resp = await askWithTimeout(
         Logger.prompt.bind(Logger),
         mode === EXISTING_MODE
-          ? messages.getMessage('enterExistingProjectPath')
-          : messages.getMessage('enterEmptyProjectPath')
+          ? MessageService.getMessage('enterExistingProjectPath')
+          : MessageService.getMessage('enterEmptyProjectPath')
       );
       return typeof resp === 'string' ? path.resolve(resp.trim()) : '';
     } catch (err) {
-      Logger.error(messages.getMessage('requestTimedOut'));
+      Logger.error(MessageService.getMessage('requestTimedOut'));
       process.exit(1);
     }
   }
@@ -152,19 +148,19 @@ export class ProjectPathUtil {
   /**
    * Validates the folder path based on mode
    */
-  private static isValidFolderPath(folderPath: string, mode: string, messages: Messages): boolean {
+  private static isValidFolderPath(folderPath: string, mode: string): boolean {
     if (!fs.existsSync(folderPath) || !fs.lstatSync(folderPath).isDirectory()) {
-      Logger.error(messages.getMessage('invalidProjectFolderPath'));
+      Logger.error(MessageService.getMessage('invalidProjectFolderPath'));
       return false;
     }
 
     if (mode === EMPTY_MODE && fs.readdirSync(folderPath).length > 0) {
-      Logger.error(messages.getMessage('notEmptyProjectFolderPath'));
+      Logger.error(MessageService.getMessage('notEmptyProjectFolderPath'));
       return false;
     }
 
     if (mode === EXISTING_MODE && !isSfdxProject(folderPath)) {
-      Logger.error(messages.getMessage('notSfdxProjectFolderPath'));
+      Logger.error(MessageService.getMessage('notSfdxProjectFolderPath'));
       return false;
     }
 

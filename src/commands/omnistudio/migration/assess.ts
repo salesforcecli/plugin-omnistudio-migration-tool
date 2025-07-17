@@ -16,7 +16,6 @@ import { Constants } from '../../../utils/constants/stringContants';
 import { ProjectPathUtil } from '../../../utils/projectPathUtil';
 import { MessageService } from '../../../utils/MessageService';
 
-
 export default class Assess extends OmniStudioBaseCommand {
   public static description = MessageService.getMessage('assessCommandDescription');
 

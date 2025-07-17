@@ -9,9 +9,9 @@ import { TemplateParser } from '../templateParser/generate';
 import { createFilterGroupParam, createRowDataParam } from '../reportGenerator/reportUtil';
 import { FileDiffUtil } from '../lwcparser/fileutils/FileDiffUtil';
 import { Logger } from '../logger';
-import { reportingHelper } from './reportingHelper';
 import { MessageService } from '../MessageService';
 import { getMigrationHeading } from '../stringUtils';
+import { reportingHelper } from './reportingHelper';
 
 const resultsDir = path.join(process.cwd(), 'migration_report');
 // const lwcConstants = { componentName: 'lwc', title: 'LWC Components Migration Result' };
@@ -212,7 +212,12 @@ export class ResultsBuilder {
       },
       assessmentDate: new Date().toString(),
       total: result.length,
-      filterGroups: [createFilterGroupParam(MessageService.getMessage('reportFilterGroupErrorsLabel'), 'warnings', ['Has Errors', 'Has No Errors'])],
+      filterGroups: [
+        createFilterGroupParam(MessageService.getMessage('reportFilterGroupErrorsLabel'), 'warnings', [
+          'Has Errors',
+          'Has No Errors',
+        ]),
+      ],
       headerGroups: [
         {
           header: [

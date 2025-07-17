@@ -254,7 +254,13 @@ export class OSAssessmentReporter {
     const distinctStatuses = [...new Set(OSAssessmentInfos.map((info) => info.migrationStatus))];
     const statusFilterGroupParam: FilterGroupParam[] =
       distinctStatuses.length > 0 && distinctStatuses.filter((status) => status).length > 0
-        ? [createFilterGroupParam(MessageService.getMessage('reportFilterGroupStatusLabel'), 'status', distinctStatuses)]
+        ? [
+            createFilterGroupParam(
+              MessageService.getMessage('reportFilterGroupStatusLabel'),
+              'status',
+              distinctStatuses
+            ),
+          ]
         : [];
 
     return [...typeFilterGroupParam, ...statusFilterGroupParam];

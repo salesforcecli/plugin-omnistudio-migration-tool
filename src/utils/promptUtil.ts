@@ -1,15 +1,16 @@
-import { Messages } from '@salesforce/core';
+import { MessageService } from './MessageService';
 
 export class PromptUtil {
-  public static askWithTimeOut(
-    messages: Messages
-  ): (promptFn: (...args: unknown[]) => Promise<unknown>, ...args: unknown[]) => Promise<string> {
+  public static askWithTimeOut(): (
+    promptFn: (...args: unknown[]) => Promise<unknown>,
+    ...args: unknown[]
+  ) => Promise<string> {
     return async (promptFn: (...args: unknown[]) => Promise<unknown>, ...args: unknown[]): Promise<string> => {
       const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
       let timeoutHandle: NodeJS.Timeout;
       const timeoutPromise = new Promise((_, reject) => {
         timeoutHandle = setTimeout(() => {
-          reject(new Error(messages.getMessage('requestTimedOut')));
+          reject(new Error(MessageService.getMessage('requestTimedOut')));
         }, TIMEOUT_MS);
       });
       try {

@@ -94,5 +94,11 @@
   "reportFilterHasNoError": "Has No Error",
   "reportTableHeaderFileRef": "File Reference",
   "reportTableHeaderDiff": "Code Difference",
-  "reportTableHeaderSummary": "Summary"
+  "reportTableHeaderSummary": "Summary",
+  "duplicatedName": "Duplicated name",
+  "allVersionsDescription": "Migrate all versions of a component",
+  "changeMessage": "%s is changed from %s to %s",
+  "angularOSWarning": " Angular OmniScript is not migrated, please convert this to LWC based Omniscript",
+  "authordNameChangeMessage": "Author name is changed from %s to %s to follow API naming standards",
+  "omniScriptNameChangeMessage": "OmniScript reference part %s is changed to %s during migration."
 }

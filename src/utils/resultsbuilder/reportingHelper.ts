@@ -1,12 +1,9 @@
-import { Messages } from '@salesforce/core';
 import { nameLocation, oldNew } from '../interfaces';
 import { CTASummary } from '../reportGenerator/reportInterfaces';
 import { IPAssessmentInfo, OSAssessmentInfo, DataRaptorAssessmentInfo, ApexAssessmentInfo } from '../interfaces';
 import { documentRegistry } from '../constants/documentRegistry';
 import { Logger } from '../logger';
-
-Messages.importMessagesDirectory(__dirname);
-const assessMessages = Messages.loadMessages('@salesforce/plugin-omnistudio-migration-tool', 'assess');
+import { MessageService } from '../MessageService';
 
 export class reportingHelper {
   public static decorate(nameLocations: nameLocation[]): string {
@@ -64,7 +61,7 @@ export class reportingHelper {
       if (assessmentInfo.warnings && assessmentInfo.warnings.length > 0) {
         for (const info of assessmentInfo.warnings) {
           for (const key of Object.keys(documentRegistry)) {
-            const value = assessMessages.getMessage(key);
+            const value = MessageService.getMessage(key);
             if (
               typeof value === 'string' &&
               typeof key === 'string' &&

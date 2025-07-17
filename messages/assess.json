@@ -52,13 +52,13 @@
   "foundFlexCardsToAssess": "Found %s FlexCards to assess",
   "startingApexAssessment": "Starting Apex assessment in project path: %s",
   "processingApexFile": "Processing Apex file: %s",
-  "cardNameChangeMessage": "Card name will be changed from {0} to {1} to follow API naming standards",
-  "authordNameChangeMessage": "Author name will be changed from {0} to {1} to follow API naming standards",
-  "omniScriptNameChangeMessage": "OmniScript reference part {0} will be changed to {1} during migration.",
-  "dataRaptorNameChangeMessage": "DataRaptor reference {0} will be changed to {1} during migration.",
-  "integrationProcedureNameChangeMessage": "Integration Procedure reference {0} will be changed to {1} during migration.",
-  "integrationProcedureManualUpdateMessage": "Integration Procedure reference {0} may need manual updates after migration.",
-  "duplicateCardNameMessage": "Potential duplicate: Another card has the same name {0} after name cleaning. This may cause conflicts during migration",
+  "cardNameChangeMessage": "Card name will be changed from %s to %s to follow API naming standards",
+  "authordNameChangeMessage": "Author name will be changed from %s to %s to follow API naming standards",
+  "omniScriptNameChangeMessage": "OmniScript reference part %s will be changed to %s during migration.",
+  "dataRaptorNameChangeMessage": "DataRaptor reference %s will be changed to %s during migration.",
+  "integrationProcedureNameChangeMessage": "Integration Procedure reference %s will be changed to %s during migration.",
+  "integrationProcedureManualUpdateMessage": "Integration Procedure reference %s may need manual updates after migration.",
+  "duplicateCardNameMessage": "Potential duplicate: Another card has the same name %s after name cleaning. This may cause conflicts during migration",
   "existingApexPrompt": "Do you have a sfdc project that already contains the APEX classes retrieved from your org? [y/n]",
   "enterExistingProjectPath": "Enter the path to the project folder that contains the retrieved APEX classes:",
   "invalidProjectFolderPath": "Provided project folder does not exist. Please provide a valid project folder path",
@@ -115,5 +115,6 @@
   "reportTableHeaderCustomLWCDependencies": "Custom LWCs Dependencies",
   "reportTableHeaderApexDependencies": "Apex Class Dependencies",
   "reportTableHeaderCustomFunctionDependencies": "Custom Function Dependencies",
-  "reportTableHeaderLWCDependencies": "LWC Dependencies"
+  "reportTableHeaderLWCDependencies": "LWC Dependencies",
+  "allVersionsDescription": "Assess all versions of a component"
 }

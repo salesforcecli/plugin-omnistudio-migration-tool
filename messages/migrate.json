@@ -1,14 +1,14 @@
 {
   "examples": [
-    "omnistudio:migration:migrate -u orguser@domain.com --namespace=YOUR_PACKAGE_NAMESPACE",
-    "omnistudio:migration:migrate -u orguser@domain.com --namespace=YOUR_PACKAGE_NAMESPACE --only=dr",
-    "omnistudio:migration:migrate -u orguser@domain.com --namespace=YOUR_PACKAGE_NAMESPACE --only=ip",
-    "omnistudio:migration:migrate -u orguser@domain.com --namespace=YOUR_PACKAGE_NAMESPACE --only=os",
-    "omnistudio:migration:migrate -u orguser@domain.com --namespace=YOUR_PACKAGE_NAMESPACE --only=fc",
-    "omnistudio:migration:migrate -u orguser@domain.com --namespace=YOUR_PACKAGE_NAMESPACE --only=autonumber",
-    "omnistudio:migration:migrate -u orguser@domain.com --namespace=YOUR_PACKAGE_NAMESPACE -r apex,lwc",
-    "omnistudio:migration:migrate -u orguser@domain.com --namespace=YOUR_PACKAGE_NAMESPACE -r apex",
-    "omnistudio:migration:migrate -u orguser@domain.com --namespace=YOUR_PACKAGE_NAMESPACE -r lwc"
+    "omnistudio:migration:migrate -u orguser@domain.com ",
+    "omnistudio:migration:migrate -u orguser@domain.com  --only=dr",
+    "omnistudio:migration:migrate -u orguser@domain.com  --only=ip",
+    "omnistudio:migration:migrate -u orguser@domain.com  --only=os",
+    "omnistudio:migration:migrate -u orguser@domain.com  --only=fc",
+    "omnistudio:migration:migrate -u orguser@domain.com  --only=autonumber",
+    "omnistudio:migration:migrate -u orguser@domain.com  -r apex,lwc",
+    "omnistudio:migration:migrate -u orguser@domain.com  -r apex",
+    "omnistudio:migration:migrate -u orguser@domain.com  -r lwc"
   ],
   "commandDescription": "Migrate omnistudio components from custom objects to standard objects",
   "namespaceFlagDescription": "The namespace of the package",

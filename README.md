@@ -93,10 +93,10 @@ Assessment provides detailed information about:
 
 ```bash
 # Assess Global Auto Numbers only
-sfdx omnistudio:migration:assess -u YOUR_ORG_USERNAME@DOMAIN.COM --only=autonumber --namespace=YOUR_PACKAGE_NAMESPACE
+sfdx omnistudio:migration:assess -u YOUR_ORG_USERNAME@DOMAIN.COM --only=autonumber
 
 # Migrate Global Auto Numbers only
-sfdx omnistudio:migration:migrate -u YOUR_ORG_USERNAME@DOMAIN.COM --only=autonumber --namespace=YOUR_PACKAGE_NAMESPACE
+sfdx omnistudio:migration:migrate -u YOUR_ORG_USERNAME@DOMAIN.COM --only=autonumber
 ```
 
 5. An HTML page will be open in your default browser with the results of your migration/assessment job.

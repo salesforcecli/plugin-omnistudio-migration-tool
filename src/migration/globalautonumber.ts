@@ -70,7 +70,7 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
     }
 
     // Perform post-migration cleanup
-    await this.postMigrationCleanup(migrationResult.results);
+    await this.postMigrationCleanup();
 
     return [migrationResult];
   }
@@ -79,7 +79,7 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
    * Post-migration cleanup: Delete source objects from managed package
    * This should be called after successful migration
    */
-  private async postMigrationCleanup(uploadInfo: Map<string, UploadRecordResult>): Promise<void> {
+  private async postMigrationCleanup(): Promise<void> {
     try {
       Logger.log(this.messages.getMessage('startingPostMigrationCleanup'));
       // Delete source GlobalAutoNumberSetting__c records using the same truncate pattern

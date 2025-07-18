@@ -49,6 +49,7 @@ export interface MigrationResult {
   name: string;
   results: Map<string, UploadRecordResult>;
   records: Map<string, any>;
+  errors?: string[];
 }
 
 export interface OriginalRecordItem {

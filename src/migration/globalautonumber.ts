@@ -45,55 +45,62 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
   }
 
   public async truncate(): Promise<void> {
-    // Perform pre-migration checks before truncation
-    const success = await this.performPreMigrationChecks();
-    if (!success) {
+    try {
+      // Perform pre-migration checks before truncation
+      await this.performPreMigrationChecks();
+      await super.truncate(GlobalAutoNumberMigrationTool.OMNI_GLOBAL_AUTO_NUMBER_NAME);
+    } catch (error) {
       Logger.error(this.messages.getMessage('cleaningFailed', [this.getName()]));
-      return;
     }
-    await super.truncate(GlobalAutoNumberMigrationTool.OMNI_GLOBAL_AUTO_NUMBER_NAME);
   }
 
   public async migrate(): Promise<MigrationResult[]> {
     // Perform pre-migration checks before migration
-    const success = await this.performPreMigrationChecks();
-    if (!success) {
-      return [];
-    }
+    await this.performPreMigrationChecks();
+
     // Migrate Global Auto Number data
     const migrationResult = await this.migrateGlobalAutoNumberData();
 
     // Validate migration success
-    const isValid = await this.validateMigrationSuccess(migrationResult.results);
-    if (!isValid) {
-      return [migrationResult];
-    }
+    const validationError = await this.validateMigrationSuccess(migrationResult.results);
+
+    const errors = [];
+    // if (validationError) {
+    //   errors.push(validationError);
+    //   return [{ ...migrationResult, errors: errors }];
+    // }
 
     // Perform post-migration cleanup
-    await this.postMigrationCleanup();
+    const cleanupError = await this.postMigrationCleanup();
 
-    return [migrationResult];
+    if (cleanupError) {
+      errors.push(cleanupError);
+    }
+
+    return [{ ...migrationResult, errors: errors }];
   }
 
   /**
    * Post-migration cleanup: Delete source objects from managed package
    * This should be called after successful migration
    */
-  private async postMigrationCleanup(): Promise<void> {
+  private async postMigrationCleanup(): Promise<string> {
     try {
       Logger.log(this.messages.getMessage('startingPostMigrationCleanup'));
       // Delete source GlobalAutoNumberSetting__c records using the same truncate pattern
       await super.truncate(this.namespacePrefix + GlobalAutoNumberMigrationTool.GLOBAL_AUTO_NUMBER_SETTING_NAME);
-
+      Logger.log(this.messages.getMessage('postMigrationCleanupCompleted'));
       // Enable the org preference after successful cleanup
       const result = await this.prefManager.enable();
       if (result?.success) {
         Logger.log(this.messages.getMessage('omniGlobalAutoNumberPrefEnabled'));
+        return '';
       } else {
-        Logger.error(this.messages.getMessage('errorEnablingOmniGlobalAutoNumberPref'));
+        const errorMessage = this.messages.getMessage('errorEnablingOmniGlobalAutoNumberPref');
+        Logger.error(errorMessage);
         Logger.error(result?.errors?.message);
+        return errorMessage;
       }
-      Logger.log(this.messages.getMessage('postMigrationCleanupCompleted'));
     } catch (error) {
       Logger.error(this.messages.getMessage('errorDuringPostMigrationCleanup'));
     }
@@ -103,7 +110,7 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
    * Validate that all Global Auto Number objects are successfully migrated
    * before proceeding with source object truncation
    */
-  private async validateMigrationSuccess(uploadInfo: Map<string, UploadRecordResult>): Promise<boolean> {
+  private async validateMigrationSuccess(uploadInfo: Map<string, UploadRecordResult>): Promise<string> {
     // Check if all uploaded records have success: true
     const failedRecords = Array.from(uploadInfo.values()).filter((result) => !result.success);
     const successfulRecords = Array.from(uploadInfo.values()).filter((result) => result.success);
@@ -114,52 +121,52 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
 
     // Check for count difference
     if (sourceCount !== targetCount) {
-      Logger.error(this.messages.getMessage('incompleteMigrationDetected', [sourceCount, targetCount]));
+      const errorMessage = this.messages.getMessage('incompleteMigrationDetected', [sourceCount, targetCount]);
+      Logger.error(errorMessage);
       Logger.error(this.messages.getMessage('migrationValidationFailed'));
-      return false;
+      return errorMessage;
     }
 
     // Check for failed records
     if (failedRecords.length > 0) {
       const failedCount = failedRecords.length;
       const totalCount = uploadInfo.size;
-      Logger.error(this.messages.getMessage('incompleteMigrationDetected', [totalCount, totalCount - failedCount]));
+      const errorMessage = this.messages.getMessage('incompleteMigrationDetected', [
+        totalCount,
+        totalCount - failedCount,
+      ]);
+      Logger.error(errorMessage);
       Logger.error(this.messages.getMessage('migrationValidationFailed'));
-      return false;
+      return errorMessage;
     }
 
-    return true;
+    return '';
   }
 
-  private async performPreMigrationChecks(): Promise<boolean> {
-    try {
-      // Check if Global Auto Number preference is already enabled
-      const isEnabled = await this.prefManager.isEnabled();
-      if (isEnabled) {
-        const errorMessage = this.messages.getMessage('globalAutoNumberPrefEnabledError');
-        Logger.error(errorMessage);
-        return false;
+  private async performPreMigrationChecks(): Promise<void> {
+    // Check if Global Auto Number preference is already enabled
+    const isEnabled = await this.prefManager.isEnabled();
+    if (isEnabled) {
+      const errorMessage = this.messages.getMessage('globalAutoNumberPrefEnabledError');
+      Logger.error(errorMessage);
+      throw new Error(errorMessage);
+    }
+    // Check rollback flags using existing utility
+    const rollbackFlags = await OrgPreferences.checkRollbackFlags(this.connection);
+    const enabledFlags = rollbackFlags.filter((flag) => GlobalAutoNumberMigrationTool.ROLLBACK_FLAGS.includes(flag));
+    if (enabledFlags.length === 0) {
+      return; // Success - proceed with migration
+    } else if (enabledFlags.length > 0) {
+      let errorMessage: string;
+      if (enabledFlags.includes('RollbackIPChanges') && enabledFlags.includes('RollbackDRChanges')) {
+        errorMessage = this.messages.getMessage('bothRollbackFlagsEnabledError');
+      } else if (enabledFlags.includes('RollbackIPChanges')) {
+        errorMessage = this.messages.getMessage('rollbackIPFlagEnabledError');
+      } else if (enabledFlags.includes('RollbackDRChanges')) {
+        errorMessage = this.messages.getMessage('rollbackDRFlagEnabledError');
       }
-      // Check rollback flags using existing utility
-      const rollbackFlags = await OrgPreferences.checkRollbackFlags(this.connection);
-      const enabledFlags = rollbackFlags.filter((flag) => GlobalAutoNumberMigrationTool.ROLLBACK_FLAGS.includes(flag));
-      if (enabledFlags.length === 0) {
-        return true;
-      } else if (enabledFlags.length > 0) {
-        let errorMessage: string;
-        if (enabledFlags.includes('RollbackIPChanges') && enabledFlags.includes('RollbackDRChanges')) {
-          errorMessage = this.messages.getMessage('bothRollbackFlagsEnabledError');
-        } else if (enabledFlags.includes('RollbackIPChanges')) {
-          errorMessage = this.messages.getMessage('rollbackIPFlagEnabledError');
-        } else if (enabledFlags.includes('RollbackDRChanges')) {
-          errorMessage = this.messages.getMessage('rollbackDRFlagEnabledError');
-        }
-        Logger.error(errorMessage);
-        return false;
-      }
-    } catch (error) {
-      Logger.error(this.messages.getMessage('preMigrationChecksFailed'));
-      return false;
+      Logger.error(errorMessage);
+      throw new Error(errorMessage);
     }
   }
 
@@ -242,6 +249,7 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
       name: 'GlobalAutoNumber',
       results: globalAutoNumberUploadInfo,
       records: originalGlobalAutoNumberRecords,
+      errors: [],
     };
   }
 

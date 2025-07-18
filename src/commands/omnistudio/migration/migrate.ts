@@ -182,8 +182,7 @@ export default class Migrate extends OmniStudioBaseCommand {
       relatedObjectMigrationResult.lwcAssessmentInfos
     );
 
-    let actionItems = [];
-    actionItems = await this.setDesignersToUseStandardDataModel(namespace);
+    const actionItems = await this.collectActionItems(namespace, objectMigrationResults);
 
     await ResultsBuilder.generateReport(
       objectMigrationResults,
@@ -199,6 +198,21 @@ export default class Migrate extends OmniStudioBaseCommand {
 
     // Return results needed for --json flag
     return { objectMigrationResults };
+  }
+
+  private async collectActionItems(namespace: string, objectMigrationResults: MigratedObject[]): Promise<string[]> {
+    const actionItems: string[] = [];
+    const designerActionItems = await this.setDesignersToUseStandardDataModel(namespace);
+    actionItems.push(...designerActionItems);
+
+    // Collect errors from migration results and add them to action items
+    for (const result of objectMigrationResults) {
+      if (result.errors && result.errors.length > 0) {
+        actionItems.push(...result.errors);
+      }
+    }
+
+    return actionItems;
   }
 
   private async setDesignersToUseStandardDataModel(namespace: string): Promise<string[]> {
@@ -257,6 +271,7 @@ export default class Migrate extends OmniStudioBaseCommand {
             return {
               name: r.name,
               data: this.mergeRecordAndUploadResults(r, cls),
+              errors: r.errors,
             };
           })
         );

@@ -12,6 +12,7 @@ describe('OrgPreferences', () => {
     connection = {
       metadata: {
         update: sandbox.stub(),
+        read: sandbox.stub(),
       },
       query: sandbox.stub(),
     } as unknown as Connection;
@@ -118,6 +119,248 @@ describe('OrgPreferences', () => {
           expect.fail('Expected an Error object');
         }
       }
+    });
+  });
+
+  describe('isExperienceBundleMetadataAPIEnabled', () => {
+    it('should return true when result is an array with enableExperienceBundleMetadata set to true', async () => {
+      // Arrange
+      const metadataReadResult = [
+        {
+          fullName: 'ExperienceBundle',
+          enableExperienceBundleMetadata: 'true',
+        },
+      ];
+      const metadataReadStub = sandbox.stub().resolves(metadataReadResult);
+      connection.metadata.read = metadataReadStub;
+
+      // Act
+      const result = await OrgPreferences.isExperienceBundleMetadataAPIEnabled(connection);
+
+      // Assert
+      expect(result).to.be.true;
+      expect(metadataReadStub.calledOnce).to.be.true;
+      expect(metadataReadStub.firstCall.args[0]).to.equal('ExperienceBundleSettings');
+      expect(metadataReadStub.firstCall.args[1]).to.deep.equal(['ExperienceBundle']);
+    });
+
+    it('should return false when result is an array with enableExperienceBundleMetadata set to false', async () => {
+      // Arrange
+      const metadataReadResult = [
+        {
+          fullName: 'ExperienceBundle',
+          enableExperienceBundleMetadata: 'false',
+        },
+      ];
+      const metadataReadStub = sandbox.stub().resolves(metadataReadResult);
+      connection.metadata.read = metadataReadStub;
+
+      // Act
+      const result = await OrgPreferences.isExperienceBundleMetadataAPIEnabled(connection);
+
+      // Assert
+      expect(result).to.be.false;
+    });
+
+    it('should return true when result is an object with enableExperienceBundleMetadata set to true', async () => {
+      // Arrange
+      const metadataReadResult = {
+        fullName: 'ExperienceBundle',
+        enableExperienceBundleMetadata: 'true',
+      };
+      const metadataReadStub = sandbox.stub().resolves(metadataReadResult);
+      connection.metadata.read = metadataReadStub;
+
+      // Act
+      const result = await OrgPreferences.isExperienceBundleMetadataAPIEnabled(connection);
+
+      // Assert
+      expect(result).to.be.true;
+    });
+
+    it('should return false when result is an object with enableExperienceBundleMetadata set to false', async () => {
+      // Arrange
+      const metadataReadResult = {
+        fullName: 'ExperienceBundle',
+        enableExperienceBundleMetadata: 'false',
+      };
+      const metadataReadStub = sandbox.stub().resolves(metadataReadResult);
+      connection.metadata.read = metadataReadStub;
+
+      // Act
+      const result = await OrgPreferences.isExperienceBundleMetadataAPIEnabled(connection);
+
+      // Assert
+      expect(result).to.be.false;
+    });
+
+    it('should return false when result is an empty array', async () => {
+      // Arrange
+      const metadataReadResult: unknown[] = [];
+      const metadataReadStub = sandbox.stub().resolves(metadataReadResult);
+      connection.metadata.read = metadataReadStub;
+
+      // Act
+      const result = await OrgPreferences.isExperienceBundleMetadataAPIEnabled(connection);
+
+      // Assert
+      expect(result).to.be.false;
+    });
+
+    it('should return false when result is null', async () => {
+      // Arrange
+      const metadataReadResult = null;
+      const metadataReadStub = sandbox.stub().resolves(metadataReadResult);
+      connection.metadata.read = metadataReadStub;
+
+      // Act
+      const result = await OrgPreferences.isExperienceBundleMetadataAPIEnabled(connection);
+
+      // Assert
+      expect(result).to.be.false;
+    });
+
+    it('should return false when result is undefined', async () => {
+      // Arrange
+      const metadataReadResult = undefined;
+      const metadataReadStub = sandbox.stub().resolves(metadataReadResult);
+      connection.metadata.read = metadataReadStub;
+
+      // Act
+      const result = await OrgPreferences.isExperienceBundleMetadataAPIEnabled(connection);
+
+      // Assert
+      expect(result).to.be.false;
+    });
+
+    it('should return false when result is an object without enableExperienceBundleMetadata property', async () => {
+      // Arrange
+      const metadataReadResult = {
+        fullName: 'ExperienceBundle',
+        someOtherProperty: 'value',
+      };
+      const metadataReadStub = sandbox.stub().resolves(metadataReadResult);
+      connection.metadata.read = metadataReadStub;
+
+      // Act
+      const result = await OrgPreferences.isExperienceBundleMetadataAPIEnabled(connection);
+
+      // Assert
+      expect(result).to.be.false;
+    });
+
+    it('should return false when metadata read throws an error', async () => {
+      // Arrange
+      const error = new Error('Metadata read failed');
+      const metadataReadStub = sandbox.stub().rejects(error);
+      connection.metadata.read = metadataReadStub;
+
+      // Act
+      const result = await OrgPreferences.isExperienceBundleMetadataAPIEnabled(connection);
+
+      // Assert
+      expect(result).to.be.false;
+    });
+
+    it('should return false when result is an array with enableExperienceBundleMetadata set to non-boolean string', async () => {
+      // Arrange
+      const metadataReadResult = [
+        {
+          fullName: 'ExperienceBundle',
+          enableExperienceBundleMetadata: 'maybe',
+        },
+      ];
+      const metadataReadStub = sandbox.stub().resolves(metadataReadResult);
+      connection.metadata.read = metadataReadStub;
+
+      // Act
+      const result = await OrgPreferences.isExperienceBundleMetadataAPIEnabled(connection);
+
+      // Assert
+      expect(result).to.be.false;
+    });
+  });
+
+  describe('setExperienceBundleMetadataAPI', () => {
+    it('should successfully enable ExperienceBundle Metadata API and return true', async () => {
+      // Arrange
+      const metadataUpdateStub = sandbox.stub().resolves();
+      connection.metadata.update = metadataUpdateStub;
+
+      // Act
+      const result = await OrgPreferences.setExperienceBundleMetadataAPI(connection, true);
+
+      // Assert
+      expect(result).to.be.true;
+      expect(metadataUpdateStub.calledOnce).to.be.true;
+      expect(metadataUpdateStub.firstCall.args[0]).to.equal('ExperienceBundleSettings');
+      expect(metadataUpdateStub.firstCall.args[1]).to.deep.equal([
+        {
+          fullName: 'ExperienceBundle',
+          enableExperienceBundleMetadata: true,
+        },
+      ]);
+    });
+
+    it('should successfully disable ExperienceBundle Metadata API and return true', async () => {
+      // Arrange
+      const metadataUpdateStub = sandbox.stub().resolves();
+      connection.metadata.update = metadataUpdateStub;
+
+      // Act
+      const result = await OrgPreferences.setExperienceBundleMetadataAPI(connection, false);
+
+      // Assert
+      expect(result).to.be.true;
+      expect(metadataUpdateStub.calledOnce).to.be.true;
+      expect(metadataUpdateStub.firstCall.args[0]).to.equal('ExperienceBundleSettings');
+      expect(metadataUpdateStub.firstCall.args[1]).to.deep.equal([
+        {
+          fullName: 'ExperienceBundle',
+          enableExperienceBundleMetadata: false,
+        },
+      ]);
+    });
+
+    it('should return false when metadata update fails', async () => {
+      // Arrange
+      const error = new Error('Metadata update failed');
+      const metadataUpdateStub = sandbox.stub().rejects(error);
+      connection.metadata.update = metadataUpdateStub;
+
+      // Act
+      const result = await OrgPreferences.setExperienceBundleMetadataAPI(connection, true);
+
+      // Assert
+      expect(result).to.be.false;
+      expect(metadataUpdateStub.calledOnce).to.be.true;
+    });
+
+    it('should return false when metadata update fails with non-Error object', async () => {
+      // Arrange
+      const error = 'String error message';
+      const metadataUpdateStub = sandbox.stub().rejects(error);
+      connection.metadata.update = metadataUpdateStub;
+
+      // Act
+      const result = await OrgPreferences.setExperienceBundleMetadataAPI(connection, false);
+
+      // Assert
+      expect(result).to.be.false;
+      expect(metadataUpdateStub.calledOnce).to.be.true;
+    });
+
+    it('should handle undefined error gracefully and return false', async () => {
+      // Arrange
+      const metadataUpdateStub = sandbox.stub().rejects(undefined);
+      connection.metadata.update = metadataUpdateStub;
+
+      // Act
+      const result = await OrgPreferences.setExperienceBundleMetadataAPI(connection, true);
+
+      // Assert
+      expect(result).to.be.false;
+      expect(metadataUpdateStub.calledOnce).to.be.true;
     });
   });
 });

@@ -7,6 +7,7 @@ export const Constants = {
   GlobalAutoNumber: 'autonumber',
   LWC: 'lwc',
   Apex: 'apex',
+  ExpSites: 'expsites',
 
   // full form of the omni components
   OmniScriptComponentName: 'OmniScript',

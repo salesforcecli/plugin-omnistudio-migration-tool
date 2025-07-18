@@ -21,6 +21,41 @@ export class FileUtil {
     return files;
   }
 
+  public static getAllFilesInsideDirectory(
+    dirPath: string,
+    fileMap: Map<string, File[]> = new Map<string, File[]>()
+  ): Map<string, File[]> {
+    if (!fs.existsSync(dirPath)) {
+      Logger.error(`Directory does not exist: ${dirPath}`);
+      return fileMap;
+    }
+
+    const files = fs.readdirSync(dirPath);
+    const currentDirFiles: File[] = [];
+
+    files.forEach((filename) => {
+      const fullPath = path.join(dirPath, filename);
+      const stat = fs.statSync(fullPath); // Call once and reuse
+
+      if (stat.isDirectory()) {
+        // Recurse into subdirectory
+        this.getAllFilesInsideDirectory(fullPath, fileMap);
+      } else if (stat.isFile()) {
+        // Add file to current directory
+        const name = path.parse(filename).name;
+        const ext = path.parse(filename).ext;
+        currentDirFiles.push(new File(name, fullPath, ext));
+      }
+    });
+
+    // Use full path as key to avoid collisions
+    if (currentDirFiles.length > 0) {
+      fileMap.set(dirPath, currentDirFiles); // Use full path!
+    }
+
+    return fileMap;
+  }
+
   public static readAllFiles(
     dirPath: string,
     fileMap: Map<string, File[]> = new Map<string, File[]>()

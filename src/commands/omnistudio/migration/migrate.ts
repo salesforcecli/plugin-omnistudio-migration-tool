@@ -9,8 +9,7 @@
  */
 import * as os from 'os';
 import { flags } from '@salesforce/command';
-import { Messages } from '@salesforce/core';
-import { ExecuteAnonymousResult } from 'jsforce';
+import { Connection, Messages } from '@salesforce/core';
 import OmniStudioBaseCommand from '../../basecommand';
 import { DataRaptorMigrationTool } from '../../../migration/dataraptor';
 import { DebugTimer, MigratedObject, MigratedRecordInfo } from '../../../utils';
@@ -25,8 +24,8 @@ import { generatePackageXml } from '../../../utils/generatePackageXml';
 import { OmnistudioOrgDetails, OrgUtils } from '../../../utils/orgUtils';
 import { Constants } from '../../../utils/constants/stringContants';
 import { OrgPreferences } from '../../../utils/orgPreferences';
-import { AnonymousApexRunner } from '../../../utils/apex/executor/AnonymousApexRunner';
 import { ProjectPathUtil } from '../../../utils/projectPathUtil';
+import { PostMigrate } from '../../../migration/postMigrate';
 
 // Initialize Messages with the current plugin directory
 Messages.importMessagesDirectory(__dirname);
@@ -86,7 +85,6 @@ export default class Migrate extends OmniStudioBaseCommand {
     const migrateOnly = (this.flags.only || '') as string;
     const allVersions = this.flags.allversions || (false as boolean);
     const relatedObjects = (this.flags.relatedobjects || '') as string;
-
     // this.org is guaranteed because requiresUsername=true, as opposed to supportsUsername
     const conn = this.org.getConnection();
     if (apiVersion) {
@@ -125,9 +123,10 @@ export default class Migrate extends OmniStudioBaseCommand {
     let projectPath: string;
     let objectsToProcess: string[] = [];
     let targetApexNamespace: string;
+    const isExperienceBundleMetadataAPIProgramaticallyEnabled: { value: boolean } = { value: false };
     if (relatedObjects) {
       // To-Do: Add LWC to valid options when GA is released
-      const validOptions = [Constants.Apex];
+      const validOptions = [Constants.Apex, Constants.ExpSites];
       objectsToProcess = relatedObjects.split(',').map((obj) => obj.trim());
       // Validate input
       for (const obj of objectsToProcess) {
@@ -142,7 +141,15 @@ export default class Migrate extends OmniStudioBaseCommand {
         // Use ProjectPathUtil for APEX project folder selection (matches assess.ts logic)
         projectPath = await ProjectPathUtil.getProjectPath(messages, true);
         targetApexNamespace = await this.getTargetApexNamespace(objectsToProcess, targetApexNamespace);
-      }
+        await this.handleExperienceSitePrerequisites(
+          objectsToProcess,
+          conn,
+          isExperienceBundleMetadataAPIProgramaticallyEnabled
+        );
+        Logger.logVerbose(
+          'The objects to process after handleExpSitePrerequisite are ' + JSON.stringify(objectsToProcess)
+        );
+      } // TODO - What if general consent is no
     }
 
     Logger.log(messages.getMessage('migrationInitialization', [String(namespace)]));
@@ -182,7 +189,22 @@ export default class Migrate extends OmniStudioBaseCommand {
       relatedObjectMigrationResult.lwcAssessmentInfos
     );
 
-    const actionItems = await this.collectActionItems(namespace, objectMigrationResults);
+    // POST MIGRATION
+    let actionItems = [];
+    const postMigrate: PostMigrate = new PostMigrate(
+      this.org,
+      namespace,
+      conn,
+      this.logger,
+      messages,
+      this.ux,
+      objectsToProcess
+    );
+
+    actionItems = await postMigrate.setDesignersToUseStandardDataModel(namespace);
+    await postMigrate.restoreExperienceAPIMetadataSettings(isExperienceBundleMetadataAPIProgramaticallyEnabled);
+    const migrationActionItems = this.collectActionItems(objectMigrationResults);
+    actionItems = [...actionItems, ...migrationActionItems];
 
     await ResultsBuilder.generateReport(
       objectMigrationResults,
@@ -200,11 +222,44 @@ export default class Migrate extends OmniStudioBaseCommand {
     return { objectMigrationResults };
   }
 
-  private async collectActionItems(namespace: string, objectMigrationResults: MigratedObject[]): Promise<string[]> {
-    const actionItems: string[] = [];
-    const designerActionItems = await this.setDesignersToUseStandardDataModel(namespace);
-    actionItems.push(...designerActionItems);
+  private async handleExperienceSitePrerequisites(
+    objectsToProcess: string[],
+    conn: Connection,
+    isExperienceBundleMetadataAPIProgramaticallyEnabled: { value: boolean }
+  ): Promise<void> {
+    if (objectsToProcess.includes(Constants.ExpSites)) {
+      const expMetadataApiConsent = await this.getExpSiteMetadataEnableConsent();
+      Logger.logVerbose(`The consent for exp site is  ${expMetadataApiConsent}`);
 
+      if (expMetadataApiConsent === false) {
+        Logger.warn('Consent for experience sites is not provided. Experience sites will not be processed');
+        this.removeKeyFromRelatedObjectsToProcess(Constants.ExpSites, objectsToProcess);
+        Logger.logVerbose(`Objects to process after removing expsite are ${JSON.stringify(objectsToProcess)}`);
+        return;
+      }
+
+      const isMetadataAPIPreEnabled = await OrgPreferences.isExperienceBundleMetadataAPIEnabled(conn);
+      if (isMetadataAPIPreEnabled === true) {
+        Logger.logVerbose('ExperienceBundle metadata api is already enabled');
+        return;
+      }
+
+      Logger.logVerbose('ExperienceBundle metadata api needs to be programatically enabled');
+      isExperienceBundleMetadataAPIProgramaticallyEnabled.value = await OrgPreferences.setExperienceBundleMetadataAPI(
+        conn,
+        true
+      );
+      if (isExperienceBundleMetadataAPIProgramaticallyEnabled.value === false) {
+        this.removeKeyFromRelatedObjectsToProcess(Constants.ExpSites, objectsToProcess);
+        Logger.warn('Since the api could not able enabled the experience sites would not be processed');
+      }
+
+      Logger.logVerbose(`Objects to process are ${JSON.stringify(objectsToProcess)}`);
+    }
+  }
+
+  private collectActionItems(objectMigrationResults: MigratedObject[]): string[] {
+    const actionItems: string[] = [];
     // Collect errors from migration results and add them to action items
     for (const result of objectMigrationResults) {
       if (result.errors && result.errors.length > 0) {
@@ -215,27 +270,11 @@ export default class Migrate extends OmniStudioBaseCommand {
     return actionItems;
   }
 
-  private async setDesignersToUseStandardDataModel(namespace: string): Promise<string[]> {
-    const userActionMessage: string[] = [];
-    try {
-      Logger.logVerbose('Setting designers to use the standard data model');
-      const apexCode = `
-          ${namespace}.OmniStudioPostInstallClass.useStandardDataModel();
-        `;
-
-      const result: ExecuteAnonymousResult = await AnonymousApexRunner.run(this.org, apexCode);
-      if (result?.success === false) {
-        const message = result?.exceptionStackTrace;
-        Logger.error(`Error occurred while setting designers to use the standard data model ${message}`);
-        userActionMessage.push(messages.getMessage('manuallySwitchDesignerToStandardDataModel'));
-      } else if (result?.success === true) {
-        Logger.logVerbose('Successfully executed setDesignersToUseStandardDataModel');
-      }
-    } catch (ex) {
-      Logger.error(`Exception occurred while setting designers to use the standard data model ${JSON.stringify(ex)}`);
-      userActionMessage.push(messages.getMessage('manuallySwitchDesignerToStandardDataModel'));
+  private removeKeyFromRelatedObjectsToProcess(keyToRemove: string, relatedObjects: string[]): void {
+    const index = relatedObjects.indexOf(Constants.ExpSites);
+    if (index > -1) {
+      relatedObjects.splice(index, 1);
     }
-    return userActionMessage;
   }
 
   private async truncateObjects(migrationObjects: MigrationTool[], debugTimer: DebugTimer): Promise<MigratedObject[]> {
@@ -368,6 +407,23 @@ export default class Migrate extends OmniStudioBaseCommand {
     while (consent === null) {
       try {
         consent = await Logger.confirm(messages.getMessage('userConsentMessage'));
+      } catch (error) {
+        Logger.log(messages.getMessage('invalidYesNoResponse'));
+        consent = null;
+      }
+    }
+
+    return consent;
+  }
+
+  private async getExpSiteMetadataEnableConsent(): Promise<boolean> {
+    let consent: boolean | null = null;
+
+    while (consent === null) {
+      try {
+        consent = await Logger.confirm(
+          'By proceeding further, you hereby consent to enable digital experience metadata api(y/n). If y sites will be processed, if n expsites will not be processed'
+        );
       } catch (error) {
         Logger.log(messages.getMessage('invalidYesNoResponse'));
         consent = null;

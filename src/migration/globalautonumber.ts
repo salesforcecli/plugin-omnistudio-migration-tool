@@ -81,19 +81,28 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
   }
 
   /**
-   * Post-migration cleanup: Delete source objects from managed package
-   * This should be called after successful migration
+   * Performs post-migration cleanup operations after successful Global Auto Number migration.
+   *
+   * Handles the final steps of the migration process:
+   * 1. Deletes source GlobalAutoNumberSetting__c records from the managed package
+   * 2. Enables the Global Auto Number preference in the target org
+   *
+   * Performs cleanup operations in sequence using truncate and metadata update APIs.
+   * Ensures data integrity by removing old records and activating new functionality.
+   *
+   * @returns {Promise<string>} Empty string on success, error message on failure
+   *
    */
   private async postMigrationCleanup(): Promise<string> {
     try {
-      Logger.log(this.messages.getMessage('startingPostMigrationCleanup'));
+      Logger.logVerbose(this.messages.getMessage('startingPostMigrationCleanup'));
       // Delete source GlobalAutoNumberSetting__c records using the same truncate pattern
       await super.truncate(this.namespacePrefix + GlobalAutoNumberMigrationTool.GLOBAL_AUTO_NUMBER_SETTING_NAME);
-      Logger.log(this.messages.getMessage('postMigrationCleanupCompleted'));
+      Logger.logVerbose(this.messages.getMessage('postMigrationCleanupCompleted'));
       // Enable the org preference after successful cleanup
       const result = await this.prefManager.enable();
       if (result?.success) {
-        Logger.log(this.messages.getMessage('omniGlobalAutoNumberPrefEnabled'));
+        Logger.logVerbose(this.messages.getMessage('omniGlobalAutoNumberPrefEnabled'));
         return '';
       } else {
         const errorMessage = this.messages.getMessage('errorEnablingOmniGlobalAutoNumberPref');
@@ -143,6 +152,20 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
     return '';
   }
 
+  /**
+   * Performs pre-migration validation checks to ensure the environment is ready for Global Auto Number migration.
+   *
+   * Validates two critical conditions before allowing migration to proceed:
+   * 1. Global Auto Number preference must not be already enabled in the target org
+   * 2. Rollback flags must not be enabled, as they can interfere with the migration process
+   *
+   * Queries the org's metadata to check preference status and rollback flag settings.
+   * Prevents migration conflicts and ensures a clean migration environment.
+   *
+   * @throws {Error} When Global Auto Number preference is already enabled
+   * @throws {Error} When rollback flags are enabled (RollbackIPChanges, RollbackDRChanges, or both)
+   *
+   */
   private async performPreMigrationChecks(): Promise<void> {
     // Check if Global Auto Number preference is already enabled
     const isEnabled = await this.prefManager.isEnabled();
@@ -180,7 +203,9 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
     this.globalAutoNumberSettings = await this.getAllGlobalAutoNumberSettings();
 
     let progressCounter = 0;
-    Logger.log(this.messages.getMessage('foundGlobalAutoNumbersToMigrate', [this.globalAutoNumberSettings.length]));
+    Logger.logVerbose(
+      this.messages.getMessage('foundGlobalAutoNumbersToMigrate', [this.globalAutoNumberSettings.length])
+    );
     const progressBar = createProgressBar('Migrating', 'GlobalAutoNumber');
     progressBar.start(this.globalAutoNumberSettings.length, progressCounter);
 
@@ -256,9 +281,9 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
   public async assess(): Promise<GlobalAutoNumberAssessmentInfo[]> {
     try {
       DebugTimer.getInstance().lap('Query GlobalAutoNumber settings');
-      Logger.log(this.messages.getMessage('startingGlobalAutoNumberAssessment'));
+      Logger.logVerbose(this.messages.getMessage('startingGlobalAutoNumberAssessment'));
       const globalAutoNumbers = await this.getAllGlobalAutoNumberSettings();
-      Logger.log(this.messages.getMessage('foundGlobalAutoNumbersToAssess', [globalAutoNumbers.length]));
+      Logger.logVerbose(this.messages.getMessage('foundGlobalAutoNumbersToAssess', [globalAutoNumbers.length]));
 
       const globalAutoNumberAssessmentInfos = await this.processGlobalAutoNumberComponents(globalAutoNumbers);
       return globalAutoNumberAssessmentInfos;

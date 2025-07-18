@@ -3,7 +3,12 @@ import { MetadataInfo } from './interfaces';
 import { Logger } from './logger';
 
 /**
- * Manager class for handling OmniGlobalAutoNumberPref org preference
+ * Manager class for handling OmniGlobalAutoNumberPref org preference operations.
+ *
+ * Provides functionality to check and enable the Global Auto Number preference in Salesforce orgs.
+ * Uses metadata API to read and update OmniStudioSettings metadata.
+ * Controls whether the new Global Auto Number functionality is available in the org.
+ *
  */
 export class OmniGlobalAutoNumberPrefManager {
   private connection: Connection;
@@ -13,7 +18,16 @@ export class OmniGlobalAutoNumberPrefManager {
   }
 
   /**
-   * Check if OmniGlobalAutoNumberPref is enabled
+   * Checks if the Global Auto Number preference is enabled in the current org.
+   *
+   * Queries the OmniStudioSettings metadata to determine the current state of the preference.
+   * Reads the enableOmniGlobalAutoNumberPref setting from metadata API.
+   * Determines whether the Global Auto Number functionality is already active.
+   *
+   * @returns {Promise<boolean>} True if the preference is enabled, false otherwise
+   *
+   * @throws {Error} When metadata read operation fails (logged and returns false)
+   *
    */
   public async isEnabled(): Promise<boolean> {
     try {
@@ -27,7 +41,16 @@ export class OmniGlobalAutoNumberPrefManager {
   }
 
   /**
-   * Enable OmniGlobalAutoNumberPref
+   * Enables the Global Auto Number preference in the current org.
+   *
+   * Updates the OmniStudioSettings metadata to enable the Global Auto Number functionality.
+   * Uses metadata API to set enableOmniGlobalAutoNumberPref to 'true'.
+   * Activates the new Global Auto Number functionality after migration is complete.
+   *
+   * @returns {Promise<any>} Metadata update result containing success status and any errors
+   *
+   * @throws {Error} When metadata update operation fails
+   *
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public async enable(): Promise<any> {

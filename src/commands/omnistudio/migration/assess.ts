@@ -242,10 +242,10 @@ export default class Assess extends OmniStudioBaseCommand {
     namespace: string,
     conn: Connection
   ): Promise<void> {
-    Logger.log(messages.getMessage('startingGlobalAutoNumberAssessment'));
+    Logger.logVerbose(messages.getMessage('startingGlobalAutoNumberAssessment'));
     const globalAutoNumberMigrationTool = new GlobalAutoNumberMigrationTool(namespace, conn, Logger, messages, this.ux);
     assesmentInfo.globalAutoNumberAssessmentInfos = await globalAutoNumberMigrationTool.assess();
-    Logger.log(
+    Logger.logVerbose(
       messages.getMessage('assessedGlobalAutoNumbersCount', [assesmentInfo.globalAutoNumberAssessmentInfos.length])
     );
     Logger.log(messages.getMessage('globalAutoNumberAssessmentCompleted'));

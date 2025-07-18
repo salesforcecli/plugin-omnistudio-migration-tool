@@ -65,10 +65,10 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
     const validationError = await this.validateMigrationSuccess(migrationResult.results);
 
     const errors = [];
-    // if (validationError) {
-    //   errors.push(validationError);
-    //   return [{ ...migrationResult, errors: errors }];
-    // }
+    if (validationError) {
+      errors.push(validationError);
+      return [{ ...migrationResult, errors: errors }];
+    }
 
     // Perform post-migration cleanup
     const cleanupError = await this.postMigrationCleanup();

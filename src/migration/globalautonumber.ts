@@ -323,7 +323,7 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
 
     // Check for duplicate names
     if (uniqueNames.has(cleanedName)) {
-      globalAutoNumberAssessmentInfo.warnings.push(
+      globalAutoNumberAssessmentInfo.errors.push(
         this.messages.getMessage('duplicateGlobalAutoNumberNameMessage', [cleanedName])
       );
     }

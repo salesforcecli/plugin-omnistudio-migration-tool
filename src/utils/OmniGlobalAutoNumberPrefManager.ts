@@ -35,7 +35,7 @@ export class OmniGlobalAutoNumberPrefManager {
       return result?.enableOmniGlobalAutoNumberPref === 'true' || false;
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      Logger.error(`Error checking OmniGlobalAutoNumberPref status: ${errMsg}`);
+      Logger.error(`We couldn’t check whether the Global Auto Number setting is enabled: ${errMsg}. Try again later.`);
       return false;
     }
   }

@@ -50,7 +50,7 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
       await this.performPreMigrationChecks();
       await super.truncate(GlobalAutoNumberMigrationTool.OMNI_GLOBAL_AUTO_NUMBER_NAME);
     } catch (error) {
-      Logger.error(this.messages.getMessage('cleaningFailed', [this.getName()]));
+      Logger.error(this.messages.getMessage('globalAutoNumberCleanupFailed'));
     }
   }
 
@@ -62,7 +62,7 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
     const migrationResult = await this.migrateGlobalAutoNumberData();
 
     // Validate migration success
-    const validationError = await this.validateMigrationSuccess(migrationResult.results);
+    const validationError = await this.validateMigrationSuccess(migrationResult);
 
     const errors = [];
     if (validationError) {
@@ -111,7 +111,14 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
         return errorMessage;
       }
     } catch (error) {
-      Logger.error(this.messages.getMessage('errorDuringPostMigrationCleanup'));
+      Logger.logVerbose(error);
+      const initialCount = this.globalAutoNumberSettings.length;
+      const finalLength = (await this.getAllGlobalAutoNumberSettings()).length;
+      const message =
+        initialCount !== finalLength ? 'errorEnablingOmniGlobalAutoNumberPref' : 'errorDuringPostMigrationCleanup';
+      const errorMessage = this.messages.getMessage(message);
+      Logger.error(errorMessage);
+      return errorMessage;
     }
   }
 
@@ -119,31 +126,24 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
    * Validate that all Global Auto Number objects are successfully migrated
    * before proceeding with source object truncation
    */
-  private async validateMigrationSuccess(uploadInfo: Map<string, UploadRecordResult>): Promise<string> {
+  private async validateMigrationSuccess(migrationResults: MigrationResult): Promise<string> {
+    const { results, records } = migrationResults;
     // Check if all uploaded records have success: true
-    const failedRecords = Array.from(uploadInfo.values()).filter((result) => !result.success);
-    const successfulRecords = Array.from(uploadInfo.values()).filter((result) => result.success);
+    const failedRecords = Array.from(results.values()).filter((result) => !result.success);
+    const successfulRecords = Array.from(results.values()).filter((result) => result.success);
 
     // Get source count
     const sourceCount = this.globalAutoNumberSettings.length;
     const targetCount = successfulRecords.length;
 
     // Check for count difference
-    if (sourceCount !== targetCount) {
-      const errorMessage = this.messages.getMessage('incompleteMigrationDetected', [sourceCount, targetCount]);
-      Logger.error(errorMessage);
-      Logger.error(this.messages.getMessage('migrationValidationFailed'));
-      return errorMessage;
-    }
+    if (sourceCount !== targetCount || failedRecords.length > 0) {
+      const uniqueErrors = [
+        ...new Set([...results.values(), ...records.values()].filter((r) => r.errors).map((r) => r.errors[0])),
+      ];
+      const errors = uniqueErrors.length === 1 ? uniqueErrors[0] : uniqueErrors.join(', ');
 
-    // Check for failed records
-    if (failedRecords.length > 0) {
-      const failedCount = failedRecords.length;
-      const totalCount = uploadInfo.size;
-      const errorMessage = this.messages.getMessage('incompleteMigrationDetected', [
-        totalCount,
-        totalCount - failedCount,
-      ]);
+      const errorMessage = this.messages.getMessage('incompleteMigrationDetected', [errors]);
       Logger.error(errorMessage);
       Logger.error(this.messages.getMessage('migrationValidationFailed'));
       return errorMessage;
@@ -262,7 +262,7 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
           referenceId: recordId,
           hasErrors: true,
           success: false,
-          errors: err,
+          errors: [err],
           warnings: [],
         });
       }

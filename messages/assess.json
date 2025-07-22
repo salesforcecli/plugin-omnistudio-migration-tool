@@ -64,7 +64,7 @@
   "flexCardAssessmentCompleted": "FlexCard assessment completed",
   "globalAutoNumberAssessment": "GlobalAutoNumber Assessment",
   "assessedGlobalAutoNumbersCount": "Assessed %s GlobalAutoNumbers",
-  "globalAutoNumberAssessmentCompleted": "GlobalAutoNumber assessment completed",
+  "globalAutoNumberAssessmentCompleted": "The assessment for Global Auto Number is complete.",
   "omniScriptAssessment": "OmniScript and Integration Procedure Assessment",
   "assessedOmniScriptsCount": "Assessed %s OmniScripts",
   "assessedIntegrationProceduresCount": "Assessed %s Integration Procedures",

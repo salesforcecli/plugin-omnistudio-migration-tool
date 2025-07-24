@@ -2,6 +2,9 @@ import puppeteer from 'puppeteer';
 import { expect } from '@salesforce/command/lib/test';
 import { documentRegistry } from '../../../src/utils/constants/documentRegistry';
 import { Logger } from '../../../src/utils/logger';
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 
 // Dictionary mapping documentRegistry keys to their expected page titles
 const titles = {

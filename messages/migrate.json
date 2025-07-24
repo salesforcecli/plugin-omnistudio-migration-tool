@@ -65,7 +65,6 @@
   "cleaningDone": "Cleaning Done: %s",
   "migratingComponent": "Migrating: %s",
   "cleaningFailed": "Cleaning Failed: %s",
-  "globalAutoNumberCleanupFailed": "Global Auto Number pre-migration cleanup failed",
   "migrationCompleted": "Migration completed: %s",
   "migrationFailed": "Migration failed: %s",
   "formulaSyntaxError": "There was some problem while updating the formula syntax, please check the all the formula's syntax once : %s",

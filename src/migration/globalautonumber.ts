@@ -13,6 +13,7 @@ import { Logger } from '../utils/logger';
 import { createProgressBar } from './base';
 import { OrgPreferences } from '../utils/orgPreferences';
 import { OmniGlobalAutoNumberPrefManager } from '../utils/OmniGlobalAutoNumberPrefManager';
+import { Constants } from '../utils/constants/stringContants';
 
 export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements MigrationTool {
   private prefManager: OmniGlobalAutoNumberPrefManager;
@@ -28,7 +29,7 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
   static readonly ROLLBACK_FLAGS: string[] = ['RollbackIPChanges', 'RollbackDRChanges'];
 
   public getName(): string {
-    return 'GlobalAutoNumber';
+    return Constants.GlobalAutoNumberComponentName;
   }
 
   public getRecordName(record: string) {
@@ -45,12 +46,11 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
   }
 
   public async truncate(): Promise<void> {
-    try {
-      // Perform pre-migration checks before truncation
-      await this.performPreMigrationChecks();
+    // Perform pre-migration checks before truncation
+    await this.performPreMigrationChecks();
+    this.globalAutoNumberSettings = await this.getAllGlobalAutoNumberSettings();
+    if (this.globalAutoNumberSettings.length > 0) {
       await super.truncate(GlobalAutoNumberMigrationTool.OMNI_GLOBAL_AUTO_NUMBER_NAME);
-    } catch (error) {
-      Logger.error(this.messages.getMessage('globalAutoNumberCleanupFailed'));
     }
   }
 
@@ -198,10 +198,6 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
     let globalAutoNumberUploadInfo = new Map<string, UploadRecordResult>();
     const uniqueNames = new Set<string>();
 
-    // Query all GlobalAutoNumber settings
-    DebugTimer.getInstance().lap('Query GlobalAutoNumber settings');
-    this.globalAutoNumberSettings = await this.getAllGlobalAutoNumberSettings();
-
     let progressCounter = 0;
     Logger.logVerbose(
       this.messages.getMessage('foundGlobalAutoNumbersToMigrate', [this.globalAutoNumberSettings.length])
@@ -265,13 +261,14 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
           errors: [err],
           warnings: [],
         });
+        Logger.logVerbose(err.stack);
       }
     }
 
     progressBar.stop();
 
     return {
-      name: 'GlobalAutoNumber',
+      name: Constants.GlobalAutoNumberComponentName,
       results: globalAutoNumberUploadInfo,
       records: originalGlobalAutoNumberRecords,
       errors: [],
@@ -288,6 +285,7 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
       const globalAutoNumberAssessmentInfos = await this.processGlobalAutoNumberComponents(globalAutoNumbers);
       return globalAutoNumberAssessmentInfos;
     } catch (err) {
+      Logger.logVerbose(err.stack);
       return [];
     }
   }
@@ -316,7 +314,7 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
         });
         const error = e as Error;
         Logger.error(JSON.stringify(error));
-        Logger.error(error.stack);
+        Logger.logVerbose(error.stack);
       }
       progressBar.update(++progressCounter);
     }

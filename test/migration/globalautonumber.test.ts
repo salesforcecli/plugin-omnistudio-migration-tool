@@ -251,7 +251,7 @@ describe('GlobalAutoNumberMigrationTool', () => {
       getMessageStub.withArgs('startingPostMigrationCleanup').returns('Starting cleanup...');
       getMessageStub.withArgs('omniGlobalAutoNumberPrefEnabled').returns('Preference enabled');
       getMessageStub.withArgs('postMigrationCleanupCompleted').returns('Cleanup completed');
-
+      await globalAutoNumberMigrationTool.truncate();
       // Act
       const result = await globalAutoNumberMigrationTool.migrate();
 
@@ -342,7 +342,7 @@ describe('GlobalAutoNumberMigrationTool', () => {
       getMessageStub.withArgs('startingPostMigrationCleanup').returns('Starting cleanup...');
       getMessageStub.withArgs('incompleteMigrationDetected', [2, 1]).returns('Incomplete migration detected');
       getMessageStub.withArgs('migrationValidationFailed').returns('Migration validation failed');
-
+      await globalAutoNumberMigrationTool.truncate();
       // Act
       const result = await globalAutoNumberMigrationTool.migrate();
 
@@ -385,7 +385,7 @@ describe('GlobalAutoNumberMigrationTool', () => {
       getMessageStub.withArgs('startingPostMigrationCleanup').returns('Starting cleanup...');
       getMessageStub.withArgs('incompleteMigrationDetected', [1, 0]).returns('Incomplete migration');
       getMessageStub.withArgs('migrationValidationFailed').returns('Migration validation failed');
-
+      await globalAutoNumberMigrationTool.truncate();
       // Act
       const result = await globalAutoNumberMigrationTool.migrate();
 

@@ -166,6 +166,9 @@ export default class Migrate extends OmniStudioBaseCommand {
     const debugTimer = DebugTimer.getInstance();
     // We need to truncate the standard objects first
     let objectMigrationResults = await this.truncateObjects(migrationObjects, debugTimer);
+    objectMigrationResults = objectMigrationResults.filter(
+      (result) => result.name !== Constants.GlobalAutoNumberComponentName
+    );
     const allTruncateComplete = objectMigrationResults.length === 0;
 
     if (allTruncateComplete) {
@@ -292,6 +295,7 @@ export default class Migrate extends OmniStudioBaseCommand {
           data: [],
           errors: [ex.message],
         });
+        Logger.logVerbose(ex.stack);
         Logger.error(messages.getMessage('cleaningFailed', [cls.getName()]));
       }
     }

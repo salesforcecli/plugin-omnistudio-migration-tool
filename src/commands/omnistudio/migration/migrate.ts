@@ -73,8 +73,7 @@ export default class Migrate extends OmniStudioBaseCommand {
       return await this.runMigration();
     } catch (e) {
       const error = e as Error;
-      Logger.error(`Error running migrate ${error.message}`);
-      Logger.error(error);
+      Logger.error(messages.getMessage('errorRunningMigrate'), error);
       process.exit(1);
     }
   }
@@ -175,9 +174,6 @@ export default class Migrate extends OmniStudioBaseCommand {
       objectMigrationResults = await this.migrateObjects(migrationObjects, debugTimer);
     }
 
-    // Stop the debug timer
-    const timer = DebugTimer.getInstance().stop();
-
     const omnistudioRelatedObjectsMigration = new OmnistudioRelatedObjectMigrationFacade(
       namespace,
       migrateOnly,
@@ -218,9 +214,6 @@ export default class Migrate extends OmniStudioBaseCommand {
       messages,
       actionItems
     );
-
-    // save timer to debug logger
-    Logger.logVerbose(timer.toString());
 
     // Return results needed for --json flag
     return { objectMigrationResults };
@@ -322,8 +315,7 @@ export default class Migrate extends OmniStudioBaseCommand {
           })
         );
       } catch (ex: any) {
-        Logger.error(JSON.stringify(ex));
-        Logger.logVerbose(ex.stack);
+        Logger.error('Error migrating object', ex);
         objectMigrationResults.push({
           name: cls.getName(),
           data: [],
@@ -450,7 +442,7 @@ export default class Migrate extends OmniStudioBaseCommand {
       const obj = {
         id: record['Id'],
         name: migrationTool.getRecordName(record),
-        status: 'Skipped',
+        status: messages.getMessage('labelStatusSkipped'),
         errors: record['errors'],
         migratedId: undefined,
         warnings: [],
@@ -463,7 +455,10 @@ export default class Migrate extends OmniStudioBaseCommand {
         let errors: any[] = obj.errors || [];
         errors = errors.concat(recordResults.errors || []);
 
-        obj.status = !recordResults || recordResults.hasErrors ? 'Error' : 'Complete';
+        obj.status =
+          !recordResults || recordResults.hasErrors
+            ? messages.getMessage('labelStatusFailed')
+            : messages.getMessage('labelStatusComplete');
         obj.errors = errors;
         obj.migratedId = recordResults.id;
         obj.warnings = recordResults.warnings;

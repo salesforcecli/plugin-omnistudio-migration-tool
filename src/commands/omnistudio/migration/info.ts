@@ -54,8 +54,7 @@ export default class Org extends SfdxCommand {
     try {
       return await this.runInfo();
     } catch (error) {
-      Logger.error('Error running info');
-      Logger.error(error);
+      Logger.error(messages.getMessage('errorRunningInfo'), error);
       process.exit(1);
     }
   }

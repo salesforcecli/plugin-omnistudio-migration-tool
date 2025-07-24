@@ -18,7 +18,7 @@
       </div>
 
       <div class="org-details-section">
-        <div class="label-key">Org Id</div>
+        <div class="label-key">Org ID</div>
         <div class="label-value">{{org.id}}</div>
       </div>
 
@@ -33,7 +33,12 @@
       </div>
 
       <div class="org-details-section">
-        <div class="label-key">Assessment Date and Time</div>
+        <c:if exp={$mode == 'assess'}>
+          <div class="label-key">Assessment Date and Time</div>
+        </c:if>
+        <c:if exp={$mode == 'migrate'}>
+          <div class="label-key">Migration Date and Time</div>
+        </c:if>
         <div class="label-value">{{assessmentDate}}</div>
       </div>
     </div>

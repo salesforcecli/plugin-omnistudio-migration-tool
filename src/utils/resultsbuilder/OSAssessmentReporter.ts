@@ -21,8 +21,8 @@ export class OSAssessmentReporter {
   ): ReportParam {
     Logger.captureVerboseData('OS data:', OSAssessmentInfos);
     return {
-      title: 'OmniScript Migration Assessment',
-      heading: 'OmniScript',
+      title: 'OmniScript Assessment Report',
+      heading: 'OmniScript Assessment Report',
       org: getOrgDetailsForReport(omnistudioOrgDetails),
       assessmentDate: new Date().toString(),
       total: OSAssessmentInfos?.length || 0,
@@ -163,12 +163,12 @@ export class OSAssessmentReporter {
       {
         header: [
           {
-            name: 'In Package',
+            name: 'Managed Package',
             colspan: 2,
             rowspan: 1,
           },
           {
-            name: 'In Core',
+            name: 'Standard',
             colspan: 1,
             rowspan: 1,
           },
@@ -222,7 +222,7 @@ export class OSAssessmentReporter {
             rowspan: 1,
           },
           {
-            name: 'Record ID',
+            name: 'ID',
             colspan: 1,
             rowspan: 1,
           },
@@ -250,7 +250,7 @@ export class OSAssessmentReporter {
     const distinctStatuses = [...new Set(OSAssessmentInfos.map((info) => info.migrationStatus))];
     const statusFilterGroupParam: FilterGroupParam[] =
       distinctStatuses.length > 0 && distinctStatuses.filter((status) => status).length > 0
-        ? [createFilterGroupParam('Filter By Assessment Status', 'status', distinctStatuses)]
+        ? [createFilterGroupParam('Filter By Status', 'status', distinctStatuses)]
         : [];
 
     return [...typeFilterGroupParam, ...statusFilterGroupParam];

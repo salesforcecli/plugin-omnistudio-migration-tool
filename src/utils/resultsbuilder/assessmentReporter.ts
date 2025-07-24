@@ -269,37 +269,37 @@ export class AssessmentReporter {
     omnistudioOrgDetails: OmnistudioOrgDetails
   ): DashboardParam {
     return {
-      title: 'Assessment Reports',
-      heading: 'Assessment Reports',
+      title: 'Omnistudio Assessment Report Dashboard',
+      heading: 'Omnistudio Assessment Report Dashboard',
       org: getOrgDetailsForReport(omnistudioOrgDetails),
       assessmentDate: new Date().toISOString(),
       summaryItems: [
         {
-          name: 'DataMapper',
+          name: 'Data Mapper Assessment',
           total: result.dataRaptorAssessmentInfos.length,
           data: DRAssessmentReporter.getSummaryData(result.dataRaptorAssessmentInfos),
           file: this.dataMapperAssessmentFileName,
         },
         {
-          name: 'Integration Procedure',
+          name: 'Integration Procedure Assessment',
           total: result.omniAssessmentInfo.ipAssessmentInfos.length,
           data: IPAssessmentReporter.getSummaryData(result.omniAssessmentInfo.ipAssessmentInfos),
           file: this.integrationProcedureAssessmentFileName,
         },
         {
-          name: 'OmniScript',
+          name: 'OmniScript Assessment',
           total: result.omniAssessmentInfo.osAssessmentInfos.length,
           data: OSAssessmentReporter.getSummaryData(result.omniAssessmentInfo.osAssessmentInfos),
           file: this.omniscriptAssessmentFileName,
         },
         {
-          name: 'Flexcard',
+          name: 'Flexcard Assessment',
           total: result.flexCardAssessmentInfos.length,
           data: FlexcardAssessmentReporter.getSummaryData(result.flexCardAssessmentInfos),
           file: this.flexcardAssessmentFileName,
         },
         {
-          name: 'Apex',
+          name: 'Apex File Assessment',
           total: result.apexAssessmentInfos.length,
           data: ApexAssessmentReporter.getSummaryData(result.apexAssessmentInfos),
           file: this.apexAssessmentFileName,
@@ -317,6 +317,7 @@ export class AssessmentReporter {
           file: this.flexipageAssessmentFileName,
         },
       ],
+      mode: 'assess',
     };
   }
 

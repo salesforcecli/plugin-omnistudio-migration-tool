@@ -21,8 +21,8 @@ export class IPAssessmentReporter {
   ): ReportParam {
     Logger.captureVerboseData('IP data', ipAssessmentInfos);
     return {
-      title: 'Integration Procedure Migration Assessment',
-      heading: 'Integration Procedure',
+      title: 'Integration Procedure Assessment Report',
+      heading: 'Integration Procedure Assessment Report',
       org: getOrgDetailsForReport(omnistudioOrgDetails),
       assessmentDate: new Date().toString(),
       total: ipAssessmentInfos?.length || 0,
@@ -117,12 +117,12 @@ export class IPAssessmentReporter {
       {
         header: [
           {
-            name: 'In Package',
+            name: 'Managed Package',
             colspan: 2,
             rowspan: 1,
           },
           {
-            name: 'In Core',
+            name: 'Standard',
             colspan: 1,
             rowspan: 1,
           },
@@ -156,7 +156,7 @@ export class IPAssessmentReporter {
             rowspan: 1,
           },
           {
-            name: 'Record ID',
+            name: 'ID',
             colspan: 1,
             rowspan: 1,
           },

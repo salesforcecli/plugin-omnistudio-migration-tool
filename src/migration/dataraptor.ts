@@ -81,8 +81,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
             );
             drItem[this.namespacePrefix + 'Formula__c'] = originalString;
           } catch (ex) {
-            Logger.error(JSON.stringify(ex));
-            Logger.error(ex.stack);
+            Logger.error('Error updating formula for data mapper', ex);
             Logger.logVerbose(
               this.messages.getMessage('formulaSyntaxError', [drItem[this.namespacePrefix + 'Formula__c']])
             );
@@ -216,8 +215,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
       const dataRaptorAssessmentInfos = this.processDRComponents(dataRaptors);
       return dataRaptorAssessmentInfos;
     } catch (err) {
-      Logger.error(JSON.stringify(err));
-      Logger.error(err.stack);
+      Logger.error('Error assessing data mapper', err);
     }
   }
 
@@ -259,8 +257,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
           apexDependencies: [],
         });
         const error = e as Error;
-        Logger.error(JSON.stringify(error));
-        Logger.error(error.stack);
+        Logger.error('Error processing data mapper', error);
       }
       progressBar.update(++progressCounter);
     }
@@ -318,8 +315,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
               });
             }
           } catch (ex) {
-            Logger.error(JSON.stringify(ex));
-            Logger.error(ex.stack);
+            Logger.error('Error processing formula for data mapper', ex);
             Logger.logVerbose(this.messages.getMessage('formulaSyntaxError', [formula]));
           }
         }

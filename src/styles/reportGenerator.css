@@ -256,29 +256,32 @@ html {
   background-color: #fff;
   margin: auto;
   padding: 20px;
+  padding-top: 20px;
   width: 60%;
-  height: 60%;
+  max-height: 80%;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
   border-radius: 4px;
   text-align: left;
   position: relative;
+  overflow-y: auto;
+  overflow-x: auto;
   display: flex;
   flex-direction: column;
 }
 
 .closeButton {
   color: #222121;
-  height: 30px;
-  width: 30px;
+  height: 40px;
+  width: 40px;
   position: absolute;
-  background-color: #fff;
-  top: -35px;
-  right: 0;
-  font-size: 25px;
+  top: 0px;
+  right: 0px;
+  font-size: 30px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 1050;
   border-radius: 3px;
   padding-right: 0;
 }

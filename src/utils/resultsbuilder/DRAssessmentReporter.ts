@@ -21,8 +21,8 @@ export class DRAssessmentReporter {
   ): ReportParam {
     Logger.captureVerboseData('DM data', dataRaptorAssessmentInfos);
     return {
-      title: 'Data Mapper Migration Assessment',
-      heading: 'Data Mapper',
+      title: 'Data Mapper Assessment Report',
+      heading: 'Data Mapper Assessment Report',
       org: getOrgDetailsForReport(omnistudioOrgDetails),
       assessmentDate: new Date().toString(),
       total: dataRaptorAssessmentInfos?.length || 0,
@@ -74,12 +74,12 @@ export class DRAssessmentReporter {
       {
         header: [
           {
-            name: 'In Package',
+            name: 'Managed Package',
             colspan: 2,
             rowspan: 1,
           },
           {
-            name: 'In Core',
+            name: 'Standard',
             colspan: 1,
             rowspan: 1,
           },
@@ -99,7 +99,7 @@ export class DRAssessmentReporter {
             rowspan: 2,
           },
           {
-            name: 'Apex Dependencies',
+            name: 'Apex Class Dependencies',
             colspan: 1,
             rowspan: 2,
           },
@@ -113,7 +113,7 @@ export class DRAssessmentReporter {
             rowspan: 1,
           },
           {
-            name: 'Record ID',
+            name: 'ID',
             colspan: 1,
             rowspan: 1,
           },

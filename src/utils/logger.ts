@@ -58,12 +58,17 @@ export class Logger {
     FileLogger.writeLog('WARN', message);
   }
 
-  public static error(message: string | Error): void {
+  public static error(message: string | Error, error?: Error): void {
     if (Logger.sfUX) {
       if (message instanceof Error) {
         Logger.sfUX.error(`\x1b[31m${message.message}\n${message.stack}\x1b[0m`);
       } else {
         Logger.sfUX.error(`\x1b[31m${message}\x1b[0m`);
+        if (error) {
+          Logger.sfUX.error(`\x1b[31m${message}\n${error.message}\n${error.stack}\x1b[0m`);
+        } else {
+          Logger.sfUX.error(`\x1b[31m${message}\x1b[0m`);
+        }
       }
     }
     FileLogger.writeLog('ERROR', message instanceof Error ? `${message.message}\n${message.stack}` : message);

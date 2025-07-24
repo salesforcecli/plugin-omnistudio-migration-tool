@@ -21,8 +21,8 @@ export class ApexAssessmentReporter {
   ): ReportParam {
     Logger.captureVerboseData('apex data:', apexAssessmentInfos);
     return {
-      title: 'Apex Migration Assessment',
-      heading: 'Apex',
+      title: 'Apex File Assessment Report',
+      heading: 'Apex File Assessment Report',
       org: getOrgDetailsForReport(omnistudioOrgDetails),
       assessmentDate: new Date().toString(),
       total: apexAssessmentInfos?.length || 0,
@@ -55,7 +55,27 @@ export class ApexAssessmentReporter {
       rowId: `${this.rowIdPrefix}${this.rowId++}`,
       data: [
         createRowDataParam('name', apexAssessmentInfo.name, true, 1, 1, false),
-        createRowDataParam('fileReference', apexAssessmentInfo.path, false, 1, 1, false),
+        createRowDataParam(
+          'fileReference',
+          apexAssessmentInfo.name,
+          false,
+          1,
+          1,
+          true,
+          apexAssessmentInfo.path,
+          apexAssessmentInfo.name + '.cls'
+        ),
+        createRowDataParam(
+          'status',
+          apexAssessmentInfo.warnings.length > 0 ? 'Has Warnings' : 'Can be Automated',
+          false,
+          1,
+          1,
+          false,
+          undefined,
+          undefined,
+          apexAssessmentInfo.warnings.length > 0 ? 'text-error' : 'text-success'
+        ),
         createRowDataParam(
           'diff',
           apexAssessmentInfo.name + 'diff',
@@ -93,7 +113,7 @@ export class ApexAssessmentReporter {
   private static getFilterGroupsForReport(apexAssessmentInfos: ApexAssessmentInfo[]): FilterGroupParam[] {
     return [
       createFilterGroupParam(
-        'Filter By Comments',
+        'Filter By Summary',
         'comments',
         Array.from(new Set(apexAssessmentInfos.map((row: ApexAssessmentInfo) => row.infos.join(', '))))
       ),
@@ -120,12 +140,17 @@ export class ApexAssessmentReporter {
             rowspan: 1,
           },
           {
-            name: 'Diff',
+            name: 'Assessment Status',
+            colspan: 1,
+            rowspan: 2,
+          },
+          {
+            name: 'Code Difference',
             colspan: 1,
             rowspan: 1,
           },
           {
-            name: 'Comments',
+            name: 'Summary',
             colspan: 1,
             rowspan: 1,
           },

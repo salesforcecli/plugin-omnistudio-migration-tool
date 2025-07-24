@@ -65,9 +65,7 @@ export class LwcMigration extends BaseRelatedObjectMigration {
     try {
       filesMap = FileUtil.readAndProcessFiles(dir, 'OmniScript Auto-generated');
     } catch (error) {
-      Logger.error(assessMessages.getMessage('errorReadingFiles', [String(error)]));
-      Logger.error(JSON.stringify(error));
-      Logger.error(error.stack);
+      Logger.error(assessMessages.getMessage('errorReadingFiles'), error);
     }
     return filesMap;
   }
@@ -120,9 +118,7 @@ export class LwcMigration extends BaseRelatedObjectMigration {
       });
       return jsonData;
     } catch (error) {
-      Logger.error(assessMessages.getMessage('errorProcessingFiles', [String(error)]));
-      Logger.error(JSON.stringify(error));
-      Logger.error(error.stack);
+      Logger.error(assessMessages.getMessage('errorProcessingFiles'), error);
     }
   }
 

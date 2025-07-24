@@ -20,8 +20,8 @@ export class FlexcardAssessmentReporter {
   ): ReportParam {
     Logger.captureVerboseData('fc data:', flexCardAssessmentInfos);
     return {
-      title: 'Flexcard Migration Assessment',
-      heading: 'Flexcard',
+      title: 'Flexcard Assessment Report',
+      heading: 'Flexcard Assessment Report',
       org: getOrgDetailsForReport(omnistudioOrgDetails),
       assessmentDate: new Date().toString(),
       total: flexCardAssessmentInfos?.length || 0,
@@ -55,12 +55,12 @@ export class FlexcardAssessmentReporter {
       {
         header: [
           {
-            name: 'In Package',
+            name: 'Managed Package',
             colspan: 2,
             rowspan: 1,
           },
           {
-            name: 'In Core',
+            name: 'Standard',
             colspan: 1,
             rowspan: 1,
           },
@@ -104,7 +104,7 @@ export class FlexcardAssessmentReporter {
             rowspan: 1,
           },
           {
-            name: 'Record ID',
+            name: 'ID',
             colspan: 1,
             rowspan: 1,
           },

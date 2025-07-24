@@ -124,10 +124,9 @@ export default class OmnistudioRelatedObjectMigrationFacade {
       if (relatedObjects.includes(Constants.FlexiPage)) {
         flexipageAssessmentInfos = isMigration ? this.flexipageMigration.migrate() : this.flexipageMigration.assess();
       }
-    } catch (Error) {
+    } catch (error) {
       // Log the error
-      Logger.error(JSON.stringify(Error));
-      Logger.error(Error.stack);
+      Logger.error('Error processing related objects', error);
     }
     // TODO: Uncomment code once MVP for migration is completed
     // try {

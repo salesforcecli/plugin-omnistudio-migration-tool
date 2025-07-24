@@ -139,11 +139,13 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
     // Check for count difference
     if (sourceCount !== targetCount || failedRecords.length > 0) {
       const uniqueErrors = [
-        ...new Set([...results.values(), ...records.values()].filter((r) => r.errors).map((r) => r.errors[0])),
+        ...new Set([...results.values(), ...records.values()].filter((r) => r.errors.length).map((r) => r.errors[0])),
       ];
-      const errors = uniqueErrors.length === 1 ? uniqueErrors[0] : uniqueErrors.join(', ');
-
-      const errorMessage = this.messages.getMessage('incompleteMigrationDetected', [errors]);
+      let errorMessage = this.messages.getMessage('incompleteMigrationDetected');
+      if (uniqueErrors.length > 0) {
+        const errors = uniqueErrors.length === 1 ? uniqueErrors[0] : uniqueErrors.join(', ');
+        errorMessage += ` because of ${errors}`;
+      }
       Logger.error(errorMessage);
       Logger.error(this.messages.getMessage('migrationValidationFailed'));
       return errorMessage;

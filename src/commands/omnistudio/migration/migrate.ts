@@ -302,7 +302,7 @@ export default class Migrate extends OmniStudioBaseCommand {
         Logger.log(messages.getMessage('migratingComponent', [cls.getName()]));
         debugTimer.lap('Migrating: ' + cls.getName());
         const results = await cls.migrate();
-        const hasErrors = results.some((result) => result.errors.length > 0);
+        const hasErrors = results.some((result) => result?.errors?.length > 0);
         const msgStr = hasErrors ? 'migrationFailed' : 'migrationCompleted';
         Logger.log(messages.getMessage(msgStr, [cls.getName()]));
         objectMigrationResults = objectMigrationResults.concat(

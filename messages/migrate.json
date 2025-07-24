@@ -149,6 +149,6 @@
   "foundGlobalAutoNumbersToAssess": "Found %s Global Auto Numbers to assess",
   "unexpectedError": "An unexpected error occurred during processing",
   "migrationValidationFailed": "The post-migration validation has failed.",
-  "incompleteMigrationDetected": "We couldn’t complete the migration process because of %s.",
+  "incompleteMigrationDetected": "We couldn’t complete the migration process",
   "errorCheckingGlobalAutoNumber": "We couldn’t check whether the Global Auto Number setting is enabled: %s. Try again later."
 }

@@ -1,4 +1,4 @@
-import { Connection } from '@salesforce/core';
+import { Connection, Messages } from '@salesforce/core';
 import { MetadataInfo } from './interfaces';
 import { Logger } from './logger';
 
@@ -12,9 +12,11 @@ import { Logger } from './logger';
  */
 export class OmniGlobalAutoNumberPrefManager {
   private connection: Connection;
+  private messages: Messages;
 
-  public constructor(connection: Connection) {
+  public constructor(connection: Connection, messages: Messages) {
     this.connection = connection;
+    this.messages = messages;
   }
 
   /**
@@ -35,7 +37,7 @@ export class OmniGlobalAutoNumberPrefManager {
       return result?.enableOmniGlobalAutoNumberPref === 'true' || false;
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      Logger.error(`We couldn’t check whether the Global Auto Number setting is enabled: ${errMsg}. Try again later.`);
+      Logger.error(this.messages.getMessage('errorCheckingGlobalAutoNumber', [errMsg]));
       return false;
     }
   }

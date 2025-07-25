@@ -314,12 +314,14 @@ export default class Migrate extends OmniStudioBaseCommand {
             };
           })
         );
-      } catch (ex: any) {
-        Logger.error('Error migrating object', ex);
+      } catch (error: any) {
+        const errMsg = error instanceof Error ? error.message : String(error);
+        Logger.error(messages.getMessage('errorMigrationMessage', [errMsg]));
+        Logger.logVerbose(error);
         objectMigrationResults.push({
           name: cls.getName(),
           data: [],
-          errors: [ex.message],
+          errors: [errMsg],
         });
       }
     }

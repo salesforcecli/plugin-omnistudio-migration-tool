@@ -2,13 +2,14 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { expect } from '@salesforce/command/lib/test';
-import { Connection } from '@salesforce/core';
+import { Connection, Messages } from '@salesforce/core';
 import sinon = require('sinon');
 import { OmniGlobalAutoNumberPrefManager } from '../../src/utils/OmniGlobalAutoNumberPrefManager';
 
 describe('OmniGlobalAutoNumberPrefManager', () => {
   let prefManager: OmniGlobalAutoNumberPrefManager;
   let connection: Connection;
+  let messages: Messages;
   let sandbox: sinon.SinonSandbox;
 
   beforeEach(() => {
@@ -22,7 +23,12 @@ describe('OmniGlobalAutoNumberPrefManager', () => {
       },
     } as unknown as Connection;
 
-    prefManager = new OmniGlobalAutoNumberPrefManager(connection);
+    // Mock messages
+    messages = {
+      getMessage: sandbox.stub().returns('Mocked error message'),
+    } as unknown as Messages;
+
+    prefManager = new OmniGlobalAutoNumberPrefManager(connection, messages);
   });
 
   afterEach(() => {
@@ -80,6 +86,7 @@ describe('OmniGlobalAutoNumberPrefManager', () => {
       // Arrange
       const error = new Error('Metadata read failed');
       const readStub = connection.metadata.read as sinon.SinonStub;
+      const getMessageStub = messages.getMessage as sinon.SinonStub;
       readStub.rejects(error);
 
       // Act
@@ -87,6 +94,9 @@ describe('OmniGlobalAutoNumberPrefManager', () => {
 
       // Assert
       expect(result).to.be.false;
+      expect(getMessageStub.calledOnce).to.be.true;
+      expect(getMessageStub.firstCall.args[0]).to.equal('errorCheckingGlobalAutoNumber');
+      expect(getMessageStub.firstCall.args[1]).to.deep.equal(['Metadata read failed']);
     });
 
     it('should return false when metadata is null', async () => {
@@ -154,13 +164,14 @@ describe('OmniGlobalAutoNumberPrefManager', () => {
   });
 
   describe('constructor', () => {
-    it('should properly initialize with connection', () => {
+    it('should properly initialize with connection and messages', () => {
       // Act
-      const manager = new OmniGlobalAutoNumberPrefManager(connection);
+      const manager = new OmniGlobalAutoNumberPrefManager(connection, messages);
 
       // Assert
       expect(manager).to.be.instanceOf(OmniGlobalAutoNumberPrefManager);
       expect((manager as any).connection).to.equal(connection);
+      expect((manager as any).messages).to.equal(messages);
     });
   });
 });

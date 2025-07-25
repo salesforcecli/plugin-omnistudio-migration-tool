@@ -21,7 +21,7 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
 
   constructor(namespace: string, connection: Connection, logger: Logger, messages: Messages, ux: UX) {
     super(namespace, connection, logger, messages, ux);
-    this.prefManager = new OmniGlobalAutoNumberPrefManager(this.connection);
+    this.prefManager = new OmniGlobalAutoNumberPrefManager(this.connection, this.messages);
   }
 
   static readonly GLOBAL_AUTO_NUMBER_SETTING_NAME = 'GlobalAutoNumberSetting__c';
@@ -139,7 +139,7 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
     // Check for count difference
     if (sourceCount !== targetCount || failedRecords.length > 0) {
       const uniqueErrors = [
-        ...new Set([...results.values(), ...records.values()].filter((r) => r.errors.length).map((r) => r.errors[0])),
+        ...new Set([...results.values(), ...records.values()].filter((r) => r?.errors?.length).map((r) => r.errors[0])),
       ];
       let errorMessage = this.messages.getMessage('incompleteMigrationDetected');
       if (uniqueErrors.length > 0) {
@@ -173,7 +173,6 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
     const isEnabled = await this.prefManager.isEnabled();
     if (isEnabled) {
       const errorMessage = this.messages.getMessage('globalAutoNumberPrefEnabledError');
-      Logger.error(errorMessage);
       throw new Error(errorMessage);
     }
     // Check rollback flags using existing utility
@@ -190,7 +189,6 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
       } else if (enabledFlags.includes('RollbackDRChanges')) {
         errorMessage = this.messages.getMessage('rollbackDRFlagEnabledError');
       }
-      Logger.error(errorMessage);
       throw new Error(errorMessage);
     }
   }
@@ -314,9 +312,8 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
           warnings: [],
           errors: [this.messages.getMessage('unexpectedError')],
         });
-        const error = e as Error;
-        Logger.error(JSON.stringify(error));
-        Logger.logVerbose(error.stack);
+        Logger.error(e.message);
+        Logger.logVerbose(e.stack);
       }
       progressBar.update(++progressCounter);
     }

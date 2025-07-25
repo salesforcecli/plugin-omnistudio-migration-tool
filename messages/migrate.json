@@ -150,5 +150,6 @@
   "unexpectedError": "An unexpected error occurred during processing",
   "migrationValidationFailed": "The post-migration validation has failed.",
   "incompleteMigrationDetected": "We couldn’t complete the migration process",
-  "errorCheckingGlobalAutoNumber": "We couldn’t check whether the Global Auto Number setting is enabled: %s. Try again later."
+  "errorCheckingGlobalAutoNumber": "We couldn’t check whether the Global Auto Number setting is enabled: %s. Try again later.",
+  "errorMigrationMessage": "Error migrating object: %s"
 }

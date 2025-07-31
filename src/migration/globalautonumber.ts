@@ -239,6 +239,7 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
             uploadResult.errors = Array.isArray(uploadResult.errors) ? uploadResult.errors : [uploadResult.errors];
           }
           uploadResult.warnings = uploadResult.warnings || [];
+          uploadResult.newName = transformedName;
           globalAutoNumberUploadInfo.set(recordId, uploadResult);
         }
       } catch (err) {

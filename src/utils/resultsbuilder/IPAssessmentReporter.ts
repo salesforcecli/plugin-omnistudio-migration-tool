@@ -8,7 +8,7 @@ import {
   ReportRowParam,
   SummaryItemDetailParam,
 } from '../reportGenerator/reportInterfaces';
-import { createRowDataParam, getOrgDetailsForReport } from '../reportGenerator/reportUtil';
+import { createFilterGroupParam, createRowDataParam, getOrgDetailsForReport } from '../reportGenerator/reportUtil';
 import { reportingHelper } from './reportingHelper';
 
 export class IPAssessmentReporter {
@@ -21,12 +21,12 @@ export class IPAssessmentReporter {
   ): ReportParam {
     Logger.captureVerboseData('IP data', ipAssessmentInfos);
     return {
-      title: 'Integration Procedure Migration Assessment',
-      heading: 'Integration Procedure',
+      title: 'Integration Procedure Assessment Report',
+      heading: 'Integration Procedure Assessment Report',
       org: getOrgDetailsForReport(omnistudioOrgDetails),
-      assessmentDate: new Date().toString(),
+      assessmentDate: new Date().toLocaleString(),
       total: ipAssessmentInfos?.length || 0,
-      filterGroups: this.getFilterGroupsForReport(),
+      filterGroups: this.getFilterGroupsForReport(ipAssessmentInfos),
       headerGroups: this.getHeaderGroupsForReport(),
       rows: this.getRowsForReport(ipAssessmentInfos, instanceUrl),
       rollbackFlags: (omnistudioOrgDetails.rollbackFlags || []).includes('RollbackIPChanges')
@@ -40,10 +40,16 @@ export class IPAssessmentReporter {
     return [
       {
         name: 'Can be Automated',
-        count: ipAssessmentInfos.filter(
-          (ipAssessmentInfo) => !ipAssessmentInfo.errors || ipAssessmentInfo.errors.length === 0
-        ).length,
+        count: ipAssessmentInfos.filter((ipAssessmentInfo) => ipAssessmentInfo.migrationStatus === 'Can be Automated')
+          .length,
         cssClass: 'text-success',
+      },
+      {
+        name: 'Has Warnings',
+        count: ipAssessmentInfos.filter(
+          (ipAssessmentInfo) => ipAssessmentInfo.warnings && ipAssessmentInfo.warnings.length > 0
+        ).length,
+        cssClass: 'text-warning',
       },
       {
         name: 'Has Errors',
@@ -62,6 +68,17 @@ export class IPAssessmentReporter {
         createRowDataParam('name', ipAssessmentInfo.oldName, true, 1, 1, false),
         createRowDataParam('id', ipAssessmentInfo.id, false, 1, 1, true, `${instanceUrl}/${ipAssessmentInfo.id}`),
         createRowDataParam('newName', ipAssessmentInfo.name, false, 1, 1, false),
+        createRowDataParam(
+          'status',
+          ipAssessmentInfo.migrationStatus,
+          false,
+          1,
+          1,
+          false,
+          undefined,
+          undefined,
+          ipAssessmentInfo.migrationStatus === 'Can be Automated' ? 'text-success' : 'text-error'
+        ),
         createRowDataParam(
           'summary',
           ipAssessmentInfo.warnings ? ipAssessmentInfo.warnings.join(', ') : '',
@@ -117,14 +134,19 @@ export class IPAssessmentReporter {
       {
         header: [
           {
-            name: 'In Package',
+            name: 'Managed Package',
             colspan: 2,
             rowspan: 1,
           },
           {
-            name: 'In Core',
+            name: 'Standard',
             colspan: 1,
             rowspan: 1,
+          },
+          {
+            name: 'Assessment Status',
+            colspan: 1,
+            rowspan: 2,
           },
           {
             name: 'Summary',
@@ -156,7 +178,7 @@ export class IPAssessmentReporter {
             rowspan: 1,
           },
           {
-            name: 'Record ID',
+            name: 'ID',
             colspan: 1,
             rowspan: 1,
           },
@@ -170,7 +192,18 @@ export class IPAssessmentReporter {
     ];
   }
 
-  private static getFilterGroupsForReport(): FilterGroupParam[] {
-    return [];
+  private static getFilterGroupsForReport(ipAssessmentInfo: IPAssessmentInfo[]): FilterGroupParam[] {
+    if (!ipAssessmentInfo || ipAssessmentInfo.length === 0) {
+      return [];
+    }
+
+    // Get distinct status from IPAssessmentInfo
+    const distinctStatuses = [...new Set(ipAssessmentInfo.map((info) => info.migrationStatus))];
+    const statusFilterGroupParam: FilterGroupParam[] =
+      distinctStatuses.length > 0 && distinctStatuses.filter((status) => status).length > 0
+        ? [createFilterGroupParam('Filter By Assessment Status', 'status', distinctStatuses)]
+        : [];
+
+    return [...statusFilterGroupParam];
   }
 }

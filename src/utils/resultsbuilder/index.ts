@@ -4,12 +4,14 @@ import open from 'open';
 import { Messages } from '@salesforce/core';
 import { pushAssestUtilites } from '../file/fileUtil';
 import { ApexAssessmentInfo, MigratedObject, MigratedRecordInfo, RelatedObjectAssesmentInfo } from '../interfaces';
-import { ReportParam } from '../reportGenerator/reportInterfaces';
+import { DashboardParam, ReportParam, SummaryItemParam } from '../reportGenerator/reportInterfaces';
 import { OmnistudioOrgDetails } from '../orgUtils';
 import { TemplateParser } from '../templateParser/generate';
 import { createFilterGroupParam, createRowDataParam } from '../reportGenerator/reportUtil';
 import { FileDiffUtil } from '../lwcparser/fileutils/FileDiffUtil';
 import { Logger } from '../logger';
+import { getMigrationHeading } from '../stringUtils';
+import { Constants } from '../constants/stringContants';
 import { reportingHelper } from './reportingHelper';
 const resultsDir = path.join(process.cwd(), 'migration_report');
 // const lwcConstants = { componentName: 'lwc', title: 'LWC Components Migration Result' };
@@ -31,7 +33,8 @@ export class ResultsBuilder {
     instanceUrl: string,
     orgDetails: OmnistudioOrgDetails,
     messages: Messages,
-    actionItems: string[]
+    actionItems: string[],
+    objectsToProcess: string[]
   ): Promise<void> {
     fs.mkdirSync(resultsDir, { recursive: true });
     Logger.info(messages.getMessage('generatingComponentReports'));
@@ -39,10 +42,23 @@ export class ResultsBuilder {
       this.generateReportForResult(result, instanceUrl, orgDetails, messages);
     }
     Logger.info(messages.getMessage('generatingRelatedObjectReports'));
-    this.generateReportForRelatedObject(relatedObjectMigrationResult, instanceUrl, orgDetails, messages);
+    this.generateReportForRelatedObject(
+      relatedObjectMigrationResult,
+      instanceUrl,
+      orgDetails,
+      messages,
+      objectsToProcess
+    );
 
     Logger.info(messages.getMessage('generatingMigrationReportDashboard'));
-    this.generateMigrationReportDashboard(orgDetails, results, relatedObjectMigrationResult, messages, actionItems);
+    this.generateMigrationReportDashboard(
+      orgDetails,
+      results,
+      relatedObjectMigrationResult,
+      messages,
+      actionItems,
+      objectsToProcess
+    );
     pushAssestUtilites('javascripts', resultsDir);
     pushAssestUtilites('styles', resultsDir);
     await open(path.join(resultsDir, migrationReportHTMLfileName));
@@ -66,32 +82,34 @@ export class ResultsBuilder {
     const rollbackFlags = orgDetails.rollbackFlags || [];
     const flags = rollbackFlagNames.filter((flag) => rollbackFlags.includes(flag));
     const data: ReportParam = {
-      title: result.name,
-      heading: result.name,
+      title: `${getMigrationHeading(result.name)} Migration Report`,
+      heading: `${getMigrationHeading(result.name)} Migration Report`,
       org: {
         name: orgDetails.orgDetails.Name,
         id: orgDetails.orgDetails.Id,
         namespace: orgDetails.packageDetails.namespace,
         dataModel: orgDetails.dataModel,
       },
-      assessmentDate: new Date().toString(),
+      assessmentDate: new Date().toLocaleString(),
       total: result.data?.length || 0,
-      filterGroups: [createFilterGroupParam('Filter By Migration Status', 'status', ['Complete', 'Error', 'Skipped'])],
+      filterGroups: [
+        createFilterGroupParam('Filter By Status', 'status', ['Successfully Completed', 'Failed', 'Skipped']),
+      ],
       headerGroups: [
         {
           header: [
             {
-              name: 'In Package',
+              name: 'Managed Package',
               colspan: 2,
               rowspan: 1,
             },
             {
-              name: 'In Core',
+              name: 'Standard',
               colspan: 2,
               rowspan: 1,
             },
             {
-              name: 'Migration Status',
+              name: 'Status',
               colspan: 1,
               rowspan: 2,
             },
@@ -101,7 +119,7 @@ export class ResultsBuilder {
               rowspan: 2,
             },
             {
-              name: 'Warnings',
+              name: 'Summary',
               colspan: 1,
               rowspan: 2,
             },
@@ -110,22 +128,22 @@ export class ResultsBuilder {
         {
           header: [
             {
-              name: 'Record ID',
+              name: 'ID',
               colspan: 1,
               rowspan: 1,
             },
             {
-              name: 'Record Name',
+              name: 'Name',
               colspan: 1,
               rowspan: 1,
             },
             {
-              name: 'Record ID',
+              name: 'ID',
               colspan: 1,
               rowspan: 1,
             },
             {
-              name: 'Record Name',
+              name: 'Name',
               colspan: 1,
               rowspan: 1,
             },
@@ -142,7 +160,7 @@ export class ResultsBuilder {
             createRowDataParam('migratedName', item.migratedName, false, 1, 1, false),
             createRowDataParam(
               'status',
-              item.status,
+              item.status === 'Complete' ? 'Successfully Completed' : item.status,
               false,
               1,
               1,
@@ -161,7 +179,7 @@ export class ResultsBuilder {
               item.errors ? reportingHelper.decorateErrors(item.errors) : []
             ),
             createRowDataParam(
-              'warnings',
+              'summary',
               item.warnings ? 'Has Warnings' : 'Has No Warnings',
               false,
               1,
@@ -185,9 +203,12 @@ export class ResultsBuilder {
     result: RelatedObjectAssesmentInfo,
     instanceUrl: string,
     orgDetails: OmnistudioOrgDetails,
-    messages: Messages
+    messages: Messages,
+    objectsToProcess: string[]
   ): void {
-    this.generateReportForApex(result.apexAssessmentInfos, instanceUrl, orgDetails, messages);
+    if (objectsToProcess.includes(Constants.Apex)) {
+      this.generateReportForApex(result.apexAssessmentInfos, instanceUrl, orgDetails, messages);
+    }
   }
 
   private static generateReportForApex(
@@ -198,22 +219,22 @@ export class ResultsBuilder {
   ): void {
     Logger.captureVerboseData('apex data', result);
     const data: ReportParam = {
-      title: 'Apex Classes',
-      heading: 'Apex Classes',
+      title: 'Apex File Migration Report',
+      heading: 'Apex File Migration Report',
       org: {
         name: orgDetails.orgDetails.Name,
         id: orgDetails.orgDetails.Id,
         namespace: orgDetails.packageDetails.namespace,
         dataModel: orgDetails.dataModel,
       },
-      assessmentDate: new Date().toString(),
+      assessmentDate: new Date().toLocaleString(),
       total: result.length,
       filterGroups: [createFilterGroupParam('Filter by Errors', 'warnings', ['Has Errors', 'Has No Errors'])],
       headerGroups: [
         {
           header: [
             {
-              name: 'Class Name',
+              name: 'Name',
               colspan: 1,
               rowspan: 1,
             },
@@ -223,12 +244,12 @@ export class ResultsBuilder {
               rowspan: 1,
             },
             {
-              name: 'Diff',
+              name: 'Code Difference',
               colspan: 1,
               rowspan: 1,
             },
             {
-              name: 'Comments',
+              name: 'Summary',
               colspan: 1,
               rowspan: 1,
             },
@@ -294,33 +315,40 @@ export class ResultsBuilder {
     results: MigratedObject[],
     relatedObjectMigrationResult: RelatedObjectAssesmentInfo,
     messages: Messages,
-    actionItems: string[]
+    actionItems: string[],
+    objectsToProcess: string[]
   ): void {
-    const data = {
-      title: 'Omnistudio Migration to Core Assessment Reports',
-      heading: 'Omnistudio Migration to Core Assessment Reports',
+    const relatedObjectSummaryItems: SummaryItemParam[] = [];
+    if (objectsToProcess.includes(Constants.Apex)) {
+      relatedObjectSummaryItems.push({
+        name: 'Apex Classes',
+        total: relatedObjectMigrationResult.apexAssessmentInfos?.length || 0,
+        data: this.getDifferentStatusDataForApex(relatedObjectMigrationResult.apexAssessmentInfos),
+        file: apexFileName,
+      });
+    }
+
+    const data: DashboardParam = {
+      title: 'Migration Report Dashboard',
+      heading: 'Migration Report Dashboard',
       org: {
         name: orgDetails.orgDetails.Name,
         id: orgDetails.orgDetails.Id,
         namespace: orgDetails.packageDetails.namespace,
         dataModel: orgDetails.dataModel,
       },
-      assessmentDate: new Date().toString(),
+      assessmentDate: new Date().toLocaleString(),
       summaryItems: [
         ...results.map((result) => ({
-          name: result.name,
+          name: `${getMigrationHeading(result.name)} Migration`,
           total: result.data?.length || 0,
           data: this.getDifferentStatusDataForResult(result.data),
           file: result.name.replace(/ /g, '_').replace(/\//g, '_') + '.html',
         })),
-        {
-          name: 'Apex Classes',
-          total: relatedObjectMigrationResult.apexAssessmentInfos?.length || 0,
-          data: this.getDifferentStatusDataForApex(relatedObjectMigrationResult.apexAssessmentInfos),
-          file: apexFileName,
-        },
+        ...relatedObjectSummaryItems,
       ],
       actionItems,
+      mode: 'migrate',
     };
 
     const dashboardTemplate = fs.readFileSync(dashboardTemplateFilePath, 'utf8');
@@ -336,12 +364,12 @@ export class ResultsBuilder {
     let skip = 0;
     data.forEach((item) => {
       if (item.status === 'Complete') complete++;
-      if (item.status === 'Error') error++;
+      if (item.status === 'Failed') error++;
       if (item.status === 'Skipped') skip++;
     });
     return [
-      { name: 'Completed without errors', count: complete, cssClass: 'text-success' },
-      { name: 'Error', count: error, cssClass: 'text-error' },
+      { name: 'Successfully Completed', count: complete, cssClass: 'text-success' },
+      { name: 'Failed', count: error, cssClass: 'text-error' },
       { name: 'Skipped', count: skip, cssClass: 'text-warning' },
     ];
   }
@@ -356,8 +384,8 @@ export class ResultsBuilder {
       else error++;
     });
     return [
-      { name: 'Completed without errors', count: complete, cssClass: 'text-success' },
-      { name: 'Error', count: error, cssClass: 'text-error' },
+      { name: 'Successfully Completed', count: complete, cssClass: 'text-success' },
+      { name: 'Failed', count: error, cssClass: 'text-error' },
     ];
   }
 }

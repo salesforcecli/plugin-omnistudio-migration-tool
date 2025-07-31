@@ -9,7 +9,6 @@ import { sfProject } from '../../utils/sfcli/project/sfProject';
 import { Logger } from '../../utils/logger';
 import { Constants } from '../../utils/constants/stringContants';
 import { ApexMigration } from './ApexMigration';
-import { LwcMigration } from './LwcMigration';
 
 Messages.importMessagesDirectory(__dirname);
 const assessMessages = Messages.loadMessages('@salesforce/plugin-omnistudio-migration-tool', 'assess');
@@ -31,7 +30,7 @@ export default class OmnistudioRelatedObjectMigrationFacade {
   protected readonly org: Org;
   protected readonly projectPath: string;
   protected readonly apexMigration: ApexMigration;
-  protected readonly lwcMigration: LwcMigration;
+  // protected readonly lwcMigration: LwcMigration;
 
   public constructor(
     namespace: string,
@@ -63,7 +62,7 @@ export default class OmnistudioRelatedObjectMigrationFacade {
     shell.cd(this.projectPath);
     // TODO: Uncomment code once MVP for migration is completed
     // if (relatedObjects.includes(Constants.LWC)) {
-    //   sfProject.retrieve(LWCTYPE, this.org.getUsername());
+    //   // sfProject.retrieve(LWCTYPE, this.org.getUsername());
     // }
     if (relatedObjects.includes(Constants.Apex)) {
       sfProject.retrieve(APEXCLASS, this.org.getUsername());
@@ -95,18 +94,17 @@ export default class OmnistudioRelatedObjectMigrationFacade {
       if (relatedObjects.includes(Constants.Apex)) {
         apexAssessmentInfos = isMigration ? this.apexMigration.migrate() : this.apexMigration.assess();
       }
-    } catch (Error) {
+    } catch (error) {
       // Log the error
-      Logger.error(JSON.stringify(Error));
-      Logger.error(Error.stack);
+      Logger.error('Error processing related objects', error);
     }
     // TODO: Uncomment code once MVP for migration is completed
     // try {
     //   if (relatedObjects.includes(Constants.LWC)) {
+    //     Logger.logVerbose(migrateMessages.getMessage('startingLwcMigration', [this.projectPath]));
     //     lwcAssessmentInfos = isMigration ? this.lwcMigration.migrate() : this.lwcMigration.assessment();
     //   }
     // } catch (Error) {
-    //   // Log the error
     //   Logger.error(Error.message);
     // }
 

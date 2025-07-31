@@ -105,11 +105,7 @@ export class ApexMigration extends BaseRelatedObjectMigration {
         fileAssessmentInfo.push(apexAssementInfo);
         Logger.logVerbose(assessMessages.getMessage('successfullyProcessedApexFile', [file.name]));
       } catch (err) {
-        Logger.error(assessMessages.getMessage('errorProcessingApexFile', [file.name]));
-        Logger.error(JSON.stringify(err));
-        if (err instanceof Error) {
-          Logger.error(err.stack);
-        }
+        Logger.error(assessMessages.getMessage('errorProcessingApexFile', [file.name]), err);
       }
       Logger.logVerbose(assessMessages.getMessage('successfullyProcessedApexFile', [file.name]));
     }
@@ -163,6 +159,7 @@ export class ApexMigration extends BaseRelatedObjectMigration {
     const warningMessage: string[] = this.processNonReplacableMethodCalls(file, parser);
     return {
       name: file.name,
+      errors: [],
       warnings: warningMessage,
       infos: updateMessages,
       path: file.location,

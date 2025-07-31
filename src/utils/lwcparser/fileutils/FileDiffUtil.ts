@@ -62,57 +62,79 @@ export class FileDiffUtil {
   }
 
   public getFileDiff(filename: string, originalFileContent: string, modifiedFileContent: string): DiffPair[] {
-    const patch: string = createPatch('', originalFileContent, modifiedFileContent);
     try {
-      // Split the patch into lines
+      const originalLines = originalFileContent.split('\n');
+      const modifiedLines = modifiedFileContent.split('\n');
+      const patch: string = createPatch('', originalFileContent, modifiedFileContent);
       const patchLines = patch.split('\n');
 
-      // Initialize variables to track line numbers
-      let oldLineNumber = 1;
-      let newLineNumber = 1;
-      let firstPlusAlreadySkipped = false;
-      let firstMinusAlreadySkipped = false;
-      const diff: DiffPair[] = [];
-      // Initialize result as HTML string
+      let origIdx = 0;
+      let modIdx = 0;
+      const result: DiffPair[] = [];
 
-      patchLines.forEach((line) => {
-        // Parse the hunk header (e.g., @@ -2,3 +2,3 @@)
-        const hunkHeader = /^@@ -(\d+),\d+ \+(\d+),\d+ @@/;
+      // Skip the first line of the patch (the file header)
+      let i = 0;
+      while (i < patchLines.length) {
+        const line = patchLines[i];
+        const hunkHeader = /^@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@/;
         const match = hunkHeader.exec(line);
 
         if (match) {
-          oldLineNumber = parseInt(match[1], 10);
-          newLineNumber = parseInt(match[2], 10);
-        } else if (line.startsWith('-')) {
-          // Skip the first line difference
-          if (oldLineNumber === 1 && !firstMinusAlreadySkipped) {
-            firstMinusAlreadySkipped = true;
-            // Skip the first line difference
-            oldLineNumber++;
-            return;
+          // Move to the start of the hunk
+          const origStart = parseInt(match[1], 10) - 1;
+          const modStart = parseInt(match[3], 10) - 1;
+
+          // Emit unchanged lines before the hunk
+          while (origIdx < origStart && modIdx < modStart) {
+            result.push({ old: originalLines[origIdx], new: modifiedLines[modIdx] });
+            origIdx++;
+            modIdx++;
           }
-          diff.push({ old: line.slice(1), new: null });
-          oldLineNumber++;
-        } else if (line.startsWith('+')) {
-          // Skip the first line difference
-          if (newLineNumber === 1 && !firstPlusAlreadySkipped) {
-            firstPlusAlreadySkipped = true;
-            newLineNumber++;
-            return;
+
+          i++;
+          // Now process the hunk lines
+          while (i < patchLines.length && !patchLines[i].startsWith('@@')) {
+            const hunkLine = patchLines[i];
+            if (hunkLine.startsWith('-')) {
+              result.push({ old: originalLines[origIdx], new: null });
+              origIdx++;
+            } else if (hunkLine.startsWith('+')) {
+              result.push({ old: null, new: modifiedLines[modIdx] });
+              modIdx++;
+            } else if (hunkLine.startsWith(' ')) {
+              result.push({ old: originalLines[origIdx], new: modifiedLines[modIdx] });
+              origIdx++;
+              modIdx++;
+            }
+            i++;
           }
-          diff.push({ old: null, new: line.slice(1) });
-          newLineNumber++;
-        } else if (line.startsWith(' ')) {
-          diff.push({ old: line.slice(1), new: line.slice(1) });
-          // Unchanged line, skip it
-          oldLineNumber++;
-          newLineNumber++;
+        } else {
+          i++;
         }
-      });
-      // Return the diff array
-      return diff;
+      }
+
+      // Emit any remaining unchanged lines at the end
+      while (origIdx < originalLines.length && modIdx < modifiedLines.length) {
+        result.push({ old: originalLines[origIdx], new: modifiedLines[modIdx] });
+        origIdx++;
+        modIdx++;
+      }
+      // If there are trailing additions or deletions
+      while (origIdx < originalLines.length) {
+        result.push({ old: originalLines[origIdx], new: null });
+        origIdx++;
+      }
+      while (modIdx < modifiedLines.length) {
+        result.push({ old: null, new: modifiedLines[modIdx] });
+        modIdx++;
+      }
+
+      // Only return if there are any changes
+      const hasChanges = result.some((diff) => diff.old !== diff.new);
+      return hasChanges ? result : [];
     } catch (error) {
       Logger.error(`Error in FileDiffUtil: ${String(error)}`);
+      return [];
     }
   }
 

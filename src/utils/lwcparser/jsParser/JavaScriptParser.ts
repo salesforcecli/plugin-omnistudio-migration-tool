@@ -68,7 +68,7 @@ export class JavaScriptParser {
       fs.writeFileSync(filePath, output, 'utf-8');
       Logger.info(`Replaced import in file: ${filePath}`);
     } catch (error) {
-      Logger.error(`Error writing file to disk: ${error}`);
+      Logger.error('Error writing file to disk', error);
       throw error;
     }
   }

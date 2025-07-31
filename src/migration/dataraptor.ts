@@ -5,7 +5,14 @@ import DRMapItemMappings from '../mappings/DRMapItem';
 import { DebugTimer, oldNew, QueryTools } from '../utils';
 import { NetUtils } from '../utils/net';
 import { BaseMigrationTool } from './base';
-import { MigrationResult, MigrationTool, ObjectMapping, TransformData, UploadRecordResult } from './interfaces';
+import {
+  InvalidEntityTypeError,
+  MigrationResult,
+  MigrationTool,
+  ObjectMapping,
+  TransformData,
+  UploadRecordResult,
+} from './interfaces';
 import { DataRaptorAssessmentInfo } from '../../src/utils';
 
 import {
@@ -81,8 +88,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
             );
             drItem[this.namespacePrefix + 'Formula__c'] = originalString;
           } catch (ex) {
-            Logger.error(JSON.stringify(ex));
-            Logger.error(ex.stack);
+            Logger.error('Error updating formula for data mapper', ex);
             Logger.logVerbose(
               this.messages.getMessage('formulaSyntaxError', [drItem[this.namespacePrefix + 'Formula__c']])
             );
@@ -216,8 +222,10 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
       const dataRaptorAssessmentInfos = this.processDRComponents(dataRaptors);
       return dataRaptorAssessmentInfos;
     } catch (err) {
-      Logger.error(JSON.stringify(err));
-      Logger.error(err.stack);
+      if (err instanceof InvalidEntityTypeError) {
+        throw err;
+      }
+      Logger.error('Error assessing data mapper', err);
     }
   }
 
@@ -255,12 +263,13 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
           type: dataRaptor[this.namespacePrefix + 'Type__c'] || '',
           formulaChanges: [],
           infos: [],
-          warnings: [this.messages.getMessage('unexpectedError')],
+          warnings: [],
+          errors: [this.messages.getMessage('unexpectedError')],
           apexDependencies: [],
+          migrationStatus: 'Failed',
         });
         const error = e as Error;
-        Logger.error(JSON.stringify(error));
-        Logger.error(error.stack);
+        Logger.error('Error processing data mapper', error);
       }
       progressBar.update(++progressCounter);
     }
@@ -279,6 +288,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
     Logger.info(this.messages.getMessage('processingDataRaptor', [drName]));
     const warnings: string[] = [];
     const existingDRNameVal = new StringVal(drName, 'name');
+    let assessmentStatus = 'Can be Automated';
 
     if (!existingDRNameVal.isNameCleaned()) {
       warnings.push(
@@ -288,9 +298,11 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
           existingDRNameVal.cleanName(),
         ])
       );
+      assessmentStatus = 'Has Warnings';
     }
     if (existingDataRaptorNames.has(existingDRNameVal.cleanName())) {
       warnings.push(this.messages.getMessage('duplicatedName') + '  ' + existingDRNameVal.cleanName());
+      assessmentStatus = 'Need Manual Intervention';
     } else {
       existingDataRaptorNames.add(existingDRNameVal.cleanName());
     }
@@ -318,8 +330,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
               });
             }
           } catch (ex) {
-            Logger.error(JSON.stringify(ex));
-            Logger.error(ex.stack);
+            Logger.error('Error processing formula for data mapper', ex);
             Logger.logVerbose(this.messages.getMessage('formulaSyntaxError', [formula]));
           }
         }
@@ -334,6 +345,8 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
       infos: [],
       apexDependencies: apexDependencies,
       warnings: warnings,
+      errors: [],
+      migrationStatus: assessmentStatus,
     };
     return dataRaptorAssessmentInfo;
   }
@@ -346,7 +359,14 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
       this.namespace,
       DataRaptorMigrationTool.DRBUNDLE_NAME,
       this.getDRBundleFields()
-    );
+    ).catch((err) => {
+      if (err.errorCode === 'INVALID_TYPE') {
+        throw new InvalidEntityTypeError(
+          `${DataRaptorMigrationTool.DRBUNDLE_NAME} type is not found under this namespace`
+        );
+      }
+      throw err;
+    });
   }
 
   // Get All Items
@@ -357,7 +377,10 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
       this.namespace,
       DataRaptorMigrationTool.DRMAPITEM_NAME,
       this.getDRMapItemFields()
-    );
+    ).catch((err) => {
+      Logger.error('Error querying data raptor items', err);
+      return [];
+    });
   }
 
   /*

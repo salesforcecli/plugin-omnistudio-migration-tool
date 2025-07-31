@@ -21,10 +21,10 @@ export class ApexAssessmentReporter {
   ): ReportParam {
     Logger.captureVerboseData('apex data:', apexAssessmentInfos);
     return {
-      title: 'Apex Migration Assessment',
-      heading: 'Apex',
+      title: 'Apex File Assessment Report',
+      heading: 'Apex File Assessment Report',
       org: getOrgDetailsForReport(omnistudioOrgDetails),
-      assessmentDate: new Date().toString(),
+      assessmentDate: new Date().toLocaleString(),
       total: apexAssessmentInfos?.length || 0,
       filterGroups: this.getFilterGroupsForReport(apexAssessmentInfos),
       headerGroups: this.getHeaderGroupsForReport(),
@@ -46,6 +46,11 @@ export class ApexAssessmentReporter {
         name: 'Has Warnings',
         count: apexAssessmentInfos.filter((info) => info.warnings && info.warnings.length > 0).length,
         cssClass: 'text-warning',
+      },
+      {
+        name: 'Has Errrors',
+        count: apexAssessmentInfos.filter((info) => info.errors && info.errors.length > 0).length,
+        cssClass: 'text-error',
       },
     ];
   }
@@ -113,7 +118,7 @@ export class ApexAssessmentReporter {
   private static getFilterGroupsForReport(apexAssessmentInfos: ApexAssessmentInfo[]): FilterGroupParam[] {
     return [
       createFilterGroupParam(
-        'Filter By Comments',
+        'Filter By Summary',
         'comments',
         Array.from(new Set(apexAssessmentInfos.map((row: ApexAssessmentInfo) => row.infos.join(', '))))
       ),
@@ -145,12 +150,12 @@ export class ApexAssessmentReporter {
             rowspan: 2,
           },
           {
-            name: 'Diff',
+            name: 'Code Difference',
             colspan: 1,
             rowspan: 1,
           },
           {
-            name: 'Comments',
+            name: 'Summary',
             colspan: 1,
             rowspan: 1,
           },

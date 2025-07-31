@@ -54,8 +54,7 @@ export default class Org extends SfdxCommand {
     try {
       return await this.runInfo();
     } catch (error) {
-      Logger.error('Error running info');
-      Logger.error(error);
+      Logger.error(messages.getMessage('errorRunningInfo'), error);
       process.exit(1);
     }
   }
@@ -90,7 +89,7 @@ export default class Org extends SfdxCommand {
 
     let outputString = '';
     if (trialExpirationDate) {
-      const date = new Date(trialExpirationDate).toDateString();
+      const date = new Date(trialExpirationDate).toLocaleString();
       outputString = messages.getMessage('greetingOrgInfoWithDate', [name, orgName, date]);
     } else {
       outputString = messages.getMessage('greetingOrgInfo', [name, orgName]);

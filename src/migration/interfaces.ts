@@ -43,6 +43,7 @@ export interface UploadRecordResult {
   warnings: string[];
   hasErrors: boolean;
   success?: boolean;
+  skipped?: boolean;
 }
 
 export interface MigrationResult {
@@ -90,4 +91,10 @@ export type CustomLabelMigrationTool = MigrationTool;
 export interface RelatedObjectMigrationResult {
   apexClasses: string[];
   lwcComponents: string[];
+}
+
+export class InvalidEntityTypeError extends Error {
+  public constructor(message: string) {
+    super(message);
+  }
 }

@@ -238,16 +238,7 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
           if (!uploadResult.success) {
             uploadResult.errors = Array.isArray(uploadResult.errors) ? uploadResult.errors : [uploadResult.errors];
           }
-
-          // Check for name changes
           uploadResult.warnings = uploadResult.warnings || [];
-          if (transformedName !== autonumber['Name']) {
-            uploadResult.newName = transformedName;
-            uploadResult.warnings.unshift(
-              this.messages.getMessage('globalAutoNumberNameChangeMessage', [transformedName])
-            );
-          }
-
           globalAutoNumberUploadInfo.set(recordId, uploadResult);
         }
       } catch (err) {
@@ -333,23 +324,13 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
       errors: [],
     };
 
-    // Check for name changes due to API naming requirements
-    const originalName: string = globalAutoNumberName;
-    const cleanedName: string = this.cleanName(originalName);
-    if (cleanedName !== originalName) {
-      globalAutoNumberAssessmentInfo.name = cleanedName;
-      globalAutoNumberAssessmentInfo.warnings.push(
-        this.messages.getMessage('globalAutoNumberNameChangeMessage', [originalName, cleanedName])
-      );
-    }
-
     // Check for duplicate names
-    if (uniqueNames.has(cleanedName)) {
+    if (uniqueNames.has(globalAutoNumberName)) {
       globalAutoNumberAssessmentInfo.errors.push(
-        this.messages.getMessage('duplicateGlobalAutoNumberNameMessage', [cleanedName])
+        this.messages.getMessage('duplicateGlobalAutoNumberNameMessage', [globalAutoNumberName])
       );
     }
-    uniqueNames.add(cleanedName);
+    uniqueNames.add(globalAutoNumberName);
     return globalAutoNumberAssessmentInfo;
   }
 
@@ -377,9 +358,6 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
         mappedObject[GlobalAutoNumberMappings[cleanFieldName]] = globalAutoNumberRecord[recordField];
       }
     });
-
-    // Set essential default values (following same pattern as other entities)
-    mappedObject['Name'] = this.cleanName(mappedObject['Name']);
 
     // BATCH framework requires that each record has an "attributes" property
     mappedObject['attributes'] = {

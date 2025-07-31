@@ -144,7 +144,6 @@
   "startingPostMigrationCleanup": "Starting post-migration cleanup for Global Auto Number...",
   "postMigrationCleanupCompleted": "Post-migration cleanup completed successfully.",
   "errorDuringPostMigrationCleanup": "We’ve encountered an error during the post-migration cleanup. Try again later.",
-  "globalAutoNumberNameChangeMessage": "Global Auto Number name has been modified to fit naming rules: %s",
   "duplicatedGlobalAutoNumberName": "Duplicated Global Auto Number name",
   "errorWhileUploadingGlobalAutoNumber": "An error occurred while uploading Global Auto Number: ",
   "startingGlobalAutoNumberAssessment": "Starting Global Auto Number assessment...",

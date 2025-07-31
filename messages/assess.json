@@ -102,7 +102,6 @@
   "integrationProcedureNameChangeMessage": "Integration Procedure reference %s will be changed to %s during migration.",
   "integrationProcedureManualUpdateMessage": "Integration Procedure reference %s may need manual updates after migration.",
   "duplicateCardNameMessage": "Potential duplicate: Another card has the same name %s after name cleaning. This may cause conflicts during migration",
-  "globalAutoNumberNameChangeMessage": "GlobalAutoNumber name will be changed from %s to %s to follow API naming standards",
   "duplicateGlobalAutoNumberNameMessage": "Potential duplicate: Another Global Auto Number has the same name %s after name cleaning. This may cause conflicts during migration",
   "existingApexPrompt": "Do you have a sfdc project that already contains the APEX classes retrieved from your org? [y/n]",
   "enterExistingProjectPath": "Enter the path to the project folder that contains the retrieved APEX classes:",

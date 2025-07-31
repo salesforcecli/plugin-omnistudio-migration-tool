@@ -160,12 +160,12 @@ describe('GlobalAutoNumberMigrationTool', () => {
       expect(getMessageStub.called).to.be.true;
     });
 
-    it('should handle name changes in assessment', async () => {
+    it('should preserve names with special characters in assessment', async () => {
       // Arrange
       const mockGlobalAutoNumbers = [
         {
           Id: '001',
-          Name: 'Test-GAN-1', // Name with special characters
+          Name: 'Test-GAN-1', // Name with special characters should be preserved
           Increment__c: 1,
           LastGeneratedNumber__c: 100,
           LeftPadDigit__c: 5,
@@ -178,17 +178,15 @@ describe('GlobalAutoNumberMigrationTool', () => {
       sandbox.stub(QueryTools, 'queryAll').resolves(mockGlobalAutoNumbers);
       getMessageStub.withArgs('startingGlobalAutoNumberAssessment').returns('Starting assessment...');
       getMessageStub.withArgs('foundGlobalAutoNumbersToAssess', [1]).returns('Found 1 Global Auto Number');
-      getMessageStub
-        .withArgs('globalAutoNumberNameChangeMessage', ['Test-GAN-1', 'TestGAN1'])
-        .returns('Name will be changed');
-      // No migration info message expected since it was removed
 
       // Act
       const result = await globalAutoNumberMigrationTool.assess();
 
       // Assert
       expect(result).to.be.an('array').with.length(1);
-      expect(result[0].warnings).to.include('Name will be changed');
+      expect(result[0].name).to.equal('Test-GAN-1'); // Name should be preserved
+      expect(result[0].oldName).to.equal('Test-GAN-1');
+      expect(result[0].warnings).to.be.empty; // No warnings since no name changes
     });
 
     it('should handle errors during assessment', async () => {
@@ -416,9 +414,6 @@ describe('GlobalAutoNumberMigrationTool', () => {
       sandbox.stub(QueryTools, 'queryAll').resolves(mockGlobalAutoNumbers);
       getMessageStub.withArgs('startingGlobalAutoNumberAssessment').returns('Starting assessment...');
       getMessageStub.withArgs('foundGlobalAutoNumbersToAssess', [1]).returns('Found 1 Global Auto Number');
-      getMessageStub
-        .withArgs('globalAutoNumberNameChangeMessage', ['TestGAN1', 'TestGAN1'])
-        .returns('Name will be changed');
       getMessageStub.withArgs('unexpectedError').returns('Unexpected error');
 
       // Act
@@ -487,7 +482,7 @@ describe('GlobalAutoNumberMigrationTool', () => {
       // The method removes everything after the first __, so Increment__c becomes 'c'
       // This causes fields to not be mapped properly
       expect(result).to.deep.include({
-        Name: 'TestGAN1', // Cleaned name
+        Name: 'Test-GAN-1', // Name should be preserved with special characters
         attributes: {
           type: 'OmniGlobalAutoNumber',
           referenceId: '001',

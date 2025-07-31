@@ -664,9 +664,13 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
         // Only add warning if the name was actually modified
         if (originalOsName !== mappedOsName) {
+<<<<<<< HEAD
           osUploadResponse.warnings.unshift(
             'WARNING: OmniScript name has been modified to fit naming rules: ' + mappedOsName
           );
+=======
+          osUploadResponse.newName = mappedOsName;
+>>>>>>> 7c46a811a9b1fbec002bc215c8f1e059337ece50
         }
 
         try {

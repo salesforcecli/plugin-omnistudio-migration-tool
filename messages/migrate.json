@@ -107,6 +107,7 @@
   "generatingMigrationReportDashboard": "Generating migration report dashboard",
   "errorParsingHtmlTemplate": "Error while parsing template",
   "errorParsingData": "Error while parsing data for template",
+<<<<<<< HEAD
   "errorGeneratingHTML": "Error while generating HTML from template for %s with properties %s",
   "errorEvaluatingExpression": "Error evaluating expression: %s, %s",
   "manuallySwitchDesignerToStandardDataModel": "To complete the setup, please manually run the required Apex code to configure OmniStudio Designers to use the Standard Data Model <br> https://help.salesforce.com/s/articleView?id=xcloud.os_migrate_change_the_sobject_data_model_after_migration.htm&type=5",
@@ -115,4 +116,10 @@
   "labelStatusComplete": "Complete",
   "migrationConsentNotGiven": "Couldn't confirm whether assessment errors are resolved",
   "migrationConsentMessage": "Ensure that all items in the assessment report are marked as Green before proceeding with the migration. Do you want to proceed?"
+=======
+  "errorGeneratingHTML": "Error while generating HTML from template for {} with properties {}",
+  "errorEvaluatingExpression": "Error evaluating expression: {0}, {1}",
+  "manuallySwitchDesignerToStandardDataModel": "To complete the setup, please manually run the required Apex code to configure OmniStudio Designers to use the Standard Data Model <br> https://help.salesforce.com/s/articleView?id=xcloud.os_migrate_change_the_sobject_data_model_after_migration.htm&type=5",
+  "nameConversionMessage": "WARNING: %s name has been modified to fit naming rules: %s"
+>>>>>>> 7c46a811a9b1fbec002bc215c8f1e059337ece50
 }

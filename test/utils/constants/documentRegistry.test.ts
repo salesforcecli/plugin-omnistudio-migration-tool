@@ -36,8 +36,8 @@ const titles = {
   omniScriptNameChangeMessage:
     'Update Omniscript Custom Lightning Web Components and Omniscript Elements Overridden with Customized Components',
   dataRaptorNameChangeMessage: 'Update References to Omnistudio Components After Migration',
-  integrationProcedureNameChangeMessage: 'Update Integration Procedure Type and Subtype After Migration',
-  integrationProcedureManualUpdateMessage: 'Update Integration Procedure Type and Subtype After Migration',
+  integrationProcedureNameChangeMessage: 'Update References to Omnistudio Components After Migration',
+  integrationProcedureManualUpdateMessage: 'Update References to Omnistudio Components After Migration',
   duplicateCardNameMessage: 'Clone a Flexcard',
 };
 

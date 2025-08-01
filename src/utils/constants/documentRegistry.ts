@@ -52,9 +52,9 @@ export const documentRegistry = {
   dataRaptorNameChangeMessage:
     'https://help.salesforce.com/s/articleView?id=xcloud.os_migrate_update_references_to_dataraptors_from_apex_after_migration.htm&type=5',
   integrationProcedureNameChangeMessage:
-    'https://help.salesforce.com/s/articleView?id=xcloud.os_migrate_update_references_to_integration_procedures_after_migration.htm&type=5',
+    'https://help.salesforce.com/s/articleView?id=xcloud.os_migrate_update_references_to_dataraptors_from_apex_after_migration.htm&type=5',
   integrationProcedureManualUpdateMessage:
-    'https://help.salesforce.com/s/articleView?id=xcloud.os_migrate_update_references_to_integration_procedures_after_migration.htm&type=5',
+    'https://help.salesforce.com/s/articleView?id=xcloud.os_migrate_update_references_to_dataraptors_from_apex_after_migration.htm&type=5',
   duplicateCardNameMessage: 'https://help.salesforce.com/s/articleView?id=xcloud.os_clone_a_flexcard.htm&type=5',
   duplicateGlobalAutoNumberNameMessage:
     'https://help.salesforce.com/s/articleView?id=xcloud.os_omnistudio_naming_conventions.htm&type=5',

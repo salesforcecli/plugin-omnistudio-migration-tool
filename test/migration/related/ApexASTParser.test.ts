@@ -360,7 +360,7 @@ describe('ApexASTParser', () => {
 
     it('should get matching tokens for interface with namespace', () => {
       // Arrange
-      const interfaceImpl = new InterfaceImplements('TestInterface', 'testNamespace');
+      const interfaceImpl = new InterfaceImplements('TestInterface', 'testnamespace'); // lowercase
       const mockContext = {
         typeName: () => [
           {
@@ -384,6 +384,7 @@ describe('ApexASTParser', () => {
       const tokens = InterfaceMatcher.getMatchingTokens(interfaceImpl, mockContext as any);
 
       // Assert
+      // Should match because: 'testnamespace' === 'testNamespace'.toLowerCase()
       expect(tokens).to.have.length(2);
       expect(tokens[0].text).to.equal('testNamespace');
       expect(tokens[1].text).to.equal('TestInterface');
@@ -416,6 +417,108 @@ describe('ApexASTParser', () => {
 
       // Assert
       expect(tokens).to.have.length(0);
+    });
+
+    it('should match namespace when checkFor.namespace equals lowercased code namespace - uppercase code', () => {
+      // Arrange
+      // Tests line 262: checkFor.namespace === typeNameContexts[0]?.id()?.Identifier()?.symbol?.text?.toLowerCase()
+      // checkFor.namespace='devopsimpkg15', code='DEVOPSIMPKG15' → 'devopsimpkg15' === 'devopsimpkg15' ✓
+      const interfaceImpl = new InterfaceImplements('VlocityOpenInterface', 'devopsimpkg15');
+      const mockContext = {
+        typeName: () => [
+          {
+            id: () => ({
+              Identifier: () => ({
+                symbol: { text: 'DEVOPSIMPKG15' }, // Uppercase in code - will be lowercased for comparison
+              }),
+            }),
+          },
+          {
+            id: () => ({
+              Identifier: () => ({
+                symbol: { text: 'VlocityOpenInterface' },
+              }),
+            }),
+          },
+        ],
+      };
+
+      // Act
+      const tokens = InterfaceMatcher.getMatchingTokens(interfaceImpl, mockContext as any);
+
+      // Assert
+      // Should match because: 'devopsimpkg15' === 'DEVOPSIMPKG15'.toLowerCase()
+      expect(tokens).to.have.length(2);
+      expect(tokens[0].text).to.equal('DEVOPSIMPKG15');
+      expect(tokens[1].text).to.equal('VlocityOpenInterface');
+    });
+
+    it('should not match when checkFor.namespace is uppercase and code is lowercase', () => {
+      // Arrange
+      // Tests line 262: checkFor.namespace === typeNameContexts[0]?.id()?.Identifier()?.symbol?.text?.toLowerCase()
+      // checkFor.namespace='DEVOPSIMPKG15', code='devopsimpkg15' → 'DEVOPSIMPKG15' === 'devopsimpkg15' ✗
+      // Note: Only code side is lowercased, so uppercase checkFor.namespace won't match
+      const interfaceImpl = new InterfaceImplements('VlocityOpenInterface', 'DEVOPSIMPKG15');
+      const mockContext = {
+        typeName: () => [
+          {
+            id: () => ({
+              Identifier: () => ({
+                symbol: { text: 'devopsimpkg15' }, // Lowercase namespace in code
+              }),
+            }),
+          },
+          {
+            id: () => ({
+              Identifier: () => ({
+                symbol: { text: 'VlocityOpenInterface' },
+              }),
+            }),
+          },
+        ],
+      };
+
+      // Act
+      const tokens = InterfaceMatcher.getMatchingTokens(interfaceImpl, mockContext as any);
+
+      // Assert
+      // Current implementation: 'DEVOPSIMPKG15' === 'devopsimpkg15'.toLowerCase() = 'DEVOPSIMPKG15' === 'devopsimpkg15' = false
+      // So this should NOT match with current implementation
+      expect(tokens).to.have.length(0);
+    });
+
+    it('should match namespace when checkFor.namespace equals lowercased code namespace - mixed case code', () => {
+      // Arrange
+      // Tests line 262: checkFor.namespace === typeNameContexts[0]?.id()?.Identifier()?.symbol?.text?.toLowerCase()
+      // checkFor.namespace='devopsimpkg15', code='DevOpsImpkg15' → 'devopsimpkg15' === 'devopsimpkg15' ✓
+      const interfaceImpl = new InterfaceImplements('VlocityOpenInterface', 'devopsimpkg15');
+      const mockContext = {
+        typeName: () => [
+          {
+            id: () => ({
+              Identifier: () => ({
+                symbol: { text: 'DevOpsImpkg15' }, // Mixed case namespace in code
+              }),
+            }),
+          },
+          {
+            id: () => ({
+              Identifier: () => ({
+                symbol: { text: 'VlocityOpenInterface' },
+              }),
+            }),
+          },
+        ],
+      };
+
+      // Act
+      const tokens = InterfaceMatcher.getMatchingTokens(interfaceImpl, mockContext as any);
+
+      // Assert
+      // Should match because: 'devopsimpkg15' === 'DevOpsImpkg15'.toLowerCase()
+      expect(tokens).to.have.length(2);
+      expect(tokens[0].text).to.equal('DevOpsImpkg15');
+      expect(tokens[1].text).to.equal('VlocityOpenInterface');
     });
   });
 

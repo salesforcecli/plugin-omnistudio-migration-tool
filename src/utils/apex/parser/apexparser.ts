@@ -259,7 +259,7 @@ export class InterfaceMatcher {
     } else if (
       checkFor.namespace &&
       typeNameContexts.length === 2 &&
-      checkFor.namespace === typeNameContexts[0]?.id()?.Identifier()?.symbol?.text &&
+      checkFor.namespace === typeNameContexts[0]?.id()?.Identifier()?.symbol?.text?.toLowerCase() &&
       checkFor.name === typeNameContexts[1]?.id()?.Identifier()?.symbol?.text
     ) {
       tokens.push(typeNameContexts[0].id().Identifier().symbol);

@@ -239,6 +239,10 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
           for (let item of items.mappedRecords) {
             let standardItemId = item['Id'];
             delete item['Id'];
+            // Remove OmniDataTransformationId as it's a read-only relationship field
+            const omniDataTransformationId = item['OmniDataTransformationId'];
+            delete item['OmniDataTransformationId'];
+
             await NetUtils.updateOne(
               this.connection,
               DataRaptorMigrationTool.OMNIDATATRANSFORMITEM_NAME,
@@ -247,6 +251,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
               item
             );
             item['Id'] = standardItemId;
+            item['OmniDataTransformationId'] = omniDataTransformationId;
           }
         }
       } else {

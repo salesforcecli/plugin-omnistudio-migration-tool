@@ -154,7 +154,7 @@ describe('DataRaptor Standard Data Model (Metadata API Disabled) - Assessment an
     });
 
     it('should detect duplicate DataRaptor names and require manual intervention', async () => {
-      const existingNames = new Set(['CustomerDataLoader']);
+      const existingNames = new Set(['customerdataloader']); // Use lowercase to match the actual implementation
       const mockDataRaptor = {
         Id: 'dr4',
         Name: 'Customer-Data@Loader!', // This will clean to CustomerDataLoader (duplicate)
@@ -168,8 +168,9 @@ describe('DataRaptor Standard Data Model (Metadata API Disabled) - Assessment an
       const result = await (dataRaptorTool as any).processDataMappers(mockDataRaptor, existingNames, new Map(), []);
 
       // Should require manual intervention for duplicated names
+      // Note: When there's both a name cleaning warning AND a duplicate, 'Needs manual intervention' takes precedence
       expect(result.migrationStatus).to.equal('Needs manual intervention');
-      expect(result.warnings).to.have.length.greaterThan(0);
+      expect(result.warnings).to.have.length.greaterThan(1); // Should have both name change warning and duplicate warning
       expect(result.warnings.some((warning) => warning.includes('Duplicated'))).to.be.true;
     });
 

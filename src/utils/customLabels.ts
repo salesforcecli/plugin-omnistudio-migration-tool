@@ -56,8 +56,7 @@ export class CustomLabelsUtil {
         const name = label.Name;
         const value = label.Value;
         const id = label.Id;
-
-        const externalString = externalStrings.find((es) => es.Name === name);
+        const externalString = externalStrings.find((es) => es.Name.toLowerCase() === name.toLowerCase());
         let assessmentStatus = 'Ready for migration';
         let summary = '';
 

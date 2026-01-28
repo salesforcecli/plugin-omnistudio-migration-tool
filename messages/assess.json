@@ -29,6 +29,7 @@
   "allVersionsDescription": "Migrate all versions of a component",
   "changeMessage": "The %s %s will be changed from %s to %s",
   "angularOSWarning": "We couldn't migrate Angular Omniscripts. Convert all Angular Omniscripts to LWC Omniscripts, and try again.",
+  "customLabelMigrationErrorMessage": "We couldn’t complete the Custom Labels migration. Check your org configuration and confirm it meets the requirements outlined <a href='https://help.salesforce.com/s/articleView?id=xcloud.os_migrate_oma_prereq.htm&type=5' target='_blank'>here</a>.",
   "relatedObjectGA": "Select the component type that you want to migrate: 'apex' for Apex classes, 'lwc' for Lightning Web Components, 'flexipage' for FlexiPages, 'expsites' for Experience Sites, or 'apex, lwc, flexipage, expsites' if you want to include all types.",
   "noPackageInstalled": "No valid package found in your org.",
   "alreadyStandardModel": "Your org already uses the standard data model.",

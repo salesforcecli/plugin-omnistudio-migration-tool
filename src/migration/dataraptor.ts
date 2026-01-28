@@ -177,7 +177,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
       const transformedDataRaptor = this.mapDataRaptorRecord(dr);
 
       // Verify duplicated names before trying to submitt
-      if (duplicatedNames.has(transformedDataRaptor['Name'])) {
+      if (duplicatedNames.has(transformedDataRaptor['Name'].toLowerCase())) {
         this.setRecordErrors(dr, this.messages.getMessage('duplicatedDrName', [transformedDataRaptor['Name']]));
         originalDrRecords.set(recordId, dr);
         continue;
@@ -226,7 +226,7 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
       if (drUploadResponse && drUploadResponse.success === true) {
         // Append the processed DM name into duplicateNames Map
         const dataMapperName = transformedDataRaptor[DRBundleMappings.Name];
-        duplicatedNames.add(dataMapperName);
+        duplicatedNames.add(dataMapperName.toLowerCase());
 
         const items = await this.getItemsForDataRaptor(dataRaptorItemsData, name, drUploadResponse.id);
         drUploadResponse.newName = dataMapperName;
@@ -398,11 +398,11 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
       assessmentStatus = 'Needs manual intervention';
     }
 
-    if (existingDataRaptorNames.has(existingDRNameVal.cleanName())) {
+    if (existingDataRaptorNames.has(existingDRNameVal.cleanName().toLowerCase())) {
       warnings.push(this.messages.getMessage('duplicatedName') + '  ' + existingDRNameVal.cleanName());
       assessmentStatus = 'Needs manual intervention';
     } else {
-      existingDataRaptorNames.add(existingDRNameVal.cleanName());
+      existingDataRaptorNames.add(existingDRNameVal.cleanName().toLowerCase());
     }
     const apexDependencies = [];
     if (dataRaptor[this.getBundleFieldKey('CustomInputClass__c')]) {

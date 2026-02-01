@@ -869,37 +869,6 @@ describe('FlexCard Standard Data Model (Metadata API Disabled) - Assessment and 
       expect(result.dependenciesOS).to.have.length.greaterThan(0);
       expect(result.warnings).to.have.length.greaterThan(0);
     });
-
-    it('should detect LWC dependencies in events[].actionList[].stateAction.flyoutLwc with cf prefix', async () => {
-      const mockFlexCard = {
-        Id: 'fc_events_lwc',
-        Name: 'EventsLWCCard',
-        DataSourceConfig: JSON.stringify({ type: 'None' }),
-        PropertySetConfig: JSON.stringify({
-          layout: 'Card',
-          states: [],
-          events: [
-            {
-              actionList: [
-                {
-                  stateAction: {
-                    flyoutLwc: 'cfFlyout-FlexCard@Name!',
-                  },
-                },
-              ],
-            },
-          ],
-        }),
-        IsActive: true,
-        OmniUiCardType: 'Parent',
-        VersionNumber: 1,
-      };
-
-      const result = await (cardTool as any).processFlexCard(mockFlexCard, new Set<string>());
-
-      expect(result.dependenciesLWC).to.include('cfFlyout-FlexCard@Name!');
-      expect(result.warnings).to.have.length.greaterThan(0);
-    });
   });
 
   describe('Events Array Reference Handling - Migration', () => {
@@ -1025,44 +994,6 @@ describe('FlexCard Standard Data Model (Metadata API Disabled) - Assessment and 
       const propertySetConfig = JSON.parse(result.PropertySetConfig);
 
       expect(propertySetConfig.events[0].actionList[0].stateAction.cardName).to.equal('EventChildCardClean');
-    });
-
-    it('should update flyoutLwc with cf prefix in events using registry', () => {
-      nameRegistry.registerNameMapping({
-        originalName: 'FlyoutFlexCard',
-        cleanedName: 'FlyoutFlexCardClean',
-        componentType: 'FlexCard',
-        recordId: 'fc_flyout1',
-      });
-
-      const mockCardRecord = {
-        Id: 'fc_mig_events_lwc',
-        Name: 'MigEventsLWCCard',
-        DataSourceConfig: JSON.stringify({ type: 'None' }),
-        PropertySetConfig: JSON.stringify({
-          layout: 'Card',
-          states: [],
-          events: [
-            {
-              actionList: [
-                {
-                  stateAction: {
-                    flyoutLwc: 'cfFlyoutFlexCard',
-                  },
-                },
-              ],
-            },
-          ],
-        }),
-        IsActive: true,
-        OmniUiCardType: 'Parent',
-        VersionNumber: 1,
-      };
-
-      const result = (cardTool as any).mapVlocityCardRecord(mockCardRecord, new Map(), new Map());
-      const propertySetConfig = JSON.parse(result.PropertySetConfig);
-
-      expect(propertySetConfig.events[0].actionList[0].stateAction.flyoutLwc).to.equal('cfFlyoutFlexCardClean');
     });
   });
 

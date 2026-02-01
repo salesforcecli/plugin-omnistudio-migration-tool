@@ -608,27 +608,6 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
             if (!flexCardAssessmentInfo.dependenciesLWC.includes(lwcName)) {
               flexCardAssessmentInfo.dependenciesLWC.push(lwcName);
             }
-          } else if (!flexCardAssessmentInfo.dependenciesLWC.includes(lwcName)) {
-            // Regular LWC dependency
-            flexCardAssessmentInfo.dependenciesLWC.push(lwcName);
-            // Check if this is a FlexCard reference (starts with "cf" prefix)
-            if (lwcName.startsWith('cf')) {
-              const originalFlexCardName = lwcName.substring(2);
-              const cleanedFlexCardName = this.cleanName(originalFlexCardName);
-              if (originalFlexCardName !== cleanedFlexCardName) {
-                flexCardAssessmentInfo.warnings.push(
-                  this.messages.getMessage('cardLWCNameChangeMessage', [originalFlexCardName, cleanedFlexCardName])
-                );
-                flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
-                  flexCardAssessmentInfo.migrationStatus as
-                    | 'Warnings'
-                    | 'Needs manual intervention'
-                    | 'Ready for migration'
-                    | 'Failed',
-                  'Warnings'
-                );
-              }
-            }
           }
         }
 
@@ -1825,13 +1804,21 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           }
         }
 
-        // 4. Handle flyoutLwc (Custom LWC or FlexCard reference)
-        if (stateAction.flyoutLwc) {
-          const lwcName = stateAction.flyoutLwc;
+        // 4. Handle omniType.Name (OmniScript)
+        if (stateAction.omniType && stateAction.omniType.Name) {
+          this.updateOmniTypeNameWithRegistry(stateAction.omniType);
+        }
 
-          // Check if this is a FlexCard reference when flyoutType is "childCard"
+        // 5. Handle osName (OmniScript - Flyout OmniScripts)
+        if (stateAction.osName && typeof stateAction.osName === 'string') {
+          this.updateOsNameWithRegistry(stateAction, 'osName');
+        }
+
+        // 6. Handle flyoutLwc (Custom LWC or FlexCard reference)
+        if (stateAction.flyoutLwc) {
           if (stateAction.flyoutType === 'childCard') {
             // flyoutLwc is a direct FlexCard name reference
+            const lwcName = stateAction.flyoutLwc;
             if (this.nameRegistry.hasFlexCardMapping(lwcName)) {
               stateAction.flyoutLwc = this.nameRegistry.getFlexCardCleanedName(lwcName);
             } else {
@@ -1839,33 +1826,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
               stateAction.flyoutLwc = this.cleanName(lwcName);
             }
           } else if (stateAction.flyoutType === Constants.OmniScriptPluralName && stateAction.osName) {
-            // flyoutLwc is an OmniScript-derived LWC name - will be updated after osName is processed
-            // (handled below after osName update)
-          } else if (lwcName.startsWith('cf')) {
-            // Check if this is a FlexCard reference (starts with "cf" prefix)
-            const originalFlexCardName = lwcName.substring(2);
-            if (this.nameRegistry.hasFlexCardMapping(originalFlexCardName)) {
-              stateAction.flyoutLwc = `cf${this.nameRegistry.getFlexCardCleanedName(originalFlexCardName)}`;
-            } else {
-              Logger.logVerbose(
-                `\n${this.messages.getMessage('componentMappingNotFound', ['Flexcard', originalFlexCardName])}`
-              );
-              stateAction.flyoutLwc = `cf${this.cleanName(originalFlexCardName)}`;
-            }
-          }
-          // Note: Non-cf LWC names that are not childCard flyouts don't need cleaning
-        }
-
-        // 5. Handle omniType.Name (OmniScript)
-        if (stateAction.omniType && stateAction.omniType.Name) {
-          this.updateOmniTypeNameWithRegistry(stateAction.omniType);
-        }
-
-        // 6. Handle osName (OmniScript - Flyout OmniScripts)
-        if (stateAction.osName && typeof stateAction.osName === 'string') {
-          this.updateOsNameWithRegistry(stateAction, 'osName');
-          // Also update flyoutLwc if it's an OmniScript-derived LWC name
-          if (stateAction.flyoutLwc && stateAction.flyoutType === Constants.OmniScriptPluralName) {
+            // flyoutLwc is an OmniScript-derived LWC name - derive from already-updated osName
             stateAction.flyoutLwc = this.convertOsNameToLwcName(stateAction.osName);
           }
         }
@@ -2077,6 +2038,10 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         component.property.stateAction.osName
       ) {
         this.updateOsNameWithRegistry(component.property.stateAction, 'osName');
+        // Also update flyoutLwc - it's the kebab-case LWC name derived from OmniScript
+        if (component.property.stateAction.flyoutLwc) {
+          component.property.stateAction.flyoutLwc = this.convertOsNameToLwcName(component.property.stateAction.osName);
+        }
       }
       // Handle Flyout childCard reference - flyoutLwc is a direct FlexCard name
       if (
@@ -2139,6 +2104,13 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
                 parts.length >= 3
                   ? `${this.cleanName(parts[0])}/${this.cleanName(parts[1])}/${parts[2]}`
                   : parts.map((p) => this.cleanName(p)).join('/');
+            }
+
+            // Also update flyoutLwc if it exists - it's the kebab-case LWC name derived from OmniScript
+            if (component.property.flyoutOmniScript.flyoutLwc) {
+              component.property.flyoutOmniScript.flyoutLwc = this.convertOsNameToLwcName(
+                component.property.flyoutOmniScript.osName
+              );
             }
           }
         }
@@ -2223,9 +2195,14 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 
   /**
    * Convert OmniScript name (Type/SubType/Language) to kebab-case LWC component name
+   * The flyoutLwc is derived by converting each part of osName to kebab-case and joining with hyphens
    * Example: "docGenerationSample/CoreSingleDocxLWC/English" -> "doc-generation-sample-core-single-docx-l-w-c-english"
+   * Example: "flexcard/dev/English" -> "flexcard-dev-english"
    */
   private convertOsNameToLwcName(osName: string): string {
+    if (!osName) {
+      return '';
+    }
     // Split by / and convert each part to kebab-case, then join with -
     const parts = osName.split('/');
     const kebabParts = parts.map((part) => this.camelToKebab(part));
@@ -2234,9 +2211,13 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 
   /**
    * Convert camelCase or PascalCase string to kebab-case
+   * Example: "docGenerationSample" -> "doc-generation-sample"
    * Example: "CoreSingleDocxLWC" -> "core-single-docx-l-w-c"
    */
   private camelToKebab(str: string): string {
+    if (!str) {
+      return '';
+    }
     return str
       .replace(/([a-z0-9])([A-Z])/g, '$1-$2') // Insert hyphen between lowercase/digit and uppercase
       .replace(/([A-Z])([A-Z][a-z])/g, '$1-$2') // Insert hyphen between consecutive uppercase followed by lowercase

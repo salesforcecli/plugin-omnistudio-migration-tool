@@ -303,25 +303,21 @@ describe('FlexCard Standard Data Model (Metadata API Disabled) - Assessment and 
         Id: 'fc1',
         Name: 'TestCard',
         DataSourceConfig: JSON.stringify({
-          type: 'Static',
-          value: {},
+          dataSource: {
+            type: 'DataRaptor',
+            value: {
+              bundle: 'Product#Info$Extractor',
+            },
+          },
         }),
         PropertySetConfig: JSON.stringify({
           layout: 'Card',
-          actions: [
+          states: [
             {
-              type: 'DataRaptor',
-              bundle: 'Product#Info$Extractor',
-            },
-            {
-              type: 'Integration Procedure',
-              ipMethod: 'Payment#Processor_Credit&Card',
+              childCards: ['Customer-Dashboard@Card!'],
+              components: {},
             },
           ],
-          references: {
-            flexCardReference: 'Customer-Dashboard@Card!',
-            dataRaptorBundle: 'Customer-Data@Loader!',
-          },
         }),
         IsActive: true,
         OmniUiCardType: 'Parent',
@@ -330,13 +326,13 @@ describe('FlexCard Standard Data Model (Metadata API Disabled) - Assessment and 
 
       const result = (cardTool as any).mapVlocityCardRecord(mockCardRecord, new Map(), new Map());
 
+      const dataSourceConfig = JSON.parse(result.DataSourceConfig);
       const propertySetConfig = JSON.parse(result.PropertySetConfig);
 
-      // Should update nested references using registry mappings
-      expect(propertySetConfig.actions[0].bundle).to.equal('ProductInfoExtractor');
-      expect(propertySetConfig.actions[1].ipMethod).to.equal('PaymentProcessor_CreditCard');
-      expect(propertySetConfig.references.flexCardReference).to.equal('CustomerDashboardCard');
-      expect(propertySetConfig.references.dataRaptorBundle).to.equal('CustomerDataLoader');
+      // Should update DataRaptor bundle using registry mappings
+      expect(dataSourceConfig.dataSource.value.bundle).to.equal('ProductInfoExtractor');
+      // Should update childCards using registry mappings
+      expect(propertySetConfig.states[0].childCards[0]).to.equal('CustomerDashboardCard');
     });
 
     it('should handle missing dependencies gracefully in PropertySetConfig', () => {
@@ -349,12 +345,7 @@ describe('FlexCard Standard Data Model (Metadata API Disabled) - Assessment and 
         }),
         PropertySetConfig: JSON.stringify({
           layout: 'Card',
-          actions: [],
-          references: {
-            unknownProperty: 'someValue',
-            emptyBundle: '',
-            nullReference: null,
-          },
+          states: [],
         }),
         IsActive: true,
         OmniUiCardType: 'Parent',
@@ -366,9 +357,8 @@ describe('FlexCard Standard Data Model (Metadata API Disabled) - Assessment and 
       // Should not throw errors and preserve non-dependency properties
       expect(result.PropertySetConfig).to.be.a('string');
       const propertySetConfig = JSON.parse(result.PropertySetConfig);
-      expect(propertySetConfig.references.unknownProperty).to.equal('someValue');
-      expect(propertySetConfig.references.emptyBundle).to.equal('');
-      expect(propertySetConfig.references.nullReference).to.be.null;
+      expect(propertySetConfig.layout).to.equal('Card');
+      expect(propertySetConfig.states).to.be.an('array');
     });
   });
 
@@ -704,6 +694,538 @@ describe('FlexCard Standard Data Model (Metadata API Disabled) - Assessment and 
         expect(result.migrationStatus).to.be.oneOf(['Warnings', 'Needs manual intervention']);
         expect(result.warnings).to.have.length.greaterThan(0);
       }
+    });
+  });
+
+  describe('Events Array Reference Handling - Assessment', () => {
+    it('should detect DataRaptor dependencies in events[].actionList[].stateAction.message', async () => {
+      const mockFlexCard = {
+        Id: 'fc_events_dr',
+        Name: 'EventsDRCard',
+        DataSourceConfig: JSON.stringify({ type: 'None' }),
+        PropertySetConfig: JSON.stringify({
+          layout: 'Card',
+          states: [],
+          events: [
+            {
+              actionList: [
+                {
+                  stateAction: {
+                    message: JSON.stringify({
+                      value: {
+                        bundle: 'Event-DataRaptor@Bundle!',
+                      },
+                    }),
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+        IsActive: true,
+        OmniUiCardType: 'Parent',
+        VersionNumber: 1,
+      };
+
+      const result = await (cardTool as any).processFlexCard(mockFlexCard, new Set<string>());
+
+      expect(result.dependenciesDR).to.include('Event-DataRaptor@Bundle!');
+      expect(result.warnings).to.have.length.greaterThan(0);
+      expect(result.migrationStatus).to.equal('Warnings');
+    });
+
+    it('should detect Integration Procedure dependencies in events[].actionList[].stateAction.message', async () => {
+      const mockFlexCard = {
+        Id: 'fc_events_ip',
+        Name: 'EventsIPCard',
+        DataSourceConfig: JSON.stringify({ type: 'None' }),
+        PropertySetConfig: JSON.stringify({
+          layout: 'Card',
+          states: [],
+          events: [
+            {
+              actionList: [
+                {
+                  stateAction: {
+                    message: JSON.stringify({
+                      value: {
+                        ipMethod: 'Event-IP@Type_Event-IP@SubType',
+                      },
+                    }),
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+        IsActive: true,
+        OmniUiCardType: 'Parent',
+        VersionNumber: 1,
+      };
+
+      const result = await (cardTool as any).processFlexCard(mockFlexCard, new Set<string>());
+
+      expect(result.dependenciesIP).to.include('Event-IP@Type_Event-IP@SubType');
+      expect(result.warnings).to.have.length.greaterThan(0);
+    });
+
+    it('should detect FlexCard dependencies in events[].actionList[].stateAction.cardName', async () => {
+      const mockFlexCard = {
+        Id: 'fc_events_card',
+        Name: 'EventsCardRefCard',
+        DataSourceConfig: JSON.stringify({ type: 'None' }),
+        PropertySetConfig: JSON.stringify({
+          layout: 'Card',
+          states: [],
+          events: [
+            {
+              actionList: [
+                {
+                  stateAction: {
+                    cardName: 'Flyout-Child@Card!',
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+        IsActive: true,
+        OmniUiCardType: 'Parent',
+        VersionNumber: 1,
+      };
+
+      const result = await (cardTool as any).processFlexCard(mockFlexCard, new Set<string>());
+
+      expect(result.dependenciesFC).to.include('Flyout-Child@Card!');
+      expect(result.warnings).to.have.length.greaterThan(0);
+    });
+
+    it('should detect OmniScript dependencies in events[].actionList[].stateAction.omniType.Name', async () => {
+      const mockFlexCard = {
+        Id: 'fc_events_os',
+        Name: 'EventsOSCard',
+        DataSourceConfig: JSON.stringify({ type: 'None' }),
+        PropertySetConfig: JSON.stringify({
+          layout: 'Card',
+          states: [],
+          events: [
+            {
+              actionList: [
+                {
+                  stateAction: {
+                    omniType: {
+                      Name: 'Event-OS@Type/Event-OS@SubType/English',
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+        IsActive: true,
+        OmniUiCardType: 'Parent',
+        VersionNumber: 1,
+      };
+
+      const result = await (cardTool as any).processFlexCard(mockFlexCard, new Set<string>());
+
+      expect(result.dependenciesOS).to.have.length.greaterThan(0);
+      expect(result.warnings).to.have.length.greaterThan(0);
+    });
+
+    it('should detect OmniScript dependencies in events[].actionList[].stateAction.osName', async () => {
+      const mockFlexCard = {
+        Id: 'fc_events_osname',
+        Name: 'EventsOSNameCard',
+        DataSourceConfig: JSON.stringify({ type: 'None' }),
+        PropertySetConfig: JSON.stringify({
+          layout: 'Card',
+          states: [],
+          events: [
+            {
+              actionList: [
+                {
+                  stateAction: {
+                    osName: 'Flyout-OS@Type/Flyout-OS@SubType/English',
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+        IsActive: true,
+        OmniUiCardType: 'Parent',
+        VersionNumber: 1,
+      };
+
+      const result = await (cardTool as any).processFlexCard(mockFlexCard, new Set<string>());
+
+      expect(result.dependenciesOS).to.have.length.greaterThan(0);
+      expect(result.warnings).to.have.length.greaterThan(0);
+    });
+
+    it('should detect LWC dependencies in events[].actionList[].stateAction.flyoutLwc with cf prefix', async () => {
+      const mockFlexCard = {
+        Id: 'fc_events_lwc',
+        Name: 'EventsLWCCard',
+        DataSourceConfig: JSON.stringify({ type: 'None' }),
+        PropertySetConfig: JSON.stringify({
+          layout: 'Card',
+          states: [],
+          events: [
+            {
+              actionList: [
+                {
+                  stateAction: {
+                    flyoutLwc: 'cfFlyout-FlexCard@Name!',
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+        IsActive: true,
+        OmniUiCardType: 'Parent',
+        VersionNumber: 1,
+      };
+
+      const result = await (cardTool as any).processFlexCard(mockFlexCard, new Set<string>());
+
+      expect(result.dependenciesLWC).to.include('cfFlyout-FlexCard@Name!');
+      expect(result.warnings).to.have.length.greaterThan(0);
+    });
+  });
+
+  describe('Events Array Reference Handling - Migration', () => {
+    it('should update DataRaptor bundle in events using registry', () => {
+      nameRegistry.registerNameMapping({
+        originalName: 'EventDRBundle',
+        cleanedName: 'EventDRBundleClean',
+        componentType: 'DataMapper',
+        recordId: 'dm_event1',
+      });
+
+      const mockCardRecord = {
+        Id: 'fc_mig_events_dr',
+        Name: 'MigEventsDRCard',
+        DataSourceConfig: JSON.stringify({ type: 'None' }),
+        PropertySetConfig: JSON.stringify({
+          layout: 'Card',
+          states: [],
+          events: [
+            {
+              actionList: [
+                {
+                  stateAction: {
+                    message: JSON.stringify({
+                      value: {
+                        bundle: 'EventDRBundle',
+                      },
+                    }),
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+        IsActive: true,
+        OmniUiCardType: 'Parent',
+        VersionNumber: 1,
+      };
+
+      const result = (cardTool as any).mapVlocityCardRecord(mockCardRecord, new Map(), new Map());
+      const propertySetConfig = JSON.parse(result.PropertySetConfig);
+      const messageObj = JSON.parse(propertySetConfig.events[0].actionList[0].stateAction.message);
+
+      expect(messageObj.value.bundle).to.equal('EventDRBundleClean');
+    });
+
+    it('should update Integration Procedure ipMethod in events using registry', () => {
+      nameRegistry.registerNameMapping({
+        originalName: 'EventIPType_EventIPSubType',
+        cleanedName: 'EventIPTypeClean_EventIPSubTypeClean',
+        componentType: 'IntegrationProcedure',
+        recordId: 'ip_event1',
+      });
+
+      const mockCardRecord = {
+        Id: 'fc_mig_events_ip',
+        Name: 'MigEventsIPCard',
+        DataSourceConfig: JSON.stringify({ type: 'None' }),
+        PropertySetConfig: JSON.stringify({
+          layout: 'Card',
+          states: [],
+          events: [
+            {
+              actionList: [
+                {
+                  stateAction: {
+                    message: JSON.stringify({
+                      value: {
+                        ipMethod: 'EventIPType_EventIPSubType',
+                      },
+                    }),
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+        IsActive: true,
+        OmniUiCardType: 'Parent',
+        VersionNumber: 1,
+      };
+
+      const result = (cardTool as any).mapVlocityCardRecord(mockCardRecord, new Map(), new Map());
+      const propertySetConfig = JSON.parse(result.PropertySetConfig);
+      const messageObj = JSON.parse(propertySetConfig.events[0].actionList[0].stateAction.message);
+
+      expect(messageObj.value.ipMethod).to.equal('EventIPTypeClean_EventIPSubTypeClean');
+    });
+
+    it('should update cardName in events using registry', () => {
+      nameRegistry.registerNameMapping({
+        originalName: 'EventChildCard',
+        cleanedName: 'EventChildCardClean',
+        componentType: 'FlexCard',
+        recordId: 'fc_event_child1',
+      });
+
+      const mockCardRecord = {
+        Id: 'fc_mig_events_card',
+        Name: 'MigEventsCardCard',
+        DataSourceConfig: JSON.stringify({ type: 'None' }),
+        PropertySetConfig: JSON.stringify({
+          layout: 'Card',
+          states: [],
+          events: [
+            {
+              actionList: [
+                {
+                  stateAction: {
+                    cardName: 'EventChildCard',
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+        IsActive: true,
+        OmniUiCardType: 'Parent',
+        VersionNumber: 1,
+      };
+
+      const result = (cardTool as any).mapVlocityCardRecord(mockCardRecord, new Map(), new Map());
+      const propertySetConfig = JSON.parse(result.PropertySetConfig);
+
+      expect(propertySetConfig.events[0].actionList[0].stateAction.cardName).to.equal('EventChildCardClean');
+    });
+
+    it('should update flyoutLwc with cf prefix in events using registry', () => {
+      nameRegistry.registerNameMapping({
+        originalName: 'FlyoutFlexCard',
+        cleanedName: 'FlyoutFlexCardClean',
+        componentType: 'FlexCard',
+        recordId: 'fc_flyout1',
+      });
+
+      const mockCardRecord = {
+        Id: 'fc_mig_events_lwc',
+        Name: 'MigEventsLWCCard',
+        DataSourceConfig: JSON.stringify({ type: 'None' }),
+        PropertySetConfig: JSON.stringify({
+          layout: 'Card',
+          states: [],
+          events: [
+            {
+              actionList: [
+                {
+                  stateAction: {
+                    flyoutLwc: 'cfFlyoutFlexCard',
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+        IsActive: true,
+        OmniUiCardType: 'Parent',
+        VersionNumber: 1,
+      };
+
+      const result = (cardTool as any).mapVlocityCardRecord(mockCardRecord, new Map(), new Map());
+      const propertySetConfig = JSON.parse(result.PropertySetConfig);
+
+      expect(propertySetConfig.events[0].actionList[0].stateAction.flyoutLwc).to.equal('cfFlyoutFlexCardClean');
+    });
+  });
+
+  describe('Events Array - Angular OmniScript Dependency Detection', () => {
+    it('should detect Angular OmniScript dependencies in events via omniType.Name', () => {
+      const mockFlexCard = {
+        Id: 'fc_angular_events_omnitype',
+        Name: 'AngularEventsOmniTypeCard',
+        DataSourceConfig: JSON.stringify({ type: 'None' }),
+        PropertySetConfig: JSON.stringify({
+          layout: 'Card',
+          states: [],
+          events: [
+            {
+              actionList: [
+                {
+                  stateAction: {
+                    omniType: {
+                      Name: 'AngularOS/SubType/English',
+                      IsWebCompEnabled: false,
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+        IsActive: true,
+        OmniUiCardType: 'Parent',
+        VersionNumber: 1,
+      };
+
+      const hasAngularDep = (cardTool as any).hasAngularOmniScriptDependencies(mockFlexCard);
+      expect(hasAngularDep).to.be.true;
+    });
+
+    it('should detect Angular OmniScript dependencies in events via osName', () => {
+      // Register the OmniScript as Angular using the registry's Angular tracking
+      nameRegistry.registerAngularOmniScript('AngularFlyoutType_AngularFlyoutSubType_English');
+
+      const mockFlexCard = {
+        Id: 'fc_angular_events_osname',
+        Name: 'AngularEventsOsNameCard',
+        DataSourceConfig: JSON.stringify({ type: 'None' }),
+        PropertySetConfig: JSON.stringify({
+          layout: 'Card',
+          states: [],
+          events: [
+            {
+              actionList: [
+                {
+                  stateAction: {
+                    osName: 'AngularFlyoutType/AngularFlyoutSubType/English',
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+        IsActive: true,
+        OmniUiCardType: 'Parent',
+        VersionNumber: 1,
+      };
+
+      const hasAngularDep = (cardTool as any).hasAngularOmniScriptDependencies(mockFlexCard);
+      expect(hasAngularDep).to.be.true;
+    });
+
+    it('should not detect Angular dependencies when OmniScript is LWC-enabled in events', () => {
+      const mockFlexCard = {
+        Id: 'fc_lwc_events',
+        Name: 'LWCEventsCard',
+        DataSourceConfig: JSON.stringify({ type: 'None' }),
+        PropertySetConfig: JSON.stringify({
+          layout: 'Card',
+          states: [],
+          events: [
+            {
+              actionList: [
+                {
+                  stateAction: {
+                    omniType: {
+                      Name: 'LWCOmniScript/SubType/English',
+                      IsWebCompEnabled: true,
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+        IsActive: true,
+        OmniUiCardType: 'Parent',
+        VersionNumber: 1,
+      };
+
+      const hasAngularDep = (cardTool as any).hasAngularOmniScriptDependencies(mockFlexCard);
+      expect(hasAngularDep).to.be.false;
+    });
+  });
+
+  describe('DataSource Root-Level Type Handling', () => {
+    it('should handle DataSourceConfig with type at root level (not nested in dataSource)', async () => {
+      const mockFlexCard = {
+        Id: 'fc_root_type',
+        Name: 'RootTypeCard',
+        DataSourceConfig: JSON.stringify({
+          type: 'DataRaptor',
+          value: {
+            bundle: 'RootLevel-Bundle@Test!',
+          },
+        }),
+        PropertySetConfig: JSON.stringify({ layout: 'Card' }),
+        IsActive: true,
+        OmniUiCardType: 'Parent',
+        VersionNumber: 1,
+      };
+
+      const result = await (cardTool as any).processFlexCard(mockFlexCard, new Set<string>());
+
+      expect(result.dependenciesDR).to.include('RootLevel-Bundle@Test!');
+      expect(result.warnings).to.have.length.greaterThan(0);
+    });
+
+    it('should handle DataSourceConfig with type nested in dataSource property', async () => {
+      const mockFlexCard = {
+        Id: 'fc_nested_type',
+        Name: 'NestedTypeCard',
+        DataSourceConfig: JSON.stringify({
+          dataSource: {
+            type: 'DataRaptor',
+            value: {
+              bundle: 'Nested-Bundle@Test!',
+            },
+          },
+        }),
+        PropertySetConfig: JSON.stringify({ layout: 'Card' }),
+        IsActive: true,
+        OmniUiCardType: 'Parent',
+        VersionNumber: 1,
+      };
+
+      const result = await (cardTool as any).processFlexCard(mockFlexCard, new Set<string>());
+
+      expect(result.dependenciesDR).to.include('Nested-Bundle@Test!');
+      expect(result.warnings).to.have.length.greaterThan(0);
+    });
+
+    it('should handle DataSourceConfig with type nested in datasource property (lowercase)', async () => {
+      const mockFlexCard = {
+        Id: 'fc_lowercase_type',
+        Name: 'LowercaseTypeCard',
+        DataSourceConfig: JSON.stringify({
+          datasource: {
+            type: 'IntegrationProcedures',
+            value: {
+              ipMethod: 'Lowercase-IP@Type_Lowercase-IP@SubType',
+            },
+          },
+        }),
+        PropertySetConfig: JSON.stringify({ layout: 'Card' }),
+        IsActive: true,
+        OmniUiCardType: 'Parent',
+        VersionNumber: 1,
+      };
+
+      const result = await (cardTool as any).processFlexCard(mockFlexCard, new Set<string>());
+
+      expect(result.dependenciesIP).to.include('Lowercase-IP@Type_Lowercase-IP@SubType');
     });
   });
 });

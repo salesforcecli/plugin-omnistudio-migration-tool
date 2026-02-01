@@ -535,8 +535,12 @@ describe('OmniScript Standard Data Model (Metadata API Disabled) - Assessment an
       expect(result.dependenciesIP).to.have.lengthOf(1);
       expect(result.dependenciesIP[0].name).to.equal('API-Gateway_Customer@Info!');
 
-      expect(result.dependenciesDR).to.have.lengthOf(1); // Deduplicated - same name from both actions
-      expect(result.dependenciesDR.map((d) => d.name)).to.include.members(['Customer-Data@Loader!']);
+      // DataRaptor dependencies include: bundle from DRAction + preTransformBundle & postTransformBundle from IPAction
+      expect(result.dependenciesDR).to.have.lengthOf(3);
+      expect(result.dependenciesDR.map((d) => d.name)).to.include.members([
+        'Customer-Data@Loader!',
+        'Product#Info$Extractor',
+      ]);
 
       expect(result.dependenciesOS).to.have.lengthOf(1);
       expect(result.dependenciesOS[0].name).to.equal('Customer-Profile_Account@View!_English');
@@ -878,6 +882,412 @@ describe('OmniScript Standard Data Model (Metadata API Disabled) - Assessment an
         // Restore original method
         NetUtils.updateOne = originalUpdateOne;
       }
+    });
+  });
+
+  describe('Standard Data Model - Transform Bundle Dependency Collection', () => {
+    it('should collect preTransformBundle and postTransformBundle dependencies', async () => {
+      const mockElements = [
+        {
+          Id: 'ope_http',
+          Name: 'HTTPAction',
+          Type: 'HTTP Action',
+          PropertySetConfig: JSON.stringify({
+            preTransformBundle: 'PreTransform-Bundle@Test!',
+            postTransformBundle: 'PostTransform-Bundle@Test!',
+          }),
+          Level: 0,
+        },
+      ];
+
+      (omniScriptTool as any).getAllElementsForOmniScript = () => Promise.resolve(mockElements);
+
+      const mockOmniscript = {
+        Id: 'op_transform',
+        Name: 'TransformTestScript',
+        Type: 'TransformTest',
+        SubType: 'TestSubType',
+        Language: 'English',
+        VersionNumber: '1',
+        IsIntegrationProcedure: false,
+        IsWebCompEnabled: true,
+        IsActive: true,
+      };
+
+      const result = await (omniScriptTool as any).processOmniScript(
+        mockOmniscript,
+        new Set<string>(),
+        new Set<string>(),
+        new Set<string>()
+      );
+
+      expect(result.dependenciesDR).to.have.lengthOf(2);
+      expect(result.dependenciesDR.map((d) => d.name)).to.include.members([
+        'PreTransform-Bundle@Test!',
+        'PostTransform-Bundle@Test!',
+      ]);
+    });
+
+    it('should collect xmlPreTransformBundle and xmlPostTransformBundle dependencies', async () => {
+      const mockElements = [
+        {
+          Id: 'ope_xml',
+          Name: 'XMLAction',
+          Type: 'Remote Action',
+          PropertySetConfig: JSON.stringify({
+            xmlPreTransformBundle: 'XMLPre-Bundle@Test!',
+            xmlPostTransformBundle: 'XMLPost-Bundle@Test!',
+          }),
+          Level: 0,
+        },
+      ];
+
+      (omniScriptTool as any).getAllElementsForOmniScript = () => Promise.resolve(mockElements);
+
+      const mockOmniscript = {
+        Id: 'op_xml_transform',
+        Name: 'XMLTransformScript',
+        Type: 'XMLTransformTest',
+        SubType: 'TestSubType',
+        Language: 'English',
+        VersionNumber: '1',
+        IsIntegrationProcedure: false,
+        IsWebCompEnabled: true,
+        IsActive: true,
+      };
+
+      const result = await (omniScriptTool as any).processOmniScript(
+        mockOmniscript,
+        new Set<string>(),
+        new Set<string>(),
+        new Set<string>()
+      );
+
+      expect(result.dependenciesDR).to.have.lengthOf(2);
+      expect(result.dependenciesDR.map((d) => d.name)).to.include.members([
+        'XMLPre-Bundle@Test!',
+        'XMLPost-Bundle@Test!',
+      ]);
+    });
+
+    it('should collect remoteOptions transform bundle dependencies', async () => {
+      const mockElements = [
+        {
+          Id: 'ope_remote',
+          Name: 'RemoteOptionsAction',
+          Type: 'Integration Procedure Action',
+          PropertySetConfig: JSON.stringify({
+            integrationProcedureKey: 'TestIP_TestSubType',
+            remoteOptions: {
+              preTransformBundle: 'RemotePre-Bundle@Test!',
+              postTransformBundle: 'RemotePost-Bundle@Test!',
+            },
+          }),
+          Level: 0,
+        },
+      ];
+
+      (omniScriptTool as any).getAllElementsForOmniScript = () => Promise.resolve(mockElements);
+
+      const mockOmniscript = {
+        Id: 'op_remote_transform',
+        Name: 'RemoteTransformScript',
+        Type: 'RemoteTransformTest',
+        SubType: 'TestSubType',
+        Language: 'English',
+        VersionNumber: '1',
+        IsIntegrationProcedure: false,
+        IsWebCompEnabled: true,
+        IsActive: true,
+      };
+
+      const result = await (omniScriptTool as any).processOmniScript(
+        mockOmniscript,
+        new Set<string>(),
+        new Set<string>(),
+        new Set<string>()
+      );
+
+      // Should collect IP dependency + remoteOptions transform bundles
+      expect(result.dependenciesIP).to.have.lengthOf(1);
+      expect(result.dependenciesDR.map((d) => d.name)).to.include.members([
+        'RemotePre-Bundle@Test!',
+        'RemotePost-Bundle@Test!',
+      ]);
+    });
+  });
+
+  describe('Standard Data Model - DocuSign Action Dependencies', () => {
+    it('should collect DocuSign Envelope Action transform bundle dependencies', async () => {
+      const mockElements = [
+        {
+          Id: 'ope_docusign_env',
+          Name: 'DocuSignEnvelopeAction',
+          Type: 'DocuSign Envelope Action',
+          PropertySetConfig: JSON.stringify({
+            docuSignTemplatesGroup: [
+              { transformBundle: 'DocuSignTemplate-Bundle1@!' },
+              { transformBundle: 'DocuSignTemplate-Bundle2@!' },
+            ],
+          }),
+          Level: 0,
+        },
+      ];
+
+      (omniScriptTool as any).getAllElementsForOmniScript = () => Promise.resolve(mockElements);
+
+      const mockOmniscript = {
+        Id: 'op_docusign',
+        Name: 'DocuSignScript',
+        Type: 'DocuSignTest',
+        SubType: 'TestSubType',
+        Language: 'English',
+        VersionNumber: '1',
+        IsIntegrationProcedure: false,
+        IsWebCompEnabled: true,
+        IsActive: true,
+      };
+
+      const result = await (omniScriptTool as any).processOmniScript(
+        mockOmniscript,
+        new Set<string>(),
+        new Set<string>(),
+        new Set<string>()
+      );
+
+      expect(result.dependenciesDR).to.have.lengthOf(2);
+      expect(result.dependenciesDR.map((d) => d.name)).to.include.members([
+        'DocuSignTemplate-Bundle1@!',
+        'DocuSignTemplate-Bundle2@!',
+      ]);
+    });
+
+    it('should collect DocuSign Signature Action transform bundle dependencies', async () => {
+      const mockElements = [
+        {
+          Id: 'ope_docusign_sig',
+          Name: 'DocuSignSignatureAction',
+          Type: 'DocuSign Signature Action',
+          PropertySetConfig: JSON.stringify({
+            docuSignTemplatesGroupSig: [
+              { transformBundle: 'DocuSignSig-Bundle1@!' },
+              { transformBundle: 'DocuSignSig-Bundle2@!' },
+            ],
+          }),
+          Level: 0,
+        },
+      ];
+
+      (omniScriptTool as any).getAllElementsForOmniScript = () => Promise.resolve(mockElements);
+
+      const mockOmniscript = {
+        Id: 'op_docusign_sig',
+        Name: 'DocuSignSigScript',
+        Type: 'DocuSignSigTest',
+        SubType: 'TestSubType',
+        Language: 'English',
+        VersionNumber: '1',
+        IsIntegrationProcedure: false,
+        IsWebCompEnabled: true,
+        IsActive: true,
+      };
+
+      const result = await (omniScriptTool as any).processOmniScript(
+        mockOmniscript,
+        new Set<string>(),
+        new Set<string>(),
+        new Set<string>()
+      );
+
+      expect(result.dependenciesDR).to.have.lengthOf(2);
+      expect(result.dependenciesDR.map((d) => d.name)).to.include.members([
+        'DocuSignSig-Bundle1@!',
+        'DocuSignSig-Bundle2@!',
+      ]);
+    });
+  });
+
+  describe('Standard Data Model - OmniScript Action Dependencies', () => {
+    it('should collect OmniScript Action dependencies with Type, SubType, Language', async () => {
+      const mockElements = [
+        {
+          Id: 'ope_os_action',
+          Name: 'OmniScriptAction',
+          Type: 'OmniScript',
+          PropertySetConfig: JSON.stringify({
+            Type: 'Child-OS@Type!',
+            'Sub Type': 'Child-OS@SubType!',
+            Language: 'English',
+          }),
+          Level: 0,
+        },
+      ];
+
+      (omniScriptTool as any).getAllElementsForOmniScript = () => Promise.resolve(mockElements);
+
+      const mockOmniscript = {
+        Id: 'op_os_action',
+        Name: 'ParentOmniScript',
+        Type: 'ParentType',
+        SubType: 'ParentSubType',
+        Language: 'English',
+        VersionNumber: '1',
+        IsIntegrationProcedure: false,
+        IsWebCompEnabled: true,
+        IsActive: true,
+      };
+
+      const result = await (omniScriptTool as any).processOmniScript(
+        mockOmniscript,
+        new Set<string>(),
+        new Set<string>(),
+        new Set<string>()
+      );
+
+      expect(result.dependenciesOS).to.have.lengthOf(1);
+      expect(result.dependenciesOS[0].name).to.equal('Child-OS@Type!_Child-OS@SubType!_English');
+    });
+  });
+
+  describe('Standard Data Model - Reserved Keys Detection', () => {
+    it('should detect reserved keys in additionalOutput and add warnings', async () => {
+      const mockElements = [
+        {
+          Id: 'ope_reserved',
+          Name: 'ReservedKeyElement',
+          Type: 'Set Values',
+          PropertySetConfig: JSON.stringify({
+            additionalOutput: {
+              Request: 'someValue',
+              Response: 'anotherValue',
+            },
+          }),
+          Level: 0,
+        },
+      ];
+
+      (omniScriptTool as any).getAllElementsForOmniScript = () => Promise.resolve(mockElements);
+
+      const mockOmniscript = {
+        Id: 'op_reserved',
+        Name: 'ReservedKeyScript',
+        Type: 'ReservedTest',
+        SubType: 'TestSubType',
+        Language: 'English',
+        VersionNumber: '1',
+        IsIntegrationProcedure: false,
+        IsWebCompEnabled: true,
+        IsActive: true,
+      };
+
+      const result = await (omniScriptTool as any).processOmniScript(
+        mockOmniscript,
+        new Set<string>(),
+        new Set<string>(),
+        new Set<string>()
+      );
+
+      // Should add warnings for reserved keys
+      expect(result.warnings).to.have.length.greaterThan(0);
+      expect(result.migrationStatus).to.be.oneOf(['Warnings', 'Needs manual intervention']);
+    });
+  });
+
+  describe('Standard Data Model - Migration Element Processing', () => {
+    it('should process Integration Procedure Action and update references using registry', () => {
+      nameRegistry.registerNameMapping({
+        originalName: 'MigIPType_MigIPSubType',
+        cleanedName: 'MigIPTypeClean_MigIPSubTypeClean',
+        componentType: 'IntegrationProcedure',
+        recordId: 'ip_mig1',
+      });
+
+      nameRegistry.registerNameMapping({
+        originalName: 'MigPreBundle',
+        cleanedName: 'MigPreBundleClean',
+        componentType: 'DataMapper',
+        recordId: 'dm_mig1',
+      });
+
+      nameRegistry.registerNameMapping({
+        originalName: 'MigPostBundle',
+        cleanedName: 'MigPostBundleClean',
+        componentType: 'DataMapper',
+        recordId: 'dm_mig2',
+      });
+
+      const mockElementRecord = {
+        Id: 'ope_ip_mig',
+        Name: 'IPMigrationAction',
+        Type: 'Integration Procedure Action',
+        PropertySetConfig: JSON.stringify({
+          integrationProcedureKey: 'MigIPType_MigIPSubType',
+          preTransformBundle: 'MigPreBundle',
+          postTransformBundle: 'MigPostBundle',
+        }),
+        Level: 0,
+        OmniProcessId: 'op_mig1',
+      };
+
+      const result = (omniScriptTool as any).mapElementData(mockElementRecord, 'op_mig1', new Map(), new Map());
+
+      const propertySet = JSON.parse(result.PropertySetConfig);
+      expect(propertySet.integrationProcedureKey).to.equal('MigIPTypeClean_MigIPSubTypeClean');
+      expect(propertySet.preTransformBundle).to.equal('MigPreBundleClean');
+      expect(propertySet.postTransformBundle).to.equal('MigPostBundleClean');
+    });
+
+    it('should process DataRaptor Transform Action and update bundle using registry', () => {
+      nameRegistry.registerNameMapping({
+        originalName: 'MigDRBundle',
+        cleanedName: 'MigDRBundleClean',
+        componentType: 'DataMapper',
+        recordId: 'dm_dr_mig',
+      });
+
+      const mockElementRecord = {
+        Id: 'ope_dr_mig',
+        Name: 'DRMigrationAction',
+        Type: 'DataRaptor Transform Action',
+        PropertySetConfig: JSON.stringify({
+          bundle: 'MigDRBundle',
+        }),
+        Level: 0,
+        OmniProcessId: 'op_mig2',
+      };
+
+      const result = (omniScriptTool as any).mapElementData(mockElementRecord, 'op_mig2', new Map(), new Map());
+
+      const propertySet = JSON.parse(result.PropertySetConfig);
+      expect(propertySet.bundle).to.equal('MigDRBundleClean');
+    });
+
+    it('should process OmniScript Action and update Type, SubType using registry', () => {
+      nameRegistry.registerNameMapping({
+        originalName: 'MigOSType_MigOSSubType_English',
+        cleanedName: 'MigOSTypeClean_MigOSSubTypeClean_English',
+        componentType: 'OmniScript',
+        recordId: 'os_mig1',
+      });
+
+      const mockElementRecord = {
+        Id: 'ope_os_mig',
+        Name: 'OSMigrationAction',
+        Type: 'OmniScript',
+        PropertySetConfig: JSON.stringify({
+          Type: 'MigOSType',
+          'Sub Type': 'MigOSSubType',
+          Language: 'English',
+        }),
+        Level: 0,
+        OmniProcessId: 'op_mig3',
+      };
+
+      const result = (omniScriptTool as any).mapElementData(mockElementRecord, 'op_mig3', new Map(), new Map());
+
+      const propertySet = JSON.parse(result.PropertySetConfig);
+      expect(propertySet.Type).to.equal('MigOSTypeClean');
+      expect(propertySet['Sub Type']).to.equal('MigOSSubTypeClean');
     });
   });
 });

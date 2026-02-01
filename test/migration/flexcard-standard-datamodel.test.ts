@@ -96,9 +96,11 @@ describe('FlexCard Standard Data Model (Metadata API Disabled) - Assessment and 
         Id: 'fc1',
         Name: 'Customer-Profile@Card!', // Contains special characters
         DataSourceConfig: JSON.stringify({
-          type: 'DataRaptor',
-          value: {
-            bundle: 'Customer-Data@Loader!',
+          dataSource: {
+            type: 'DataRaptor',
+            value: {
+              bundle: 'Customer-Data@Loader!',
+            },
           },
         }),
         PropertySetConfig: JSON.stringify({
@@ -130,9 +132,11 @@ describe('FlexCard Standard Data Model (Metadata API Disabled) - Assessment and 
         Id: 'fc2',
         Name: 'CustomerDashboardCard', // Clean name, no special characters
         DataSourceConfig: JSON.stringify({
-          type: 'IntegrationProcedures',
-          value: {
-            ipMethod: 'CleanIPMethod_CleanSubType', // Use clean dependency to avoid warnings
+          dataSource: {
+            type: 'IntegrationProcedures',
+            value: {
+              ipMethod: 'CleanIPMethod_CleanSubType', // Use clean dependency to avoid warnings
+            },
           },
         }),
         PropertySetConfig: JSON.stringify({
@@ -162,9 +166,11 @@ describe('FlexCard Standard Data Model (Metadata API Disabled) - Assessment and 
         Id: 'fc3',
         Name: 'MultiDependencyCard',
         DataSourceConfig: JSON.stringify({
-          type: 'DataRaptor',
-          value: {
-            bundle: 'CleanDataRaptor',
+          dataSource: {
+            type: 'DataRaptor',
+            value: {
+              bundle: 'CleanDataRaptor',
+            },
           },
         }),
         PropertySetConfig: JSON.stringify({
@@ -1158,38 +1164,16 @@ describe('FlexCard Standard Data Model (Metadata API Disabled) - Assessment and 
     });
   });
 
-  describe('DataSource Root-Level Type Handling', () => {
-    it('should handle DataSourceConfig with type at root level (not nested in dataSource)', async () => {
+  describe('DataSource Nested Key Handling', () => {
+    it('should handle DataSourceConfig with dataSource key', async () => {
       const mockFlexCard = {
-        Id: 'fc_root_type',
-        Name: 'RootTypeCard',
-        DataSourceConfig: JSON.stringify({
-          type: 'DataRaptor',
-          value: {
-            bundle: 'RootLevel-Bundle@Test!',
-          },
-        }),
-        PropertySetConfig: JSON.stringify({ layout: 'Card' }),
-        IsActive: true,
-        OmniUiCardType: 'Parent',
-        VersionNumber: 1,
-      };
-
-      const result = await (cardTool as any).processFlexCard(mockFlexCard, new Set<string>());
-
-      expect(result.dependenciesDR).to.include('RootLevel-Bundle@Test!');
-      expect(result.warnings).to.have.length.greaterThan(0);
-    });
-
-    it('should handle DataSourceConfig with type nested in dataSource property', async () => {
-      const mockFlexCard = {
-        Id: 'fc_nested_type',
-        Name: 'NestedTypeCard',
+        Id: 'fc_datasource_key',
+        Name: 'DataSourceKeyCard',
         DataSourceConfig: JSON.stringify({
           dataSource: {
             type: 'DataRaptor',
             value: {
-              bundle: 'Nested-Bundle@Test!',
+              bundle: 'DataSource-Bundle@Test!',
             },
           },
         }),
@@ -1201,14 +1185,14 @@ describe('FlexCard Standard Data Model (Metadata API Disabled) - Assessment and 
 
       const result = await (cardTool as any).processFlexCard(mockFlexCard, new Set<string>());
 
-      expect(result.dependenciesDR).to.include('Nested-Bundle@Test!');
+      expect(result.dependenciesDR).to.include('DataSource-Bundle@Test!');
       expect(result.warnings).to.have.length.greaterThan(0);
     });
 
-    it('should handle DataSourceConfig with type nested in datasource property (lowercase)', async () => {
+    it('should handle DataSourceConfig with datasource key (lowercase)', async () => {
       const mockFlexCard = {
-        Id: 'fc_lowercase_type',
-        Name: 'LowercaseTypeCard',
+        Id: 'fc_lowercase_key',
+        Name: 'LowercaseKeyCard',
         DataSourceConfig: JSON.stringify({
           datasource: {
             type: 'IntegrationProcedures',
@@ -1226,6 +1210,36 @@ describe('FlexCard Standard Data Model (Metadata API Disabled) - Assessment and 
       const result = await (cardTool as any).processFlexCard(mockFlexCard, new Set<string>());
 
       expect(result.dependenciesIP).to.include('Lowercase-IP@Type_Lowercase-IP@SubType');
+    });
+
+    it('should handle DataSourceConfig with event keys (event-0_0, event-1_0)', async () => {
+      const mockFlexCard = {
+        Id: 'fc_event_keys',
+        Name: 'EventKeysCard',
+        DataSourceConfig: JSON.stringify({
+          dataSource: {
+            type: 'DataRaptor',
+            value: {
+              bundle: 'Main-Bundle@Test!',
+            },
+          },
+          'event-0_0': {
+            type: 'IntegrationProcedures',
+            value: {
+              ipMethod: 'Event-IP@Type_Event-IP@SubType',
+            },
+          },
+        }),
+        PropertySetConfig: JSON.stringify({ layout: 'Card' }),
+        IsActive: true,
+        OmniUiCardType: 'Parent',
+        VersionNumber: 1,
+      };
+
+      const result = await (cardTool as any).processFlexCard(mockFlexCard, new Set<string>());
+
+      expect(result.dependenciesDR).to.include('Main-Bundle@Test!');
+      expect(result.dependenciesIP).to.include('Event-IP@Type_Event-IP@SubType');
     });
   });
 });

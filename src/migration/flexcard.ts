@@ -320,48 +320,13 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       // Check if it's a DataRaptor source
       if (ds.type === Constants.DataRaptorComponentName) {
         const originalBundle = ds.value?.bundle;
-        if (originalBundle && !flexCardAssessmentInfo.dependenciesDR.includes(originalBundle)) {
-          const cleanedBundle: string = this.cleanName(originalBundle);
-          flexCardAssessmentInfo.dependenciesDR.push(originalBundle);
-          if (originalBundle !== cleanedBundle) {
-            flexCardAssessmentInfo.warnings.push(
-              this.messages.getMessage('dataRaptorNameChangeMessage', [originalBundle, cleanedBundle])
-            );
-            flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
-              flexCardAssessmentInfo.migrationStatus,
-              'Warnings'
-            );
-          }
+        if (originalBundle) {
+          this.addDataRaptorDependency(originalBundle, flexCardAssessmentInfo);
         }
       } else if (ds.type === Constants.IntegrationProcedurePluralName) {
         const originalIpMethod = ds.value?.ipMethod;
-        if (originalIpMethod && !flexCardAssessmentInfo.dependenciesIP.includes(originalIpMethod)) {
-          const parts = originalIpMethod.split('_');
-          const cleanedParts = parts.map((p) => this.cleanName(p, true));
-          const cleanedIpMethod = cleanedParts.join('_');
-          flexCardAssessmentInfo.dependenciesIP.push(originalIpMethod);
-          if (originalIpMethod !== cleanedIpMethod) {
-            flexCardAssessmentInfo.warnings.push(
-              this.messages.getMessage('integrationProcedureNameChangeMessage', [originalIpMethod, cleanedIpMethod])
-            );
-            flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
-              flexCardAssessmentInfo.migrationStatus,
-              'Warnings'
-            );
-          }
-          if (parts.length > 2) {
-            flexCardAssessmentInfo.warnings.push(
-              this.messages.getMessage('integrationProcedureManualUpdateMessage', [originalIpMethod])
-            );
-            flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
-              flexCardAssessmentInfo.migrationStatus as
-                | 'Warnings'
-                | 'Needs manual intervention'
-                | 'Ready for migration'
-                | 'Failed',
-              'Needs manual intervention'
-            );
-          }
+        if (originalIpMethod) {
+          this.addIntegrationProcedureDependency(originalIpMethod, flexCardAssessmentInfo);
         }
       } else if (ds.type === Constants.ApexRemoteComponentName) {
         const remoteClass = ds.value?.remoteClass;
@@ -384,24 +349,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           if (state.omniscripts && Array.isArray(state.omniscripts)) {
             for (const os of state.omniscripts) {
               if (os.type && os.subtype) {
-                const originalOsRef = `${os.type}_${os.subtype}_${os.language || 'English'}`;
-                const cleanedOsRef = `${this.cleanName(os.type)}_${this.cleanName(os.subtype)}_${
-                  os.language || 'English'
-                }`;
-
-                // Push original name for consistency
-                flexCardAssessmentInfo.dependenciesOS.push(originalOsRef);
-
-                // Add warning if OmniScript name will change
-                if (originalOsRef !== cleanedOsRef) {
-                  flexCardAssessmentInfo.warnings.push(
-                    this.messages.getMessage('omniScriptNameChangeMessage', [originalOsRef, cleanedOsRef])
-                  );
-                  flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
-                    flexCardAssessmentInfo.migrationStatus,
-                    'Warnings'
-                  );
-                }
+                this.addOmniScriptDependencyFromParts(os.type, os.subtype, os.language, flexCardAssessmentInfo);
               }
             }
           }
@@ -421,21 +369,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       let childCards = this.readChildCardsFromDefinition(flexCard);
       // Add warnings for child card name changes
       for (const childCardName of childCards) {
-        const cleanedChildCardName = this.cleanName(childCardName);
-
-        // Push original child card name for consistency
-        flexCardAssessmentInfo.dependenciesFC.push(childCardName);
-
-        // Add warning if child card name will change
-        if (childCardName !== cleanedChildCardName) {
-          flexCardAssessmentInfo.warnings.push(
-            this.messages.getMessage('cardNameChangeMessage', [childCardName, cleanedChildCardName])
-          );
-          flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
-            flexCardAssessmentInfo.migrationStatus,
-            'Warnings'
-          );
-        }
+        this.addFlexCardDependency(childCardName, flexCardAssessmentInfo);
       }
 
       // Check for dependencies in events[] array
@@ -473,62 +407,11 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
             if (messageObj.value) {
               // DataRaptor bundle
               if (messageObj.value.bundle) {
-                const originalBundle = messageObj.value.bundle;
-                if (!flexCardAssessmentInfo.dependenciesDR.includes(originalBundle)) {
-                  flexCardAssessmentInfo.dependenciesDR.push(originalBundle);
-                  const cleanedBundle = this.cleanName(originalBundle);
-                  if (originalBundle !== cleanedBundle) {
-                    flexCardAssessmentInfo.warnings.push(
-                      this.messages.getMessage('dataRaptorNameChangeMessage', [originalBundle, cleanedBundle])
-                    );
-                    flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
-                      flexCardAssessmentInfo.migrationStatus as
-                        | 'Warnings'
-                        | 'Needs manual intervention'
-                        | 'Ready for migration'
-                        | 'Failed',
-                      'Warnings'
-                    );
-                  }
-                }
+                this.addDataRaptorDependency(messageObj.value.bundle, flexCardAssessmentInfo);
               }
               // Integration Procedure ipMethod
               if (messageObj.value.ipMethod) {
-                const originalIpMethod = messageObj.value.ipMethod;
-                if (!flexCardAssessmentInfo.dependenciesIP.includes(originalIpMethod)) {
-                  flexCardAssessmentInfo.dependenciesIP.push(originalIpMethod);
-                  const parts = originalIpMethod.split('_');
-                  const cleanedIpMethod = parts.map((p) => this.cleanName(p, true)).join('_');
-                  if (originalIpMethod !== cleanedIpMethod) {
-                    flexCardAssessmentInfo.warnings.push(
-                      this.messages.getMessage('integrationProcedureNameChangeMessage', [
-                        originalIpMethod,
-                        cleanedIpMethod,
-                      ])
-                    );
-                    flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
-                      flexCardAssessmentInfo.migrationStatus as
-                        | 'Warnings'
-                        | 'Needs manual intervention'
-                        | 'Ready for migration'
-                        | 'Failed',
-                      'Warnings'
-                    );
-                  }
-                  if (parts.length > 2) {
-                    flexCardAssessmentInfo.warnings.push(
-                      this.messages.getMessage('integrationProcedureManualUpdateMessage', [originalIpMethod])
-                    );
-                    flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
-                      flexCardAssessmentInfo.migrationStatus as
-                        | 'Warnings'
-                        | 'Needs manual intervention'
-                        | 'Ready for migration'
-                        | 'Failed',
-                      'Needs manual intervention'
-                    );
-                  }
-                }
+                this.addIntegrationProcedureDependency(messageObj.value.ipMethod, flexCardAssessmentInfo);
               }
             }
           } catch (e) {
@@ -539,24 +422,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 
         // 3. Handle cardName (FlexCard - Flyout childCard)
         if (stateAction.cardName) {
-          const originalCardName = stateAction.cardName;
-          if (!flexCardAssessmentInfo.dependenciesFC.includes(originalCardName)) {
-            flexCardAssessmentInfo.dependenciesFC.push(originalCardName);
-            const cleanedCardName = this.cleanName(originalCardName);
-            if (originalCardName !== cleanedCardName) {
-              flexCardAssessmentInfo.warnings.push(
-                this.messages.getMessage('cardNameChangeMessage', [originalCardName, cleanedCardName])
-              );
-              flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
-                flexCardAssessmentInfo.migrationStatus as
-                  | 'Warnings'
-                  | 'Needs manual intervention'
-                  | 'Ready for migration'
-                  | 'Failed',
-                'Warnings'
-              );
-            }
-          }
+          this.addFlexCardDependency(stateAction.cardName, flexCardAssessmentInfo);
         }
 
         // 4. Handle flyoutLwc (Custom LWC or FlexCard reference)
@@ -564,46 +430,16 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           const lwcName = stateAction.flyoutLwc;
 
           // Check if this is a FlexCard reference when flyoutType is "childCard"
-          if (stateAction.flyoutType === 'childCard') {
+          if (stateAction.flyoutType === Constants.ChildCard) {
             // flyoutLwc is a direct FlexCard name reference
-            if (!flexCardAssessmentInfo.dependenciesFC.includes(lwcName)) {
-              flexCardAssessmentInfo.dependenciesFC.push(lwcName);
-              const cleanedFlexCardName = this.cleanName(lwcName);
-              if (lwcName !== cleanedFlexCardName) {
-                flexCardAssessmentInfo.warnings.push(
-                  this.messages.getMessage('cardNameChangeMessage', [lwcName, cleanedFlexCardName])
-                );
-                flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
-                  flexCardAssessmentInfo.migrationStatus as
-                    | 'Warnings'
-                    | 'Needs manual intervention'
-                    | 'Ready for migration'
-                    | 'Failed',
-                  'Warnings'
-                );
-              }
-            }
+            this.addFlexCardDependency(lwcName, flexCardAssessmentInfo);
           } else if (stateAction.flyoutType === Constants.OmniScriptPluralName && stateAction.osName) {
             // flyoutLwc is an OmniScript-derived LWC name - will be handled when osName is processed
             // Add warning if the OmniScript name (and thus LWC name) will change
-            const osName = stateAction.osName;
-            const parts = osName.split('/');
-            if (parts.length >= 2) {
-              const originalOsRef = parts.join('_');
-              const cleanedParts =
-                parts.length >= 3
-                  ? [this.cleanName(parts[0]), this.cleanName(parts[1]), parts[2]]
-                  : parts.map((p) => this.cleanName(p));
-              const cleanedOsRef = cleanedParts.join('_');
-              if (originalOsRef !== cleanedOsRef) {
-                flexCardAssessmentInfo.warnings.push(
-                  this.messages.getMessage('omniScriptLwcNameChangeMessage', [
-                    lwcName,
-                    this.convertOsNameToLwcName(cleanedParts.join('/')),
-                  ])
-                );
-              }
-            }
+            this.addOmniScriptDependency(stateAction.osName, flexCardAssessmentInfo, {
+              includeLwcWarning: true,
+              lwcName: lwcName,
+            });
             // Also add to LWC dependencies for tracking
             if (!flexCardAssessmentInfo.dependenciesLWC.includes(lwcName)) {
               flexCardAssessmentInfo.dependenciesLWC.push(lwcName);
@@ -613,62 +449,12 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 
         // 5. Handle omniType.Name (OmniScript)
         if (stateAction.omniType && stateAction.omniType.Name) {
-          const originalName = stateAction.omniType.Name;
-          const parts = originalName.split('/');
-          if (parts.length >= 2) {
-            const originalOsRef = parts.join('_');
-            if (!flexCardAssessmentInfo.dependenciesOS.includes(originalOsRef)) {
-              flexCardAssessmentInfo.dependenciesOS.push(originalOsRef);
-              const cleanedParts =
-                parts.length >= 3
-                  ? [this.cleanName(parts[0]), this.cleanName(parts[1]), parts[2]]
-                  : parts.map((p) => this.cleanName(p));
-              const cleanedOsRef = cleanedParts.join('_');
-              if (originalOsRef !== cleanedOsRef) {
-                flexCardAssessmentInfo.warnings.push(
-                  this.messages.getMessage('omniScriptNameChangeMessage', [originalOsRef, cleanedOsRef])
-                );
-                flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
-                  flexCardAssessmentInfo.migrationStatus as
-                    | 'Warnings'
-                    | 'Needs manual intervention'
-                    | 'Ready for migration'
-                    | 'Failed',
-                  'Warnings'
-                );
-              }
-            }
-          }
+          this.addOmniScriptDependency(stateAction.omniType.Name, flexCardAssessmentInfo);
         }
 
         // 6. Handle osName (OmniScript - Flyout OmniScripts)
         if (stateAction.osName && typeof stateAction.osName === 'string') {
-          const originalName = stateAction.osName;
-          const parts = originalName.split('/');
-          if (parts.length >= 2) {
-            const originalOsRef = parts.join('_');
-            if (!flexCardAssessmentInfo.dependenciesOS.includes(originalOsRef)) {
-              flexCardAssessmentInfo.dependenciesOS.push(originalOsRef);
-              const cleanedParts =
-                parts.length >= 3
-                  ? [this.cleanName(parts[0]), this.cleanName(parts[1]), parts[2]]
-                  : parts.map((p) => this.cleanName(p));
-              const cleanedOsRef = cleanedParts.join('_');
-              if (originalOsRef !== cleanedOsRef) {
-                flexCardAssessmentInfo.warnings.push(
-                  this.messages.getMessage('omniScriptNameChangeMessage', [originalOsRef, cleanedOsRef])
-                );
-                flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
-                  flexCardAssessmentInfo.migrationStatus as
-                    | 'Warnings'
-                    | 'Needs manual intervention'
-                    | 'Ready for migration'
-                    | 'Failed',
-                  'Warnings'
-                );
-              }
-            }
-          }
+          this.addOmniScriptDependency(stateAction.osName, flexCardAssessmentInfo);
         }
       }
     }
@@ -726,62 +512,11 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
               if (messageObj.value) {
                 // DataRaptor bundle
                 if (messageObj.value.bundle) {
-                  const originalBundle = messageObj.value.bundle;
-                  if (!flexCardAssessmentInfo.dependenciesDR.includes(originalBundle)) {
-                    flexCardAssessmentInfo.dependenciesDR.push(originalBundle);
-                    const cleanedBundle = this.cleanName(originalBundle);
-                    if (originalBundle !== cleanedBundle) {
-                      flexCardAssessmentInfo.warnings.push(
-                        this.messages.getMessage('dataRaptorNameChangeMessage', [originalBundle, cleanedBundle])
-                      );
-                      flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
-                        flexCardAssessmentInfo.migrationStatus as
-                          | 'Warnings'
-                          | 'Needs manual intervention'
-                          | 'Ready for migration'
-                          | 'Failed',
-                        'Warnings'
-                      );
-                    }
-                  }
+                  this.addDataRaptorDependency(messageObj.value.bundle, flexCardAssessmentInfo);
                 }
                 // Integration Procedure ipMethod
                 if (messageObj.value.ipMethod) {
-                  const originalIpMethod = messageObj.value.ipMethod;
-                  if (!flexCardAssessmentInfo.dependenciesIP.includes(originalIpMethod)) {
-                    flexCardAssessmentInfo.dependenciesIP.push(originalIpMethod);
-                    const parts = originalIpMethod.split('_');
-                    const cleanedIpMethod = parts.map((p) => this.cleanName(p, true)).join('_');
-                    if (originalIpMethod !== cleanedIpMethod) {
-                      flexCardAssessmentInfo.warnings.push(
-                        this.messages.getMessage('integrationProcedureNameChangeMessage', [
-                          originalIpMethod,
-                          cleanedIpMethod,
-                        ])
-                      );
-                      flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
-                        flexCardAssessmentInfo.migrationStatus as
-                          | 'Warnings'
-                          | 'Needs manual intervention'
-                          | 'Ready for migration'
-                          | 'Failed',
-                        'Warnings'
-                      );
-                    }
-                    if (parts.length > 2) {
-                      flexCardAssessmentInfo.warnings.push(
-                        this.messages.getMessage('integrationProcedureManualUpdateMessage', [originalIpMethod])
-                      );
-                      flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
-                        flexCardAssessmentInfo.migrationStatus as
-                          | 'Warnings'
-                          | 'Needs manual intervention'
-                          | 'Ready for migration'
-                          | 'Failed',
-                        'Needs manual intervention'
-                      );
-                    }
-                  }
+                  this.addIntegrationProcedureDependency(messageObj.value.ipMethod, flexCardAssessmentInfo);
                 }
               }
             } catch (e) {
@@ -794,29 +529,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           if (action.stateAction.type === Constants.OmniScriptComponentName && action.stateAction.omniType) {
             const omniType = action.stateAction.omniType;
             if (omniType.Name && typeof omniType.Name === 'string') {
-              const originalName = omniType.Name;
-              const parts = originalName.split('/');
-
-              if (parts.length >= 2) {
-                // Create both original and cleaned references for comparison
-                const originalOsRef = parts.join('_');
-                const cleanedParts =
-                  parts.length >= 3
-                    ? [this.cleanName(parts[0]), this.cleanName(parts[1]), parts[2]]
-                    : parts.map((p) => this.cleanName(p));
-                const cleanedOsRef = cleanedParts.join('_');
-
-                // Push original name for consistency
-                flexCardAssessmentInfo.dependenciesOS.push(originalOsRef);
-
-                // Add warning only if the overall name will change
-                if (originalOsRef !== cleanedOsRef) {
-                  flexCardAssessmentInfo.warnings.push(
-                    this.messages.getMessage('omniScriptNameChangeMessage', [originalOsRef, cleanedOsRef])
-                  );
-                  flexCardAssessmentInfo.migrationStatus = 'Warnings';
-                }
-              }
+              this.addOmniScriptDependency(omniType.Name, flexCardAssessmentInfo);
             }
           }
 
@@ -834,101 +547,29 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
               continue; // Skip if we can't extract the name
             }
 
-            const parts = omniTypeName.split('/');
-            if (parts.length >= 2) {
-              const originalOsRef = parts.join('_');
-              const cleanedParts =
-                parts.length >= 3
-                  ? [this.cleanName(parts[0]), this.cleanName(parts[1]), parts[2]]
-                  : parts.map((p) => this.cleanName(p));
-              const cleanedOsRef = cleanedParts.join('_');
-
-              flexCardAssessmentInfo.dependenciesOS.push(originalOsRef);
-
-              if (originalOsRef !== cleanedOsRef) {
-                flexCardAssessmentInfo.warnings.push(
-                  this.messages.getMessage('omniScriptNameChangeMessage', [originalOsRef, cleanedOsRef])
-                );
-                flexCardAssessmentInfo.migrationStatus = 'Warnings';
-              }
-            }
+            this.addOmniScriptDependency(omniTypeName, flexCardAssessmentInfo);
           }
 
           // Case 2: Flyout OmniScript reference
-          else if (
-            action.stateAction.type === 'Flyout' &&
-            action.stateAction.flyoutType === Constants.OmniScriptPluralName &&
-            action.stateAction.osName
-          ) {
+          else if (this.hasOmniscriptFlyoutDependency(action.stateAction)) {
             const osName = action.stateAction.osName;
             if (typeof osName === 'string') {
-              // osName is typically in format "Omniscript/Testing/English"
-              const originalName = osName;
-              const parts = originalName.split('/');
-
-              if (parts.length >= 2) {
-                // Create both original and cleaned references for comparison
-                const originalOsRef = parts.join('_');
-                const cleanedParts =
-                  parts.length >= 3
-                    ? [this.cleanName(parts[0]), this.cleanName(parts[1]), parts[2]]
-                    : parts.map((p) => this.cleanName(p));
-                const cleanedOsRef = cleanedParts.join('_');
-
-                // Push original name for consistency
-                flexCardAssessmentInfo.dependenciesOS.push(originalOsRef);
-
-                // Add warning only if the overall name will change
-                if (originalOsRef !== cleanedOsRef) {
-                  flexCardAssessmentInfo.warnings.push(
-                    this.messages.getMessage('omniScriptNameChangeMessage', [originalOsRef, cleanedOsRef])
-                  );
-                  flexCardAssessmentInfo.migrationStatus = 'Warnings';
-                }
-
-                // Also check flyoutLwc - it's the kebab-case LWC name derived from OmniScript
-                if (action.stateAction.flyoutLwc && originalOsRef !== cleanedOsRef) {
-                  flexCardAssessmentInfo.warnings.push(
-                    this.messages.getMessage('omniScriptLwcNameChangeMessage', [
-                      action.stateAction.flyoutLwc,
-                      this.convertOsNameToLwcName(cleanedParts.join('/')),
-                    ])
-                  );
-                }
-              }
+              this.addOmniScriptDependency(osName, flexCardAssessmentInfo, {
+                includeLwcWarning: !!action.stateAction.flyoutLwc,
+                lwcName: action.stateAction.flyoutLwc,
+              });
             }
           }
           // Case 3: Flyout childCard reference - flyoutLwc is a direct FlexCard name
-          else if (
-            action.stateAction.type === 'Flyout' &&
-            action.stateAction.flyoutType === 'childCard' &&
-            action.stateAction.flyoutLwc
-          ) {
-            const flyoutLwcName = action.stateAction.flyoutLwc;
-            if (!flexCardAssessmentInfo.dependenciesFC.includes(flyoutLwcName)) {
-              flexCardAssessmentInfo.dependenciesFC.push(flyoutLwcName);
-              const cleanedFlexCardName = this.cleanName(flyoutLwcName);
-              if (flyoutLwcName !== cleanedFlexCardName) {
-                flexCardAssessmentInfo.warnings.push(
-                  this.messages.getMessage('cardNameChangeMessage', [flyoutLwcName, cleanedFlexCardName])
-                );
-                flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
-                  flexCardAssessmentInfo.migrationStatus as
-                    | 'Warnings'
-                    | 'Needs manual intervention'
-                    | 'Ready for migration'
-                    | 'Failed',
-                  'Warnings'
-                );
-              }
-            }
+          else if (this.hasFlexCardFlyoutDependency(action.stateAction)) {
+            this.addFlexCardDependency(action.stateAction.flyoutLwc, flexCardAssessmentInfo);
           }
         }
       }
     }
 
     // Check for Custom LWC component
-    if (component.element === 'customLwc' && component.property) {
+    if (component.element === Constants.CustomLwc && component.property) {
       // Check customlwcname property first
       if (component.property.customlwcname) {
         const customLwcName = component.property.customlwcname;
@@ -969,28 +610,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         if (action.stateAction && action.stateAction.omniType) {
           const omniType = action.stateAction.omniType;
           if (omniType.Name && typeof omniType.Name === 'string') {
-            const originalName = omniType.Name;
-            const parts = originalName.split('/');
-            if (parts.length >= 2) {
-              // Create both original and cleaned references for comparison
-              const originalOsRef = parts.join('_');
-              const cleanedParts =
-                parts.length >= 3
-                  ? [this.cleanName(parts[0]), this.cleanName(parts[1]), parts[2]]
-                  : parts.map((p) => this.cleanName(p));
-              const cleanedOsRef = cleanedParts.join('_');
-
-              // Push original name for consistency
-              flexCardAssessmentInfo.dependenciesOS.push(originalOsRef);
-
-              // Add warning if OmniScript name will change
-              if (originalOsRef !== cleanedOsRef) {
-                flexCardAssessmentInfo.warnings.push(
-                  this.messages.getMessage('omniScriptNameChangeMessage', [originalOsRef, cleanedOsRef])
-                );
-                flexCardAssessmentInfo.migrationStatus = 'Warnings';
-              }
-            }
+            this.addOmniScriptDependency(omniType.Name, flexCardAssessmentInfo);
           }
         }
       }
@@ -1002,138 +622,37 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       if (component.property.stateAction.omniType) {
         const omniType = component.property.stateAction.omniType;
         if (omniType.Name && typeof omniType.Name === 'string') {
-          const originalName = omniType.Name;
-          const parts = originalName.split('/');
-
-          if (parts.length >= 2) {
-            const originalOsRef = parts.join('_');
-            const cleanedParts =
-              parts.length >= 3
-                ? [this.cleanName(parts[0]), this.cleanName(parts[1]), parts[2]]
-                : parts.map((p) => this.cleanName(p));
-            const cleanedOsRef = cleanedParts.join('_');
-
-            flexCardAssessmentInfo.dependenciesOS.push(originalOsRef);
-
-            if (originalOsRef !== cleanedOsRef) {
-              flexCardAssessmentInfo.warnings.push(
-                this.messages.getMessage('omniScriptNameChangeMessage', [originalOsRef, cleanedOsRef])
-              );
-              flexCardAssessmentInfo.migrationStatus = 'Warnings';
-            }
-          }
+          this.addOmniScriptDependency(omniType.Name, flexCardAssessmentInfo);
         }
       }
 
       // Case 2: Flyout OmniScript reference on component property
-      if (
-        component.property.stateAction.type === 'Flyout' &&
-        component.property.stateAction.flyoutType === 'OmniScripts' &&
-        component.property.stateAction.osName
-      ) {
+      if (this.hasOmniscriptFlyoutDependency(component.property.stateAction)) {
         const osName = component.property.stateAction.osName;
         if (typeof osName === 'string') {
-          const parts = osName.split('/');
-
-          if (parts.length >= 2) {
-            const originalOsRef = parts.join('_');
-            const cleanedParts =
-              parts.length >= 3
-                ? [this.cleanName(parts[0]), this.cleanName(parts[1]), parts[2]]
-                : parts.map((p) => this.cleanName(p));
-            const cleanedOsRef = cleanedParts.join('_');
-
-            flexCardAssessmentInfo.dependenciesOS.push(originalOsRef);
-
-            if (originalOsRef !== cleanedOsRef) {
-              flexCardAssessmentInfo.warnings.push(
-                this.messages.getMessage('omniScriptNameChangeMessage', [originalOsRef, cleanedOsRef])
-              );
-              flexCardAssessmentInfo.migrationStatus = 'Warnings';
-            }
-          }
+          this.addOmniScriptDependency(osName, flexCardAssessmentInfo);
         }
       }
 
       // Case 3: Flyout childCard reference on component property - flyoutLwc is a direct FlexCard name
-      if (
-        component.property.stateAction.type === 'Flyout' &&
-        component.property.stateAction.flyoutType === 'childCard' &&
-        component.property.stateAction.flyoutLwc
-      ) {
-        const flyoutLwcName = component.property.stateAction.flyoutLwc;
-        if (!flexCardAssessmentInfo.dependenciesFC.includes(flyoutLwcName)) {
-          flexCardAssessmentInfo.dependenciesFC.push(flyoutLwcName);
-          const cleanedFlexCardName = this.cleanName(flyoutLwcName);
-          if (flyoutLwcName !== cleanedFlexCardName) {
-            flexCardAssessmentInfo.warnings.push(
-              this.messages.getMessage('cardNameChangeMessage', [flyoutLwcName, cleanedFlexCardName])
-            );
-            flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
-              flexCardAssessmentInfo.migrationStatus as
-                | 'Warnings'
-                | 'Needs manual intervention'
-                | 'Ready for migration'
-                | 'Failed',
-              'Warnings'
-            );
-          }
-        }
+      if (this.hasFlexCardFlyoutDependency(component.property.stateAction)) {
+        this.addFlexCardDependency(component.property.stateAction.flyoutLwc, flexCardAssessmentInfo);
       }
     }
 
     // MISSING PATTERN FIXED: Handle omni-flyout elements (from tests)
-    if (component.element === 'omni-flyout' && component.property && component.property.flyoutOmniScript) {
+    if (component.element === Constants.OmniFlyout && component.property && component.property.flyoutOmniScript) {
       if (component.property.flyoutOmniScript.osName) {
         const osName = component.property.flyoutOmniScript.osName;
         if (typeof osName === 'string') {
-          const parts = osName.split('/');
-
-          if (parts.length >= 2) {
-            const originalOsRef = parts.join('_');
-            const cleanedParts =
-              parts.length >= 3
-                ? [this.cleanName(parts[0]), this.cleanName(parts[1]), parts[2]]
-                : parts.map((p) => this.cleanName(p));
-            const cleanedOsRef = cleanedParts.join('_');
-
-            flexCardAssessmentInfo.dependenciesOS.push(originalOsRef);
-
-            if (originalOsRef !== cleanedOsRef) {
-              flexCardAssessmentInfo.warnings.push(
-                this.messages.getMessage('omniScriptNameChangeMessage', [originalOsRef, cleanedOsRef])
-              );
-              flexCardAssessmentInfo.migrationStatus = 'Warnings';
-            }
-          }
+          this.addOmniScriptDependency(osName, flexCardAssessmentInfo);
         }
       }
     }
 
     // MISSING PATTERN FIXED: Handle childCardPreview elements with cardName property
-    if (component.element === 'childCardPreview' && component.property && component.property.cardName) {
-      const originalCardName = component.property.cardName;
-      const cleanedCardName = this.cleanName(originalCardName);
-
-      // Add to FlexCard dependencies if not already present
-      if (!flexCardAssessmentInfo.dependenciesFC.includes(originalCardName)) {
-        flexCardAssessmentInfo.dependenciesFC.push(originalCardName);
-      }
-
-      // Add warning if the card name will change
-      if (originalCardName !== cleanedCardName) {
-        flexCardAssessmentInfo.warnings.push(
-          this.messages.getMessage('cardNameChangeMessage', [originalCardName, cleanedCardName])
-        );
-        flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
-          flexCardAssessmentInfo.migrationStatus as
-            | 'Warnings'
-            | 'Needs manual intervention'
-            | 'Ready for migration'
-            | 'Failed',
-          'Warnings'
-        );
-      }
+    if (component.element === Constants.ChildCardPreview && component.property && component.property.cardName) {
+      this.addFlexCardDependency(component.property.cardName, flexCardAssessmentInfo);
     }
 
     // Check child components recursively
@@ -1816,7 +1335,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 
         // 6. Handle flyoutLwc (Custom LWC or FlexCard reference)
         if (stateAction.flyoutLwc) {
-          if (stateAction.flyoutType === 'childCard') {
+          if (stateAction.flyoutType === Constants.ChildCard) {
             // flyoutLwc is a direct FlexCard name reference
             const lwcName = stateAction.flyoutLwc;
             if (this.nameRegistry.hasFlexCardMapping(lwcName)) {
@@ -1840,7 +1359,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
   private updateDataSourceWithRegistry(dataSource: any, invalidIpNames: Map<string, string>, context: string): void {
     const type = dataSource.type;
 
-    if (type === Constants.DataRaptorComponentName || type === 'DataRaptor') {
+    if (type === Constants.DataRaptorComponentName) {
       // Handle DataRaptor using registry
       const originalBundle = dataSource.value?.bundle || '';
       if (originalBundle && this.nameRegistry.hasDataMapperMapping(originalBundle)) {
@@ -1849,7 +1368,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         Logger.logVerbose(`\n${this.messages.getMessage('componentMappingNotFound', ['DataMapper', originalBundle])}`);
         dataSource.value.bundle = this.cleanName(originalBundle);
       }
-    } else if (type === Constants.IntegrationProcedurePluralName || type === 'IntegrationProcedures') {
+    } else if (type === Constants.IntegrationProcedurePluralName) {
       // Handle Integration Procedures using registry
       const ipMethod: string = dataSource.value?.ipMethod || '';
       const hasRegistryMapping = this.nameRegistry.hasIntegrationProcedureMapping(ipMethod);
@@ -1964,11 +1483,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
             this.updateOmniTypeNameWithRegistry(action.stateAction.omniType);
           }
           // Case 2: Flyout OmniScript reference
-          else if (
-            action.stateAction.type === 'Flyout' &&
-            action.stateAction.flyoutType === Constants.OmniScriptPluralName &&
-            action.stateAction.osName
-          ) {
+          else if (this.hasOmniscriptFlyoutDependency(action.stateAction)) {
             // Update osName
             this.updateOsNameWithRegistry(action.stateAction, 'osName');
             // Also update flyoutLwc - it's the kebab-case LWC name derived from OmniScript
@@ -1977,11 +1492,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
             }
           }
           // Case 3: Flyout childCard reference - flyoutLwc is a direct FlexCard name
-          else if (
-            action.stateAction.type === 'Flyout' &&
-            action.stateAction.flyoutType === 'childCard' &&
-            action.stateAction.flyoutLwc
-          ) {
+          else if (this.hasFlexCardFlyoutDependency(action.stateAction)) {
             const originalFlyoutLwc = action.stateAction.flyoutLwc;
             if (this.nameRegistry.hasFlexCardMapping(originalFlyoutLwc)) {
               action.stateAction.flyoutLwc = this.nameRegistry.getFlexCardCleanedName(originalFlyoutLwc);
@@ -1997,7 +1508,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     }
 
     // Handle Custom LWC components - special case for FlexCard references
-    if (component.element === 'customLwc' && component.property) {
+    if (component.element === Constants.CustomLwc && component.property) {
       if (component.property.customlwcname) {
         const customLwcName = component.property.customlwcname;
 
@@ -2032,11 +1543,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       if (component.property.stateAction.omniType) {
         this.updateOmniTypeNameWithRegistry(component.property.stateAction.omniType);
       }
-      if (
-        component.property.stateAction.type === 'Flyout' &&
-        component.property.stateAction.flyoutType === 'OmniScripts' &&
-        component.property.stateAction.osName
-      ) {
+      if (this.hasOmniscriptFlyoutDependency(component.property.stateAction)) {
         this.updateOsNameWithRegistry(component.property.stateAction, 'osName');
         // Also update flyoutLwc - it's the kebab-case LWC name derived from OmniScript
         if (component.property.stateAction.flyoutLwc) {
@@ -2044,11 +1551,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         }
       }
       // Handle Flyout childCard reference - flyoutLwc is a direct FlexCard name
-      if (
-        component.property.stateAction.type === 'Flyout' &&
-        component.property.stateAction.flyoutType === 'childCard' &&
-        component.property.stateAction.flyoutLwc
-      ) {
+      if (this.hasFlexCardFlyoutDependency(component.property.stateAction)) {
         const originalFlyoutLwc = component.property.stateAction.flyoutLwc;
         if (this.nameRegistry.hasFlexCardMapping(originalFlyoutLwc)) {
           component.property.stateAction.flyoutLwc = this.nameRegistry.getFlexCardCleanedName(originalFlyoutLwc);
@@ -2062,7 +1565,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     }
 
     // Handle childCardPreview elements (from old fixChildren method)
-    if (component.element === 'childCardPreview' && component.property) {
+    if (component.element === Constants.ChildCardPreview && component.property) {
       if (component.property.cardName) {
         const originalCardName = component.property.cardName;
         if (this.nameRegistry.hasFlexCardMapping(originalCardName)) {
@@ -2077,7 +1580,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     }
 
     // Handle omni-flyout elements (missing from migration logic)
-    if (component.element === 'omni-flyout' && component.property && component.property.flyoutOmniScript) {
+    if (component.element === Constants.OmniFlyout && component.property && component.property.flyoutOmniScript) {
       if (component.property.flyoutOmniScript.osName) {
         const osName = component.property.flyoutOmniScript.osName;
         if (typeof osName === 'string') {
@@ -2224,6 +1727,222 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       .toLowerCase();
   }
 
+  // ==================== Assessment Helper Methods ====================
+
+  /**
+   * Helper method to add OmniScript dependency and warnings during assessment
+   * Handles osName in format "Type/SubType/Language" or "Type/SubType"
+   * @param osName - OmniScript name in format "Type/SubType" or "Type/SubType/Language"
+   * @param flexCardAssessmentInfo - Assessment info to update
+   * @param options - Optional settings for LWC warning
+   */
+  private addOmniScriptDependency(
+    osName: string,
+    flexCardAssessmentInfo: FlexCardAssessmentInfo,
+    options?: { includeLwcWarning?: boolean; lwcName?: string }
+  ): void {
+    if (!osName || typeof osName !== 'string') {
+      return;
+    }
+
+    const parts = osName.split('/');
+    if (parts.length < 2) {
+      return;
+    }
+
+    const originalOsRef = parts.join('_');
+
+    // Skip if already processed
+    if (flexCardAssessmentInfo.dependenciesOS.includes(originalOsRef)) {
+      return;
+    }
+
+    // Clean parts - preserve language (3rd part) as-is
+    const cleanedParts =
+      parts.length >= 3
+        ? [this.cleanName(parts[0]), this.cleanName(parts[1]), parts[2]]
+        : parts.map((p) => this.cleanName(p));
+    const cleanedOsRef = cleanedParts.join('_');
+
+    // Add to dependencies
+    flexCardAssessmentInfo.dependenciesOS.push(originalOsRef);
+
+    // Add warning if name will change
+    if (originalOsRef !== cleanedOsRef) {
+      flexCardAssessmentInfo.warnings.push(
+        this.messages.getMessage('omniScriptNameChangeMessage', [originalOsRef, cleanedOsRef])
+      );
+      flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
+        flexCardAssessmentInfo.migrationStatus as
+          | 'Warnings'
+          | 'Needs manual intervention'
+          | 'Ready for migration'
+          | 'Failed',
+        'Warnings'
+      );
+
+      // Add LWC name change warning if requested
+      if (options?.includeLwcWarning && options.lwcName) {
+        flexCardAssessmentInfo.warnings.push(
+          this.messages.getMessage('omniScriptLwcNameChangeMessage', [
+            options.lwcName,
+            this.convertOsNameToLwcName(cleanedParts.join('/')),
+          ])
+        );
+      }
+    }
+  }
+
+  /**
+   * Helper method to add OmniScript dependency from type/subtype/language fields
+   * @param type - OmniScript type
+   * @param subtype - OmniScript subtype
+   * @param language - OmniScript language (defaults to 'English')
+   * @param flexCardAssessmentInfo - Assessment info to update
+   */
+  private addOmniScriptDependencyFromParts(
+    type: string,
+    subtype: string,
+    language: string | undefined,
+    flexCardAssessmentInfo: FlexCardAssessmentInfo
+  ): void {
+    if (!type || !subtype) {
+      return;
+    }
+
+    const lang = language || 'English';
+    const originalOsRef = `${type}_${subtype}_${lang}`;
+
+    // Skip if already processed
+    if (flexCardAssessmentInfo.dependenciesOS.includes(originalOsRef)) {
+      return;
+    }
+
+    const cleanedOsRef = `${this.cleanName(type)}_${this.cleanName(subtype)}_${lang}`;
+
+    // Add to dependencies
+    flexCardAssessmentInfo.dependenciesOS.push(originalOsRef);
+
+    // Add warning if name will change
+    if (originalOsRef !== cleanedOsRef) {
+      flexCardAssessmentInfo.warnings.push(
+        this.messages.getMessage('omniScriptNameChangeMessage', [originalOsRef, cleanedOsRef])
+      );
+      flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
+        flexCardAssessmentInfo.migrationStatus as
+          | 'Warnings'
+          | 'Needs manual intervention'
+          | 'Ready for migration'
+          | 'Failed',
+        'Warnings'
+      );
+    }
+  }
+
+  /**
+   * Helper method to add DataRaptor dependency and warnings during assessment
+   * @param bundle - DataRaptor bundle name
+   * @param flexCardAssessmentInfo - Assessment info to update
+   */
+  private addDataRaptorDependency(bundle: string, flexCardAssessmentInfo: FlexCardAssessmentInfo): void {
+    if (!bundle || flexCardAssessmentInfo.dependenciesDR.includes(bundle)) {
+      return;
+    }
+
+    const cleanedBundle = this.cleanName(bundle);
+    flexCardAssessmentInfo.dependenciesDR.push(bundle);
+
+    if (bundle !== cleanedBundle) {
+      flexCardAssessmentInfo.warnings.push(
+        this.messages.getMessage('dataRaptorNameChangeMessage', [bundle, cleanedBundle])
+      );
+      flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
+        flexCardAssessmentInfo.migrationStatus as
+          | 'Warnings'
+          | 'Needs manual intervention'
+          | 'Ready for migration'
+          | 'Failed',
+        'Warnings'
+      );
+    }
+  }
+
+  /**
+   * Helper method to add Integration Procedure dependency and warnings during assessment
+   * @param ipMethod - Integration Procedure method name (Type_SubType format)
+   * @param flexCardAssessmentInfo - Assessment info to update
+   */
+  private addIntegrationProcedureDependency(ipMethod: string, flexCardAssessmentInfo: FlexCardAssessmentInfo): void {
+    if (!ipMethod || flexCardAssessmentInfo.dependenciesIP.includes(ipMethod)) {
+      return;
+    }
+
+    const parts = ipMethod.split('_');
+    const cleanedParts = parts.map((p) => this.cleanName(p, true));
+    const cleanedIpMethod = cleanedParts.join('_');
+
+    flexCardAssessmentInfo.dependenciesIP.push(ipMethod);
+
+    if (ipMethod !== cleanedIpMethod) {
+      flexCardAssessmentInfo.warnings.push(
+        this.messages.getMessage('integrationProcedureNameChangeMessage', [ipMethod, cleanedIpMethod])
+      );
+      flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
+        flexCardAssessmentInfo.migrationStatus as
+          | 'Warnings'
+          | 'Needs manual intervention'
+          | 'Ready for migration'
+          | 'Failed',
+        'Warnings'
+      );
+    }
+
+    // Add manual intervention warning if IP has more than 2 parts
+    if (parts.length > 2) {
+      flexCardAssessmentInfo.warnings.push(
+        this.messages.getMessage('integrationProcedureManualUpdateMessage', [ipMethod])
+      );
+      flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
+        flexCardAssessmentInfo.migrationStatus as
+          | 'Warnings'
+          | 'Needs manual intervention'
+          | 'Ready for migration'
+          | 'Failed',
+        'Needs manual intervention'
+      );
+    }
+  }
+
+  /**
+   * Helper method to add FlexCard dependency and warnings during assessment
+   * @param cardName - FlexCard name
+   * @param flexCardAssessmentInfo - Assessment info to update
+   */
+  private addFlexCardDependency(cardName: string, flexCardAssessmentInfo: FlexCardAssessmentInfo): void {
+    if (!cardName || flexCardAssessmentInfo.dependenciesFC.includes(cardName)) {
+      return;
+    }
+
+    const cleanedCardName = this.cleanName(cardName);
+    flexCardAssessmentInfo.dependenciesFC.push(cardName);
+
+    if (cardName !== cleanedCardName) {
+      flexCardAssessmentInfo.warnings.push(
+        this.messages.getMessage('cardNameChangeMessage', [cardName, cleanedCardName])
+      );
+      flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
+        flexCardAssessmentInfo.migrationStatus as
+          | 'Warnings'
+          | 'Needs manual intervention'
+          | 'Ready for migration'
+          | 'Failed',
+        'Warnings'
+      );
+    }
+  }
+
+  // ==================== End Assessment Helper Methods ====================
+
   private getCardFields(): string[] {
     return this.IS_STANDARD_DATA_MODEL
       ? Object.values(CardMappings).filter((value) => value !== '')
@@ -2324,6 +2043,20 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     return false;
   }
 
+  private hasOmniscriptFlyoutDependency(stateAction: any): boolean {
+    return (
+      stateAction.type === Constants.Flyout &&
+      stateAction.flyoutType === Constants.OmniScriptPluralName &&
+      stateAction.osName
+    );
+  }
+
+  private hasFlexCardFlyoutDependency(stateAction: any): boolean {
+    return (
+      stateAction.type === Constants.Flyout && stateAction.flyoutType === Constants.ChildCard && stateAction.flyoutLwc
+    );
+  }
+
   /**
    * Recursively check if a component has Angular Omniscript dependencies
    */
@@ -2345,11 +2078,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
             }
           }
           // Case 2: Flyout OmniScript reference
-          else if (
-            action.stateAction.type === 'Flyout' &&
-            action.stateAction.flyoutType === Constants.OmniScriptPluralName &&
-            action.stateAction.osName
-          ) {
+          else if (this.hasOmniscriptFlyoutDependency(action.stateAction)) {
             if (this.checkOsNameForAngular(action.stateAction.osName)) {
               return true;
             }
@@ -2376,11 +2105,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           return true;
         }
       }
-      if (
-        component.property.stateAction.type === 'Flyout' &&
-        component.property.stateAction.flyoutType === 'OmniScripts' &&
-        component.property.stateAction.osName
-      ) {
+      if (this.hasOmniscriptFlyoutDependency(component.property.stateAction)) {
         if (this.checkOsNameForAngular(component.property.stateAction.osName)) {
           return true;
         }
@@ -2388,7 +2113,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     }
 
     // Pattern 4: Handle omni-flyout elements (for test compatibility)
-    if (component.element === 'omni-flyout' && component.property && component.property.flyoutOmniScript) {
+    if (component.element === Constants.OmniFlyout && component.property && component.property.flyoutOmniScript) {
       if (component.property.flyoutOmniScript.osName) {
         if (this.checkOsNameForAngular(component.property.flyoutOmniScript.osName)) {
           return true;

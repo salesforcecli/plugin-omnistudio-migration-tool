@@ -30,6 +30,11 @@ export const Constants = {
   CustomDataModel: 'custom',
   StandardDataModel: 'standard',
   DataMapperComponentName: 'Data Mapper',
+  Flyout: 'Flyout',
+  ChildCard: 'childCard',
+  ChildCardPreview: 'childCardPreview',
+  CustomLwc: 'customLwc',
+  OmniFlyout: 'omni-flyout',
 
   // artifacts persistance folder names
   AssessmentReportsFolderName: 'assessment_reports',

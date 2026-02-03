@@ -519,6 +519,9 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
       }
     }
 
+    // Collect persistent component bundle dependencies from OmniProcess PropertySetConfig
+    this.collectPersistentComponentBundleDependencies(omniscript, dependencyDR, existingDataRaptorNames, missingDR);
+
     const omniProcessType = omniscript[this.getFieldKey('IsProcedure__c')] ? 'Integration Procedure' : 'OmniScript';
 
     const existingType = omniscript[this.getFieldKey('Type__c')];
@@ -2583,6 +2586,77 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
         }
       });
     }
+  }
+
+  /**
+   * Collects DataRaptor transform bundle dependencies from OmniProcess PropertySetConfig persistentComponent array
+   * Handles: persistentComponent[].remoteOptions.preTransformBundle, persistentComponent[].remoteOptions.postTransformBundle,
+   *          persistentComponent[].preTransformBundle, persistentComponent[].postTransformBundle
+   * @param omniscript - The OmniScript/Integration Procedure record
+   * @param dependencyDR - Array to collect DataRaptor dependencies
+   * @param existingDataRaptorNames - Set of existing DataRaptor names
+   * @param missingDR - Array to collect missing DataRaptor names
+   */
+  private collectPersistentComponentBundleDependencies(
+    omniscript: AnyJson,
+    dependencyDR: nameLocation[],
+    existingDataRaptorNames: Set<string>,
+    missingDR: string[]
+  ): void {
+    const propertySetConfigStr = omniscript[this.getFieldKey('PropertySet__c')];
+    if (!propertySetConfigStr) {
+      return;
+    }
+
+    let propertySetConfig: any;
+    try {
+      propertySetConfig = JSON.parse(propertySetConfigStr);
+    } catch (ex) {
+      Logger.logVerbose(`Failed to parse PropertySetConfig for assessment: ${omniscript['Name']}`);
+      return;
+    }
+
+    if (!propertySetConfig || !Array.isArray(propertySetConfig.persistentComponent)) {
+      return;
+    }
+
+    const bundleFields = ['preTransformBundle', 'postTransformBundle'];
+
+    propertySetConfig.persistentComponent.forEach((component: any, index: number) => {
+      if (!component) {
+        return;
+      }
+
+      // Check remoteOptions transform bundle fields
+      if (component.remoteOptions) {
+        bundleFields.forEach((field) => {
+          if (component.remoteOptions[field]) {
+            const bundleName = component.remoteOptions[field];
+            dependencyDR.push({
+              name: bundleName,
+              location: `persistentComponent[${index}].remoteOptions.${field}`,
+            });
+            if (!existingDataRaptorNames.has(bundleName)) {
+              missingDR.push(bundleName);
+            }
+          }
+        });
+      }
+
+      // Check direct transform bundle fields
+      bundleFields.forEach((field) => {
+        if (component[field]) {
+          const bundleName = component[field];
+          dependencyDR.push({
+            name: bundleName,
+            location: `persistentComponent[${index}].${field}`,
+          });
+          if (!existingDataRaptorNames.has(bundleName)) {
+            missingDR.push(bundleName);
+          }
+        }
+      });
+    });
   }
 
   private getElementFieldKey(fieldName: string): string {

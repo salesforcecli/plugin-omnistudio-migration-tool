@@ -409,26 +409,8 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 
         const stateAction = action.stateAction;
 
-        // 1. Handle message.value.bundle (DataRaptor) - message is JSON string
-        // 2. Handle message.value.ipMethod (Integration Procedure) - message is JSON string
-        if (stateAction.message && typeof stateAction.message === 'string') {
-          try {
-            const messageObj = JSON.parse(stateAction.message);
-            if (messageObj.value) {
-              // DataRaptor bundle
-              if (messageObj.value.bundle) {
-                this.addDataRaptorDependency(messageObj.value.bundle, flexCardAssessmentInfo);
-              }
-              // Integration Procedure ipMethod
-              if (messageObj.value.ipMethod) {
-                this.addIntegrationProcedureDependency(messageObj.value.ipMethod, flexCardAssessmentInfo);
-              }
-            }
-          } catch (e) {
-            // message is not valid JSON, skip
-            Logger.logVerbose(`Failed to parse stateAction.message as JSON: ${e.message}`);
-          }
-        }
+        // 1-2. Handle message.value.bundle (DataRaptor) and message.value.ipMethod (Integration Procedure)
+        this.processStateActionMessageForDependencies(stateAction, flexCardAssessmentInfo);
 
         // 3. Handle cardName (FlexCard - Flyout childCard)
         if (stateAction.cardName) {
@@ -466,6 +448,110 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         if (stateAction.osName && typeof stateAction.osName === 'string') {
           this.addOmniScriptDependency(stateAction.osName, flexCardAssessmentInfo);
         }
+      }
+    }
+  }
+
+  /**
+   * Shared helper to update flyoutLwc value with registry (migration phase)
+   * Handles both FlexCard child cards and OmniScript-derived LWC names
+   */
+  private updateFlyoutLwcValue(stateAction: any): void {
+    if (stateAction.flyoutLwc) {
+      if (stateAction.flyoutType === Constants.ChildCard) {
+        // flyoutLwc is a direct FlexCard name reference
+        const lwcName = stateAction.flyoutLwc;
+        if (this.nameRegistry.hasFlexCardMapping(lwcName)) {
+          stateAction.flyoutLwc = this.nameRegistry.getFlexCardCleanedName(lwcName);
+        } else {
+          Logger.logVerbose(`\n${this.messages.getMessage('componentMappingNotFound', ['Flexcard', lwcName])}`);
+          stateAction.flyoutLwc = this.cleanName(lwcName);
+        }
+      } else if (stateAction.flyoutType === Constants.OmniScriptPluralName && stateAction.osName) {
+        // flyoutLwc is an OmniScript-derived LWC name - derive from already-updated osName
+        stateAction.flyoutLwc = this.convertOsNameToLwcName(stateAction.osName);
+      }
+    }
+  }
+
+  /**
+   * Shared helper to process stateAction.message JSON for dependencies
+   * Handles DataRaptor bundle and Integration Procedure ipMethod references
+   */
+  private processStateActionMessageForDependencies(
+    stateAction: any,
+    flexCardAssessmentInfo: FlexCardAssessmentInfo
+  ): void {
+    if (stateAction.message && typeof stateAction.message === 'string') {
+      try {
+        const messageObj = JSON.parse(stateAction.message);
+        if (messageObj.value) {
+          // DataRaptor bundle
+          if (messageObj.value.bundle) {
+            this.addDataRaptorDependency(messageObj.value.bundle, flexCardAssessmentInfo);
+          }
+          // Integration Procedure ipMethod
+          if (messageObj.value.ipMethod) {
+            this.addIntegrationProcedureDependency(messageObj.value.ipMethod, flexCardAssessmentInfo);
+          }
+        }
+      } catch (e) {
+        // message is not valid JSON, skip
+        Logger.error(`Failed to parse stateAction.message as JSON: ${e.message}`);
+      }
+    }
+  }
+
+  /**
+   * Shared helper to process stateAction.message JSON with registry updates
+   * Handles DataRaptor bundle and Integration Procedure ipMethod references
+   */
+  private processStateActionMessageWithRegistry(stateAction: any, invalidIpNames?: Map<string, string>): void {
+    if (stateAction.message && typeof stateAction.message === 'string') {
+      try {
+        const messageObj = JSON.parse(stateAction.message);
+        let messageUpdated = false;
+
+        if (messageObj.value) {
+          // DataRaptor bundle
+          if (messageObj.value.bundle) {
+            const originalBundle = messageObj.value.bundle;
+            if (this.nameRegistry.hasDataMapperMapping(originalBundle)) {
+              messageObj.value.bundle = this.nameRegistry.getDataMapperCleanedName(originalBundle);
+            } else {
+              Logger.logVerbose(
+                `\n${this.messages.getMessage('componentMappingNotFound', ['DataMapper', originalBundle])}`
+              );
+              messageObj.value.bundle = this.cleanName(originalBundle);
+            }
+            messageUpdated = true;
+          }
+
+          // Integration Procedure ipMethod
+          if (messageObj.value.ipMethod) {
+            const ipMethod = messageObj.value.ipMethod;
+            if (this.nameRegistry.hasIntegrationProcedureMapping(ipMethod)) {
+              messageObj.value.ipMethod = this.nameRegistry.getIntegrationProcedureCleanedName(ipMethod);
+            } else {
+              Logger.logVerbose(
+                `\n${this.messages.getMessage('componentMappingNotFound', ['IntegrationProcedure', ipMethod])}`
+              );
+              const parts = ipMethod.split('_');
+              messageObj.value.ipMethod = parts.map((p) => this.cleanName(p, true)).join('_');
+              if (parts.length > 2 && invalidIpNames) {
+                invalidIpNames.set(`event.actionList.stateAction.message`, ipMethod);
+              }
+            }
+            messageUpdated = true;
+          }
+        }
+
+        if (messageUpdated) {
+          stateAction.message = JSON.stringify(messageObj);
+        }
+      } catch (e) {
+        // message is not valid JSON, skip
+        Logger.error(`Failed to parse stateAction.message as JSON: ${e.message}`);
       }
     }
   }
@@ -515,25 +601,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       for (const action of component.property.actionList) {
         if (action.stateAction) {
           // Handle message field (contains DataRaptor/IP references as JSON string)
-          // Applies to action types: cardAction, DataAction, etc.
-          if (action.stateAction.message && typeof action.stateAction.message === 'string') {
-            try {
-              const messageObj = JSON.parse(action.stateAction.message);
-              if (messageObj.value) {
-                // DataRaptor bundle
-                if (messageObj.value.bundle) {
-                  this.addDataRaptorDependency(messageObj.value.bundle, flexCardAssessmentInfo);
-                }
-                // Integration Procedure ipMethod
-                if (messageObj.value.ipMethod) {
-                  this.addIntegrationProcedureDependency(messageObj.value.ipMethod, flexCardAssessmentInfo);
-                }
-              }
-            } catch (e) {
-              // message is not valid JSON, skip
-              Logger.logVerbose(`Failed to parse stateAction.message as JSON: ${e.message}`);
-            }
-          }
+          this.processStateActionMessageForDependencies(action.stateAction, flexCardAssessmentInfo);
 
           // Case 1: Direct OmniScript reference
           if (action.stateAction.type === Constants.OmniScriptComponentName && action.stateAction.omniType) {
@@ -1270,55 +1338,8 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 
         const stateAction = action.stateAction;
 
-        // 1. Handle message.value.bundle (DataRaptor) - message is JSON string
-        // 2. Handle message.value.ipMethod (Integration Procedure) - message is JSON string
-        if (stateAction.message && typeof stateAction.message === 'string') {
-          try {
-            const messageObj = JSON.parse(stateAction.message);
-            let messageUpdated = false;
-
-            if (messageObj.value) {
-              // DataRaptor bundle
-              if (messageObj.value.bundle) {
-                const originalBundle = messageObj.value.bundle;
-                if (this.nameRegistry.hasDataMapperMapping(originalBundle)) {
-                  messageObj.value.bundle = this.nameRegistry.getDataMapperCleanedName(originalBundle);
-                } else {
-                  Logger.logVerbose(
-                    `\n${this.messages.getMessage('componentMappingNotFound', ['DataMapper', originalBundle])}`
-                  );
-                  messageObj.value.bundle = this.cleanName(originalBundle);
-                }
-                messageUpdated = true;
-              }
-
-              // Integration Procedure ipMethod
-              if (messageObj.value.ipMethod) {
-                const ipMethod = messageObj.value.ipMethod;
-                if (this.nameRegistry.hasIntegrationProcedureMapping(ipMethod)) {
-                  messageObj.value.ipMethod = this.nameRegistry.getIntegrationProcedureCleanedName(ipMethod);
-                } else {
-                  Logger.logVerbose(
-                    `\n${this.messages.getMessage('componentMappingNotFound', ['IntegrationProcedure', ipMethod])}`
-                  );
-                  const parts = ipMethod.split('_');
-                  messageObj.value.ipMethod = parts.map((p) => this.cleanName(p, true)).join('_');
-                  if (parts.length > 2) {
-                    invalidIpNames.set(`event.actionList.stateAction.message`, ipMethod);
-                  }
-                }
-                messageUpdated = true;
-              }
-            }
-
-            if (messageUpdated) {
-              stateAction.message = JSON.stringify(messageObj);
-            }
-          } catch (e) {
-            // message is not valid JSON, skip
-            Logger.logVerbose(`Failed to parse stateAction.message as JSON: ${e.message}`);
-          }
-        }
+        // 1-2. Handle message.value.bundle (DataRaptor) and message.value.ipMethod (Integration Procedure)
+        this.processStateActionMessageWithRegistry(stateAction, invalidIpNames);
 
         // 3. Handle cardName (FlexCard - Flyout childCard)
         if (stateAction.cardName) {
@@ -1344,21 +1365,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         }
 
         // 6. Handle flyoutLwc (Custom LWC or FlexCard reference)
-        if (stateAction.flyoutLwc) {
-          if (stateAction.flyoutType === Constants.ChildCard) {
-            // flyoutLwc is a direct FlexCard name reference
-            const lwcName = stateAction.flyoutLwc;
-            if (this.nameRegistry.hasFlexCardMapping(lwcName)) {
-              stateAction.flyoutLwc = this.nameRegistry.getFlexCardCleanedName(lwcName);
-            } else {
-              Logger.logVerbose(`\n${this.messages.getMessage('componentMappingNotFound', ['Flexcard', lwcName])}`);
-              stateAction.flyoutLwc = this.cleanName(lwcName);
-            }
-          } else if (stateAction.flyoutType === Constants.OmniScriptPluralName && stateAction.osName) {
-            // flyoutLwc is an OmniScript-derived LWC name - derive from already-updated osName
-            stateAction.flyoutLwc = this.convertOsNameToLwcName(stateAction.osName);
-          }
-        }
+        this.updateFlyoutLwcValue(stateAction);
       }
     }
   }
@@ -1442,51 +1449,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       for (const action of component.property.actionList) {
         if (action.stateAction) {
           // Handle message field (contains DataRaptor/IP references as JSON string)
-          // Applies to action types: cardAction, DataAction, etc.
-          if (action.stateAction.message && typeof action.stateAction.message === 'string') {
-            try {
-              const messageObj = JSON.parse(action.stateAction.message);
-              let messageUpdated = false;
-
-              if (messageObj.value) {
-                // DataRaptor bundle
-                if (messageObj.value.bundle) {
-                  const originalBundle = messageObj.value.bundle;
-                  if (this.nameRegistry.hasDataMapperMapping(originalBundle)) {
-                    messageObj.value.bundle = this.nameRegistry.getDataMapperCleanedName(originalBundle);
-                  } else {
-                    Logger.logVerbose(
-                      `\n${this.messages.getMessage('componentMappingNotFound', ['DataMapper', originalBundle])}`
-                    );
-                    messageObj.value.bundle = this.cleanName(originalBundle);
-                  }
-                  messageUpdated = true;
-                }
-
-                // Integration Procedure ipMethod
-                if (messageObj.value.ipMethod) {
-                  const ipMethod = messageObj.value.ipMethod;
-                  if (this.nameRegistry.hasIntegrationProcedureMapping(ipMethod)) {
-                    messageObj.value.ipMethod = this.nameRegistry.getIntegrationProcedureCleanedName(ipMethod);
-                  } else {
-                    Logger.logVerbose(
-                      `\n${this.messages.getMessage('componentMappingNotFound', ['IntegrationProcedure', ipMethod])}`
-                    );
-                    const parts = ipMethod.split('_');
-                    messageObj.value.ipMethod = parts.map((p) => this.cleanName(p, true)).join('_');
-                  }
-                  messageUpdated = true;
-                }
-              }
-
-              if (messageUpdated) {
-                action.stateAction.message = JSON.stringify(messageObj);
-              }
-            } catch (e) {
-              // message is not valid JSON, skip
-              Logger.logVerbose(`Failed to parse stateAction.message as JSON: ${e.message}`);
-            }
-          }
+          this.processStateActionMessageWithRegistry(action.stateAction);
 
           // Case 1: Direct OmniScript reference
           if (action.stateAction.type === Constants.OmniScriptComponentName && action.stateAction.omniType) {
@@ -1496,22 +1459,12 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           else if (this.hasOmniscriptFlyoutDependency(action.stateAction)) {
             // Update osName
             this.updateOsNameWithRegistry(action.stateAction, 'osName');
-            // Also update flyoutLwc - it's the kebab-case LWC name derived from OmniScript
-            if (action.stateAction.flyoutLwc) {
-              action.stateAction.flyoutLwc = this.convertOsNameToLwcName(action.stateAction.osName);
-            }
+            // Update flyoutLwc
+            this.updateFlyoutLwcValue(action.stateAction);
           }
-          // Case 3: Flyout childCard reference - flyoutLwc is a direct FlexCard name
+          // Case 3: Flyout childCard reference
           else if (this.hasFlexCardFlyoutDependency(action.stateAction)) {
-            const originalFlyoutLwc = action.stateAction.flyoutLwc;
-            if (this.nameRegistry.hasFlexCardMapping(originalFlyoutLwc)) {
-              action.stateAction.flyoutLwc = this.nameRegistry.getFlexCardCleanedName(originalFlyoutLwc);
-            } else {
-              Logger.logVerbose(
-                `\n${this.messages.getMessage('componentMappingNotFound', ['Flexcard', originalFlyoutLwc])}`
-              );
-              action.stateAction.flyoutLwc = this.cleanName(originalFlyoutLwc);
-            }
+            this.updateFlyoutLwcValue(action.stateAction);
           }
         }
       }
@@ -1555,22 +1508,12 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       }
       if (this.hasOmniscriptFlyoutDependency(component.property.stateAction)) {
         this.updateOsNameWithRegistry(component.property.stateAction, 'osName');
-        // Also update flyoutLwc - it's the kebab-case LWC name derived from OmniScript
-        if (component.property.stateAction.flyoutLwc) {
-          component.property.stateAction.flyoutLwc = this.convertOsNameToLwcName(component.property.stateAction.osName);
-        }
+        // Update flyoutLwc
+        this.updateFlyoutLwcValue(component.property.stateAction);
       }
-      // Handle Flyout childCard reference - flyoutLwc is a direct FlexCard name
+      // Handle Flyout childCard reference
       if (this.hasFlexCardFlyoutDependency(component.property.stateAction)) {
-        const originalFlyoutLwc = component.property.stateAction.flyoutLwc;
-        if (this.nameRegistry.hasFlexCardMapping(originalFlyoutLwc)) {
-          component.property.stateAction.flyoutLwc = this.nameRegistry.getFlexCardCleanedName(originalFlyoutLwc);
-        } else {
-          Logger.logVerbose(
-            `\n${this.messages.getMessage('componentMappingNotFound', ['Flexcard', originalFlyoutLwc])}`
-          );
-          component.property.stateAction.flyoutLwc = this.cleanName(originalFlyoutLwc);
-        }
+        this.updateFlyoutLwcValue(component.property.stateAction);
       }
     }
 
@@ -1619,12 +1562,8 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
                   : parts.map((p) => this.cleanName(p)).join('/');
             }
 
-            // Also update flyoutLwc if it exists - it's the kebab-case LWC name derived from OmniScript
-            if (component.property.flyoutOmniScript.flyoutLwc) {
-              component.property.flyoutOmniScript.flyoutLwc = this.convertOsNameToLwcName(
-                component.property.flyoutOmniScript.osName
-              );
-            }
+            // Update flyoutLwc if it exists
+            this.updateFlyoutLwcValue(component.property.flyoutOmniScript);
           }
         }
       }

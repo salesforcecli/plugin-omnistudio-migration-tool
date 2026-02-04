@@ -36,6 +36,23 @@ export const Constants = {
   CustomLwc: 'customLwc',
   OmniFlyout: 'omni-flyout',
 
+  // OmniScript element/action type constants
+  IntegrationProcedureAction: 'Integration Procedure Action',
+  DataRaptorTurboAction: 'DataRaptor Turbo Action',
+  DataRaptorTransformAction: 'DataRaptor Transform Action',
+  DataRaptorPostAction: 'DataRaptor Post Action',
+  DataRaptorExtractAction: 'DataRaptor Extract Action',
+  DocuSignEnvelopeAction: 'DocuSign Envelope Action',
+  DocuSignSignatureAction: 'DocuSign Signature Action',
+  DecisionMatrixAction: 'Decision Matrix Action',
+  ExpressionSetAction: 'Expression Set Action',
+  HTTPAction: 'HTTP Action',
+  PDFAction: 'PDF Action',
+  RemoteAction: 'Remote Action',
+  StepElement: 'Step',
+  OmniScriptElement: 'OmniScript',
+  CustomLightningWebComponent: 'Custom Lightning Web Component',
+
   // artifacts persistance folder names
   AssessmentReportsFolderName: 'assessment_reports',
   MigrationReportsFolderName: 'migration_report',

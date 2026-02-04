@@ -450,7 +450,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
       }
 
       // Check for Integration Procedure Action dependencies
-      if (type === 'Integration Procedure Action') {
+      if (type === Constants.IntegrationProcedureAction) {
         const nameVal = `${elemName}`;
         dependencyIP.push({ name: propertySet['integrationProcedureKey'], location: nameVal });
         if (!existingOmniscriptNames.has(nameVal) && !existingFlexCardNames.has(nameVal)) {
@@ -461,10 +461,10 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
       // Check for DataRaptor dependencies
       if (
         [
-          'DataRaptor Extract Action',
-          'DataRaptor Turbo Action',
-          'DataRaptor Transform Action',
-          'DataRaptor Post Action',
+          Constants.DataRaptorExtractAction,
+          Constants.DataRaptorTurboAction,
+          Constants.DataRaptorTransformAction,
+          Constants.DataRaptorPostAction,
         ].includes(type)
       ) {
         const nameVal = `${elemName}`;
@@ -479,12 +479,12 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
       this.collectTransformBundleDependencies(propertySet, elemName, dependencyDR, existingDataRaptorNames, missingDR);
 
       // Check for DocuSign Envelope Action transform bundle dependencies
-      if (type === 'DocuSign Envelope Action') {
+      if (type === Constants.DocuSignEnvelopeAction) {
         this.collectDocuSignBundleDependencies(propertySet, elemName, dependencyDR, existingDataRaptorNames, missingDR);
       }
 
       // Check for DocuSign Signature Action transform bundle dependencies
-      if (type === 'DocuSign Signature Action') {
+      if (type === Constants.DocuSignSignatureAction) {
         this.collectDocuSignSignatureBundleDependencies(
           propertySet,
           elemName,
@@ -494,7 +494,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
         );
       }
 
-      if (type === 'Remote Action') {
+      if (type === Constants.RemoteAction) {
         const nameVal = `${elemName}`;
         const className = propertySet['remoteClass'];
         const methodName = propertySet['remoteMethod'];
@@ -506,7 +506,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
         dependenciesRA.push({ name: propertySet['optionSource']['source'], location: nameVal });
       }
 
-      if (type === 'Custom Lightning Web Component') {
+      if (type === Constants.CustomLightningWebComponent) {
         const nameVal = `${elemName}`;
         const lwcName = propertySet['lwcName'];
         dependenciesLWC.push({ name: lwcName, location: nameVal });
@@ -1798,7 +1798,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
         this.processPersistentComponents(parsedConfig);
         mappedObject[OmniScriptMappings.PropertySet__c] = JSON.stringify(parsedConfig);
       } catch (ex) {
-        Logger.logVerbose(`Failed to parse PropertySetConfig for OmniScript: ${mappedObject['Name']}`);
+        Logger.error(`Failed to parse PropertySetConfig for OmniScript: ${mappedObject['Name']}`);
       }
     }
 
@@ -1891,49 +1891,8 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     const elementType = mappedObject[ElementMappings.Type__c];
     const propertySet = JSON.parse(mappedObject[ElementMappings.PropertySet__c] || '{}');
 
-    switch (elementType) {
-      case 'OmniScript':
-        // Use shared method to process OmniScript references
-        this.processOmniScriptAction(propertySet);
-        break;
-      case 'Integration Procedure Action':
-        // Use shared method to process Integration Procedure Action references
-        this.processIntegrationProcedureAction(propertySet, invalidIpReferences, mappedObject[ElementMappings.Name]);
-        break;
-      case 'DataRaptor Turbo Action':
-      case 'DataRaptor Transform Action':
-      case 'DataRaptor Post Action':
-      case 'DataRaptor Extract Action':
-        // Use shared method to process DataRaptor Action references
-        this.processDataRaptorAction(propertySet);
-        break;
-      case 'DocuSign Envelope Action':
-        // Use shared method to process DocuSign Envelope Action references
-        this.processDocuSignEnvelopeAction(propertySet);
-        break;
-      case 'DocuSign Signature Action':
-        // Use shared method to process DocuSign Signature Action references
-        this.processDocuSignSignatureAction(propertySet);
-        break;
-      case 'Decision Matrix Action':
-        this.processDecisionMatrixAction(propertySet);
-        break;
-      case 'Expression Set Action':
-        this.processExpressionSetAction(propertySet);
-        break;
-      case 'HTTP Action':
-        this.processHttpAction(propertySet);
-        break;
-      case 'PDF Action':
-        this.processPdfAction(propertySet);
-        break;
-      case 'Remote Action':
-        this.processRemoteAction(propertySet);
-        break;
-    }
-
-    // Process lwcComponentOverride for all element types (FlexCard reference)
-    this.processLwcComponentOverride(propertySet);
+    // Use shared method to process element types
+    this.processElementByType(elementType, propertySet, invalidIpReferences, mappedObject[ElementMappings.Name]);
 
     mappedObject[ElementMappings.PropertySet__c] = JSON.stringify(propertySet);
 
@@ -2005,6 +1964,66 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
   }
 
   /**
+   * Shared helper method to process element types and update references
+   * Handles the switch statement logic for different element types
+   * @param elementType Type of the element
+   * @param propSet Property set map from the element
+   * @param invalidIpReferences Optional map to track invalid IP references
+   * @param elementName Optional element name for logging
+   */
+  private processElementByType(
+    elementType: string,
+    propSet: any,
+    invalidIpReferences?: Map<String, String>,
+    elementName?: string
+  ): void {
+    switch (elementType) {
+      case Constants.OmniScriptElement:
+        this.processOmniScriptAction(propSet);
+        break;
+      case Constants.IntegrationProcedureAction:
+        this.processIntegrationProcedureAction(propSet, invalidIpReferences, elementName);
+        break;
+      case Constants.DataRaptorTurboAction:
+      case Constants.DataRaptorTransformAction:
+      case Constants.DataRaptorPostAction:
+      case Constants.DataRaptorExtractAction:
+        this.processDataRaptorAction(propSet);
+        break;
+      case Constants.StepElement:
+        this.processStepAction(propSet);
+        break;
+      case Constants.DocuSignEnvelopeAction:
+        this.processDocuSignEnvelopeAction(propSet);
+        break;
+      case Constants.DocuSignSignatureAction:
+        this.processDocuSignSignatureAction(propSet);
+        break;
+      case Constants.DecisionMatrixAction:
+        this.processDecisionMatrixAction(propSet);
+        break;
+      case Constants.ExpressionSetAction:
+        this.processExpressionSetAction(propSet);
+        break;
+      case Constants.HTTPAction:
+        this.processHttpAction(propSet);
+        break;
+      case Constants.PDFAction:
+        this.processPdfAction(propSet);
+        break;
+      case Constants.RemoteAction:
+        this.processRemoteAction(propSet);
+        break;
+      default:
+        // Handle other element types if needed
+        break;
+    }
+
+    // Process lwcComponentOverride for all element types (FlexCard reference)
+    this.processLwcComponentOverride(propSet);
+  }
+
+  /**
    * Recursively processes children elements in the content JSON to update bundle/reference names
    * @param children Array of child elements from the content JSON
    */
@@ -2045,50 +2064,8 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
       return;
     }
 
-    switch (elementType) {
-      case 'Integration Procedure Action':
-        this.processIntegrationProcedureAction(propSetMap);
-        break;
-      case 'DataRaptor Turbo Action':
-      case 'DataRaptor Transform Action':
-      case 'DataRaptor Post Action':
-      case 'DataRaptor Extract Action':
-        this.processDataRaptorAction(propSetMap);
-        break;
-      case 'OmniScript':
-        this.processOmniScriptAction(propSetMap);
-        break;
-      case 'Step':
-        this.processStepAction(propSetMap);
-        break;
-      case 'DocuSign Envelope Action':
-        this.processDocuSignEnvelopeAction(propSetMap);
-        break;
-      case 'DocuSign Signature Action':
-        this.processDocuSignSignatureAction(propSetMap);
-        break;
-      case 'Decision Matrix Action':
-        this.processDecisionMatrixAction(propSetMap);
-        break;
-      case 'Expression Set Action':
-        this.processExpressionSetAction(propSetMap);
-        break;
-      case 'HTTP Action':
-        this.processHttpAction(propSetMap);
-        break;
-      case 'PDF Action':
-        this.processPdfAction(propSetMap);
-        break;
-      case 'Remote Action':
-        this.processRemoteAction(propSetMap);
-        break;
-      default:
-        // Handle other element types if needed
-        break;
-    }
-
-    // Process lwcComponentOverride for all element types (FlexCard reference)
-    this.processLwcComponentOverride(propSetMap);
+    // Use shared method to process element types
+    this.processElementByType(elementType, propSetMap);
   }
 
   /**
@@ -2625,7 +2602,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     try {
       propertySetConfig = JSON.parse(propertySetConfigStr);
     } catch (ex) {
-      Logger.logVerbose(`Failed to parse PropertySetConfig for assessment: ${omniscript['Name']}`);
+      Logger.error(`Failed to parse PropertySetConfig for assessment: ${omniscript['Name']}`);
       return;
     }
 

@@ -536,7 +536,8 @@ describe('OmniScript Standard Data Model (Metadata API Disabled) - Assessment an
       expect(result.dependenciesIP[0].name).to.equal('API-Gateway_Customer@Info!');
 
       // DataRaptor dependencies include: bundle from DRAction + preTransformBundle & postTransformBundle from IPAction
-      expect(result.dependenciesDR).to.have.lengthOf(3);
+      // Note: 'Customer-Data@Loader!' appears in both DRAction and IPAction.preTransformBundle, but is deduplicated
+      expect(result.dependenciesDR).to.have.lengthOf(2);
       expect(result.dependenciesDR.map((d) => d.name)).to.include.members([
         'Customer-Data@Loader!',
         'Product#Info$Extractor',

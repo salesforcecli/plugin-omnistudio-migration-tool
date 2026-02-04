@@ -687,23 +687,36 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
       }
     }
 
+    // Deduplicate all dependency arrays to ensure no duplicates
+    // For Remote Actions and LWCs, deduplicate by name property
+    const uniqueRA = Array.from(new Map(dependenciesRA.map((item) => [item.name, item])).values());
+    const uniqueLWC = Array.from(new Map(dependenciesLWC.map((item) => [item.name, item])).values());
+    const uniqueIP = Array.from(new Map(dependencyIP.map((item) => [item.name, item])).values());
+    const uniqueDR = Array.from(new Map(dependencyDR.map((item) => [item.name, item])).values());
+    const uniqueOS = Array.from(new Map(dependencyOS.map((item) => [item.name, item])).values());
+
+    // Deduplicate missing dependency arrays (simple string arrays)
+    const uniqueMissingDR = [...new Set(missingDR)];
+    const uniqueMissingIP = [...new Set(missingIP)];
+    const uniqueMissingOS = [...new Set(missingOS)];
+
     const result: OSAssessmentInfo = {
       name: recordName,
       id: omniscript['Id'],
       oldName: oldName,
-      dependenciesIP: dependencyIP,
-      dependenciesDR: dependencyDR,
-      dependenciesOS: dependencyOS,
-      dependenciesRemoteAction: dependenciesRA,
-      dependenciesLWC: dependenciesLWC,
+      dependenciesIP: uniqueIP,
+      dependenciesDR: uniqueDR,
+      dependenciesOS: uniqueOS,
+      dependenciesRemoteAction: uniqueRA,
+      dependenciesLWC: uniqueLWC,
       infos: [],
       warnings: warnings,
       errors: [],
       migrationStatus: assessmentStatus,
       type: omniProcessType,
-      missingDR: missingDR,
-      missingIP: missingIP,
-      missingOS: missingOS,
+      missingDR: uniqueMissingDR,
+      missingIP: uniqueMissingIP,
+      missingOS: uniqueMissingOS,
     };
 
     if (omniProcessType === this.OMNISCRIPT) {

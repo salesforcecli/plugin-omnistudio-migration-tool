@@ -98,6 +98,7 @@
   "authordNameChangeMessage": "The Flexcard author name will be changed from %s to %s to adhere to the naming rules",
   "cardLWCNameChangeMessage": "The Flexcard generated LWC name will be changed from %s to %s to align with Flexcard name change.",
   "omniScriptNameChangeMessage": "The Omniscript reference name %s will be changed to %s during migration.",
+  "omniScriptLwcNameChangeMessage": "The OmniScript-derived LWC component name %s will be renamed to %s during migration.",
   "dataRaptorNameChangeMessage": "The Data Mapper name will be changed from %s to %s during migration.",
   "integrationProcedureNameChangeMessage": "The Integration Procedure %s will be renamed to %s during migration.",
   "integrationProcedureManualUpdateMessage": "All references to %s in this Integration Procedure must be manually updated after migration.",

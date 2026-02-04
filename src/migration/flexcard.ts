@@ -304,6 +304,16 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     flexCardAssessmentInfo.migrationStatus = assessmentStatus;
     this.updateDependencies(flexCard, flexCardAssessmentInfo);
 
+    // Deduplicate all dependency arrays to ensure no duplicates
+    flexCardAssessmentInfo.dependenciesIP = [...new Set(flexCardAssessmentInfo.dependenciesIP)];
+    flexCardAssessmentInfo.dependenciesDR = [...new Set(flexCardAssessmentInfo.dependenciesDR)];
+    flexCardAssessmentInfo.dependenciesFC = [...new Set(flexCardAssessmentInfo.dependenciesFC)];
+    flexCardAssessmentInfo.dependenciesOS = [...new Set(flexCardAssessmentInfo.dependenciesOS)];
+    flexCardAssessmentInfo.dependenciesLWC = [...new Set(flexCardAssessmentInfo.dependenciesLWC)];
+    flexCardAssessmentInfo.dependenciesApexRemoteAction = [
+      ...new Set(flexCardAssessmentInfo.dependenciesApexRemoteAction),
+    ];
+
     return flexCardAssessmentInfo;
   }
 

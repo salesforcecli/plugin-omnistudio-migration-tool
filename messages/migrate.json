@@ -312,7 +312,6 @@
   "omniStudioAllVersionsProcessingConsentNotGiven": "You've not consented to migrate all versions of the Omnistudio components. We cannot proceed with the migration.",
   "omniStudioAllVersionsProcessingConsentGiven": "You've consented to migrate all versions of the Omnistudio components.",
   "customLWCFlexCardReferenceUpdated": "Updated Custom LWC FlexCard reference: %s -> cf%s",
-  "omniScriptLwcNameChangeMessage": "The OmniScript-derived LWC component name %s will be renamed to %s during migration.",
   "validatingDrVersioningDisabled": "Checking the Data Mapper versioning setting in your org.",
   "drVersioningDisabled": "Proceeding with the migration as the Data Mapper versioning setting is disabled.",
   "drVersioningEnabled": "We cannot proceed with the migration as the Data Mapper versioning setting is enabled in your org.",

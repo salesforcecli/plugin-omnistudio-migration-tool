@@ -417,44 +417,137 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           this.addFlexCardDependency(stateAction.cardName, flexCardAssessmentInfo);
         }
 
-        // 4. Handle flyoutLwc (Custom LWC or FlexCard reference)
-        if (stateAction.flyoutLwc) {
-          const lwcName = stateAction.flyoutLwc;
-
-          // Check if this is a FlexCard reference when flyoutType is "childCard"
-          if (stateAction.flyoutType === Constants.ChildCard) {
-            // flyoutLwc is a direct FlexCard name reference
-            this.addFlexCardDependency(lwcName, flexCardAssessmentInfo);
-          } else if (stateAction.flyoutType === Constants.OmniScriptPluralName && stateAction.osName) {
-            // flyoutLwc is an OmniScript-derived LWC name - will be handled when osName is processed
-            // Add warning if the OmniScript name (and thus LWC name) will change
-            this.addOmniScriptDependency(stateAction.osName, flexCardAssessmentInfo, {
-              includeLwcWarning: true,
-              lwcName: lwcName,
-            });
-            // Also add to LWC dependencies for tracking
-            if (!flexCardAssessmentInfo.dependenciesLWC.includes(lwcName)) {
-              flexCardAssessmentInfo.dependenciesLWC.push(lwcName);
-            }
-          }
+        // 4. Handle flyoutLwc - FlexCard child cards
+        if (this.hasFlexCardFlyoutDependency(stateAction)) {
+          this.addFlexCardDependency(stateAction.flyoutLwc, flexCardAssessmentInfo);
+        }
+        // Handle flyoutLwc - CustomLwc with potential "cf" prefix for FlexCard reference
+        else if (this.hasCustomLwcFlyoutDependency(stateAction)) {
+          this.addCfPrefixedFlexCardDependency(stateAction.flyoutLwc, flexCardAssessmentInfo);
+        }
+        // 5. Handle osName
+        else if (this.hasOmniscriptFlyoutDependency(stateAction)) {
+          this.addOmniScriptDependency(stateAction.osName, flexCardAssessmentInfo);
         }
 
-        // 5. Handle omniType.Name (OmniScript)
+        // 6. Handle omniType.Name (OmniScript)
         if (stateAction.omniType && stateAction.omniType.Name) {
           this.addOmniScriptDependency(stateAction.omniType.Name, flexCardAssessmentInfo);
-        }
-
-        // 6. Handle osName (OmniScript - Flyout OmniScripts)
-        if (stateAction.osName && typeof stateAction.osName === 'string') {
-          this.addOmniScriptDependency(stateAction.osName, flexCardAssessmentInfo);
         }
       }
     }
   }
 
   /**
+   * Shared helper to check if a "cf" prefixed LWC name references a FlexCard and add dependency (assessment phase)
+   * @param cfPrefixedLwcName LWC name with "cf" prefix (e.g., "cfMyFlexCard")
+   * @param flexCardAssessmentInfo Assessment info to add dependencies and warnings
+   */
+  private addCfPrefixedFlexCardDependency(
+    cfPrefixedLwcName: string,
+    flexCardAssessmentInfo: FlexCardAssessmentInfo
+  ): void {
+    if (cfPrefixedLwcName.startsWith('cf')) {
+      // Remove "cf" prefix to get the original FlexCard name
+      const originalFlexCardName = cfPrefixedLwcName.substring(2);
+
+      // Check if the FlexCard name will change and add warning
+      const cleanedFlexCardName = this.cleanName(originalFlexCardName);
+      this.addFlexCardDependency(originalFlexCardName, flexCardAssessmentInfo);
+
+      if (originalFlexCardName !== cleanedFlexCardName) {
+        flexCardAssessmentInfo.warnings.push(
+          this.messages.getMessage('cardLWCNameChangeMessage', [originalFlexCardName, cleanedFlexCardName])
+        );
+        flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
+          flexCardAssessmentInfo.migrationStatus as
+            | 'Warnings'
+            | 'Needs manual intervention'
+            | 'Ready for migration'
+            | 'Failed',
+          'Warnings'
+        );
+      }
+    }
+  }
+
+  /**
+   * Shared helper to update a "cf" prefixed LWC name with registry (migration phase)
+   * @param cfPrefixedLwcName LWC name with "cf" prefix (e.g., "cfMyFlexCard")
+   * @returns Updated LWC name with "cf" prefix
+   */
+  private updateCfPrefixedFlexCardName(cfPrefixedLwcName: string): string {
+    if (cfPrefixedLwcName.startsWith('cf')) {
+      // Remove "cf" prefix to get the original FlexCard name
+      const originalFlexCardName = cfPrefixedLwcName.substring(2);
+
+      // Look up the cleaned name from registry
+      let cleanedFlexCardName: string;
+      if (this.nameRegistry.hasFlexCardMapping(originalFlexCardName)) {
+        cleanedFlexCardName = this.nameRegistry.getFlexCardCleanedName(originalFlexCardName);
+      } else {
+        Logger.logVerbose(
+          `\n${this.messages.getMessage('componentMappingNotFound', ['Flexcard', originalFlexCardName])}`
+        );
+        cleanedFlexCardName = this.cleanName(originalFlexCardName);
+      }
+
+      return `cf${cleanedFlexCardName}`;
+    }
+
+    return cfPrefixedLwcName;
+  }
+
+  /**
+   * Shared helper to check Custom LWC component for FlexCard dependencies (assessment phase)
+   * Handles customlwcname with "cf" prefix indicating FlexCard reference
+   */
+  private checkCustomLwcForDependencies(component: any, flexCardAssessmentInfo: FlexCardAssessmentInfo): void {
+    if (component.element === Constants.CustomLwc && component.property) {
+      if (component.property.customlwcname) {
+        const customLwcName = component.property.customlwcname;
+        Logger.info(`Custom LWC name: ${customLwcName}`);
+
+        // Check if this is a FlexCard reference (starts with "cf" prefix)
+        this.addCfPrefixedFlexCardDependency(customLwcName, flexCardAssessmentInfo);
+
+        // Add to LWC dependencies for tracking (avoid duplicates)
+        if (!flexCardAssessmentInfo.dependenciesLWC.includes(customLwcName)) {
+          flexCardAssessmentInfo.dependenciesLWC.push(customLwcName);
+        }
+      }
+    }
+  }
+
+  /**
+   * Shared helper to update Custom LWC component with registry (migration phase)
+   * Handles customlwcname with "cf" prefix indicating FlexCard reference
+   */
+  private updateCustomLwcWithRegistry(component: any): void {
+    if (component.element === Constants.CustomLwc && component.property) {
+      if (component.property.customlwcname) {
+        const customLwcName = component.property.customlwcname;
+
+        // Check if this is a FlexCard reference (starts with "cf" prefix) and update it
+        if (customLwcName?.startsWith('cf')) {
+          const updatedLwcName = this.updateCfPrefixedFlexCardName(customLwcName);
+          component.property.customlwcname = updatedLwcName;
+
+          if (customLwcName !== updatedLwcName) {
+            const cleanedFlexCardName = updatedLwcName.substring(2);
+            Logger.logVerbose(
+              this.messages.getMessage('customLWCFlexCardReferenceUpdated', [customLwcName, cleanedFlexCardName])
+            );
+          }
+        }
+        // Note: Other custom LWC names (not starting with "cf") typically don't need cleaning
+      }
+    }
+  }
+
+  /**
    * Shared helper to update flyoutLwc value with registry (migration phase)
-   * Handles both FlexCard child cards and OmniScript-derived LWC names
+   * Handles FlexCard child cards references
    */
   private updateFlyoutLwcValue(stateAction: any): void {
     if (stateAction.flyoutLwc) {
@@ -467,9 +560,10 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           Logger.logVerbose(`\n${this.messages.getMessage('componentMappingNotFound', ['Flexcard', lwcName])}`);
           stateAction.flyoutLwc = this.cleanName(lwcName);
         }
-      } else if (stateAction.flyoutType === Constants.OmniScriptPluralName && stateAction.osName) {
-        // flyoutLwc is an OmniScript-derived LWC name - derive from already-updated osName
-        stateAction.flyoutLwc = this.convertOsNameToLwcName(stateAction.osName);
+      } else if (stateAction.flyoutType === Constants.CustomLwc) {
+        // flyoutType is customLwc - update if it's a FlexCard reference with "cf" prefix
+        stateAction.flyoutLwc = this.updateCfPrefixedFlexCardName(stateAction.flyoutLwc);
+        // Note: Non-"cf" prefixed names are returned unchanged by the helper
       }
     }
   }
@@ -632,55 +726,23 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           else if (this.hasOmniscriptFlyoutDependency(action.stateAction)) {
             const osName = action.stateAction.osName;
             if (typeof osName === 'string') {
-              this.addOmniScriptDependency(osName, flexCardAssessmentInfo, {
-                includeLwcWarning: !!action.stateAction.flyoutLwc,
-                lwcName: action.stateAction.flyoutLwc,
-              });
+              this.addOmniScriptDependency(osName, flexCardAssessmentInfo);
             }
           }
           // Case 3: Flyout childCard reference - flyoutLwc is a direct FlexCard name
           else if (this.hasFlexCardFlyoutDependency(action.stateAction)) {
             this.addFlexCardDependency(action.stateAction.flyoutLwc, flexCardAssessmentInfo);
           }
+          // Case 4: Flyout CustomLwc reference - check for FlexCard reference with "cf" prefix
+          else if (this.hasCustomLwcFlyoutDependency(action.stateAction)) {
+            this.addCfPrefixedFlexCardDependency(action.stateAction.flyoutLwc, flexCardAssessmentInfo);
+          }
         }
       }
     }
 
     // Check for Custom LWC component
-    if (component.element === Constants.CustomLwc && component.property) {
-      // Check customlwcname property first
-      if (component.property.customlwcname) {
-        const customLwcName = component.property.customlwcname;
-        Logger.info(`Custom LWC name: ${customLwcName}`);
-
-        // Check if this is a FlexCard reference (starts with "cf" prefix)
-        if (customLwcName.startsWith('cf')) {
-          // Remove "cf" prefix to get the original FlexCard name
-          const originalFlexCardName = customLwcName.substring(2);
-
-          // Check if the FlexCard name will change and add warning
-          const cleanedFlexCardName = this.cleanName(originalFlexCardName);
-          if (originalFlexCardName !== cleanedFlexCardName) {
-            flexCardAssessmentInfo.warnings.push(
-              this.messages.getMessage('cardLWCNameChangeMessage', [originalFlexCardName, cleanedFlexCardName])
-            );
-            flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
-              flexCardAssessmentInfo.migrationStatus as
-                | 'Warnings'
-                | 'Needs manual intervention'
-                | 'Ready for migration'
-                | 'Failed',
-              'Warnings'
-            );
-          }
-        }
-        // Regular custom LWC (and FlexCard reference)
-        // Avoid duplicates
-        if (!flexCardAssessmentInfo.dependenciesLWC.includes(customLwcName)) {
-          flexCardAssessmentInfo.dependenciesLWC.push(customLwcName);
-        }
-      }
-    }
+    this.checkCustomLwcForDependencies(component, flexCardAssessmentInfo);
 
     // Check standard component actions if they exist
     if (component.actions && Array.isArray(component.actions)) {
@@ -715,6 +777,11 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       // Case 3: Flyout childCard reference on component property - flyoutLwc is a direct FlexCard name
       if (this.hasFlexCardFlyoutDependency(component.property.stateAction)) {
         this.addFlexCardDependency(component.property.stateAction.flyoutLwc, flexCardAssessmentInfo);
+      }
+
+      // Case 4: Flyout CustomLwc reference on component property - check for FlexCard reference with "cf" prefix
+      if (this.hasCustomLwcFlyoutDependency(component.property.stateAction)) {
+        this.addCfPrefixedFlexCardDependency(component.property.stateAction.flyoutLwc, flexCardAssessmentInfo);
       }
     }
 
@@ -1354,18 +1421,17 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           }
         }
 
-        // 4. Handle omniType.Name (OmniScript)
-        if (stateAction.omniType && stateAction.omniType.Name) {
-          this.updateOmniTypeNameWithRegistry(stateAction.omniType);
-        }
+        // 4. Handle flyoutLwc (FlexCard child card and custom LWC references)
+        this.updateFlyoutLwcValue(stateAction);
 
-        // 5. Handle osName (OmniScript - Flyout OmniScripts)
-        if (stateAction.osName && typeof stateAction.osName === 'string') {
+        if (this.hasOmniscriptFlyoutDependency(stateAction)) {
           this.updateOsNameWithRegistry(stateAction, 'osName');
         }
 
-        // 6. Handle flyoutLwc (Custom LWC or FlexCard reference)
-        this.updateFlyoutLwcValue(stateAction);
+        // 6. Handle omniType.Name (OmniScript)
+        if (stateAction.omniType && stateAction.omniType.Name) {
+          this.updateOmniTypeNameWithRegistry(stateAction.omniType);
+        }
       }
     }
   }
@@ -1457,13 +1523,10 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           }
           // Case 2: Flyout OmniScript reference
           else if (this.hasOmniscriptFlyoutDependency(action.stateAction)) {
-            // Update osName
             this.updateOsNameWithRegistry(action.stateAction, 'osName');
-            // Update flyoutLwc
-            this.updateFlyoutLwcValue(action.stateAction);
           }
-          // Case 3: Flyout childCard reference
-          else if (this.hasFlexCardFlyoutDependency(action.stateAction)) {
+          // Case 3: Flyout with flyoutLwc (ChildCard or CustomLwc)
+          else if (this.hasFlyoutLwc(action.stateAction)) {
             this.updateFlyoutLwcValue(action.stateAction);
           }
         }
@@ -1471,26 +1534,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     }
 
     // Handle Custom LWC components - special case for FlexCard references
-    if (component.element === Constants.CustomLwc && component.property) {
-      if (component.property.customlwcname) {
-        const customLwcName = component.property.customlwcname;
-
-        // Check if this is a FlexCard reference (starts with "cf" prefix)
-        if (customLwcName?.startsWith('cf')) {
-          // Remove "cf" prefix to get the original FlexCard name
-          const originalFlexCardName = customLwcName.substring(2);
-
-          // Look up the cleaned name from registry
-          const cleanedFlexCardName = this.nameRegistry.getFlexCardCleanedName(originalFlexCardName);
-          // Update the customlwcname with the cleaned FlexCard name
-          component.property.customlwcname = `cf${cleanedFlexCardName}`;
-          Logger.logVerbose(
-            this.messages.getMessage('customLWCFlexCardReferenceUpdated', [customLwcName, cleanedFlexCardName])
-          );
-        }
-        // Note: Other custom LWC names (not starting with "cf") typically don't need cleaning
-      }
-    }
+    this.updateCustomLwcWithRegistry(component);
 
     // Handle standard component actions (like assessment)
     if (component.actions && Array.isArray(component.actions)) {
@@ -1508,11 +1552,9 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       }
       if (this.hasOmniscriptFlyoutDependency(component.property.stateAction)) {
         this.updateOsNameWithRegistry(component.property.stateAction, 'osName');
-        // Update flyoutLwc
-        this.updateFlyoutLwcValue(component.property.stateAction);
       }
-      // Handle Flyout childCard reference
-      if (this.hasFlexCardFlyoutDependency(component.property.stateAction)) {
+      // Handle Flyout with flyoutLwc (ChildCard or CustomLwc)
+      if (this.hasFlyoutLwc(component.property.stateAction)) {
         this.updateFlyoutLwcValue(component.property.stateAction);
       }
     }
@@ -1561,9 +1603,6 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
                   ? `${this.cleanName(parts[0])}/${this.cleanName(parts[1])}/${parts[2]}`
                   : parts.map((p) => this.cleanName(p)).join('/');
             }
-
-            // Update flyoutLwc if it exists
-            this.updateFlyoutLwcValue(component.property.flyoutOmniScript);
           }
         }
       }
@@ -1645,37 +1684,6 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     }
   }
 
-  /**
-   * Convert OmniScript name (Type/SubType/Language) to kebab-case LWC component name
-   * The flyoutLwc is derived by converting each part of osName to kebab-case and joining with hyphens
-   * Example: "docGenerationSample/CoreSingleDocxLWC/English" -> "doc-generation-sample-core-single-docx-l-w-c-english"
-   * Example: "flexcard/dev/English" -> "flexcard-dev-english"
-   */
-  private convertOsNameToLwcName(osName: string): string {
-    if (!osName) {
-      return '';
-    }
-    // Split by / and convert each part to kebab-case, then join with -
-    const parts = osName.split('/');
-    const kebabParts = parts.map((part) => this.camelToKebab(part));
-    return kebabParts.join('-');
-  }
-
-  /**
-   * Convert camelCase or PascalCase string to kebab-case
-   * Example: "docGenerationSample" -> "doc-generation-sample"
-   * Example: "CoreSingleDocxLWC" -> "core-single-docx-l-w-c"
-   */
-  private camelToKebab(str: string): string {
-    if (!str) {
-      return '';
-    }
-    return str
-      .replace(/([a-z0-9])([A-Z])/g, '$1-$2') // Insert hyphen between lowercase/digit and uppercase
-      .replace(/([A-Z])([A-Z][a-z])/g, '$1-$2') // Insert hyphen between consecutive uppercase followed by lowercase
-      .toLowerCase();
-  }
-
   // ==================== Assessment Helper Methods ====================
 
   /**
@@ -1683,13 +1691,8 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
    * Handles osName in format "Type/SubType/Language" or "Type/SubType"
    * @param osName - OmniScript name in format "Type/SubType" or "Type/SubType/Language"
    * @param flexCardAssessmentInfo - Assessment info to update
-   * @param options - Optional settings for LWC warning
    */
-  private addOmniScriptDependency(
-    osName: string,
-    flexCardAssessmentInfo: FlexCardAssessmentInfo,
-    options?: { includeLwcWarning?: boolean; lwcName?: string }
-  ): void {
+  private addOmniScriptDependency(osName: string, flexCardAssessmentInfo: FlexCardAssessmentInfo): void {
     if (!osName || typeof osName !== 'string') {
       return;
     }
@@ -1729,16 +1732,6 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           | 'Failed',
         'Warnings'
       );
-
-      // Add LWC name change warning if requested
-      if (options?.includeLwcWarning && options.lwcName) {
-        flexCardAssessmentInfo.warnings.push(
-          this.messages.getMessage('omniScriptLwcNameChangeMessage', [
-            options.lwcName,
-            this.convertOsNameToLwcName(cleanedParts.join('/')),
-          ])
-        );
-      }
     }
   }
 
@@ -1980,8 +1973,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           }
         }
 
-        // Check osName
-        if (stateAction.osName && typeof stateAction.osName === 'string') {
+        if (this.hasOmniscriptFlyoutDependency(stateAction)) {
           if (this.checkOsNameForAngular(stateAction.osName)) {
             return true;
           }
@@ -2004,6 +1996,16 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     return (
       stateAction.type === Constants.Flyout && stateAction.flyoutType === Constants.ChildCard && stateAction.flyoutLwc
     );
+  }
+
+  private hasCustomLwcFlyoutDependency(stateAction: any): boolean {
+    return (
+      stateAction.type === Constants.Flyout && stateAction.flyoutType === Constants.CustomLwc && stateAction.flyoutLwc
+    );
+  }
+
+  private hasFlyoutLwc(stateAction: any): boolean {
+    return stateAction.type === Constants.Flyout && stateAction.flyoutLwc;
   }
 
   /**

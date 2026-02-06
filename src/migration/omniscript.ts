@@ -1978,7 +1978,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     elementName?: string
   ): void {
     switch (elementType) {
-      case Constants.OmniScriptElement:
+      case Constants.OmniScriptComponentName:
         this.processOmniScriptAction(propSet);
         break;
       case Constants.IntegrationProcedureAction:

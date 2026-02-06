@@ -52,7 +52,6 @@ export const Constants = {
   PDFAction: 'PDF Action',
   RemoteAction: 'Remote Action',
   StepElement: 'Step',
-  OmniScriptElement: 'OmniScript',
   CustomLightningWebComponent: 'Custom Lightning Web Component',
 
   // artifacts persistance folder names

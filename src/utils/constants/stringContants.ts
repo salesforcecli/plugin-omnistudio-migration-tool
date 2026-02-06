@@ -35,6 +35,8 @@ export const Constants = {
   ChildCardPreview: 'childCardPreview',
   CustomLwc: 'customLwc',
   OmniFlyout: 'omni-flyout',
+  DataAction: 'DataAction',
+  CardAction: 'cardAction',
 
   // OmniScript element/action type constants
   IntegrationProcedureAction: 'Integration Procedure Action',

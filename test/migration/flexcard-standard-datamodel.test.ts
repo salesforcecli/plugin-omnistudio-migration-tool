@@ -717,6 +717,7 @@ describe('FlexCard Standard Data Model (Metadata API Disabled) - Assessment and 
               actionList: [
                 {
                   stateAction: {
+                    type: 'DataAction',
                     message: JSON.stringify({
                       value: {
                         bundle: 'Event-DataRaptor@Bundle!',
@@ -753,6 +754,7 @@ describe('FlexCard Standard Data Model (Metadata API Disabled) - Assessment and 
               actionList: [
                 {
                   stateAction: {
+                    type: 'DataAction',
                     message: JSON.stringify({
                       value: {
                         ipMethod: 'Event-IP@Type_Event-IP@SubType',
@@ -894,6 +896,7 @@ describe('FlexCard Standard Data Model (Metadata API Disabled) - Assessment and 
               actionList: [
                 {
                   stateAction: {
+                    type: 'DataAction',
                     message: JSON.stringify({
                       value: {
                         bundle: 'EventDRBundle',
@@ -937,6 +940,7 @@ describe('FlexCard Standard Data Model (Metadata API Disabled) - Assessment and 
               actionList: [
                 {
                   stateAction: {
+                    type: 'DataAction',
                     message: JSON.stringify({
                       value: {
                         ipMethod: 'EventIPType_EventIPSubType',

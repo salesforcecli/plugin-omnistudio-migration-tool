@@ -576,7 +576,13 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     stateAction: any,
     flexCardAssessmentInfo: FlexCardAssessmentInfo
   ): void {
-    if (stateAction.message && typeof stateAction.message === 'string') {
+    // Only parse message for DataAction or cardAction types
+    if (
+      stateAction.message &&
+      typeof stateAction.message === 'string' &&
+      stateAction.message.trim().length > 0 &&
+      (stateAction.type === Constants.DataAction || stateAction.type === Constants.CardAction)
+    ) {
       try {
         const messageObj = JSON.parse(stateAction.message);
         if (messageObj.value) {
@@ -601,7 +607,13 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
    * Handles DataRaptor bundle and Integration Procedure ipMethod references
    */
   private processStateActionMessageWithRegistry(stateAction: any, invalidIpNames?: Map<string, string>): void {
-    if (stateAction.message && typeof stateAction.message === 'string') {
+    // Only parse message for DataAction or cardAction types
+    if (
+      stateAction.message &&
+      typeof stateAction.message === 'string' &&
+      stateAction.message.trim().length > 0 &&
+      (stateAction.type === Constants.DataAction || stateAction.type === Constants.CardAction)
+    ) {
       try {
         const messageObj = JSON.parse(stateAction.message);
         let messageUpdated = false;

@@ -852,6 +852,8 @@ describe('FlexCard Standard Data Model (Metadata API Disabled) - Assessment and 
               actionList: [
                 {
                   stateAction: {
+                    type: 'Flyout',
+                    flyoutType: 'OmniScripts',
                     osName: 'Flyout-OS@Type/Flyout-OS@SubType/English',
                   },
                 },
@@ -1046,6 +1048,8 @@ describe('FlexCard Standard Data Model (Metadata API Disabled) - Assessment and 
               actionList: [
                 {
                   stateAction: {
+                    type: 'Flyout',
+                    flyoutType: 'OmniScripts',
                     osName: 'AngularFlyoutType/AngularFlyoutSubType/English',
                   },
                 },

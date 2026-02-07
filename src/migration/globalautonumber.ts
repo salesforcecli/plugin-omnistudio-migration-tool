@@ -151,18 +151,19 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
    */
   private async validateMigrationSuccess(migrationResults: MigrationResult): Promise<string> {
     const { results, records } = migrationResults;
-    // Check if all uploaded records have success: true
-    const failedRecords = Array.from(results.values()).filter((result) => !result.success);
-    const successfulRecords = Array.from(results.values()).filter((result) => result.success);
+    const resultsList: any[] = results instanceof Map ? Array.from(results.values()) : Object.values(results || {});
+    const recordsList: any[] = records instanceof Map ? Array.from(records.values()) : Object.values(records || {});
 
-    // Get source count
+    const failedRecords = resultsList.filter((result) => !result.success);
+    const successfulRecords = resultsList.filter((result) => result.success);
+
+    // 3. COUNT VALIDATION
     const sourceCount = this.globalAutoNumberSettings.length;
     const targetCount = successfulRecords.length;
 
-    // Check for count difference
     if (sourceCount !== targetCount || failedRecords.length > 0) {
       const uniqueErrors = [
-        ...new Set([...results.values(), ...records.values()].filter((r) => r?.errors?.length).map((r) => r.errors[0])),
+        ...new Set([...resultsList, ...recordsList].filter((r) => r?.errors?.length).map((r) => r.errors[0])),
       ];
       let errorMessage = this.messages.getMessage('incompleteMigrationDetected');
       if (uniqueErrors.length > 0) {

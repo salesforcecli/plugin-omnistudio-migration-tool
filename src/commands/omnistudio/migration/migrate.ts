@@ -278,9 +278,11 @@ export default class Migrate extends SfCommand<MigrateResult> {
       messages
     );
 
+    let deploymentFailed = false;
     try {
       await postMigrate.deploy(actionItems);
     } catch (error) {
+      deploymentFailed = true;
       Logger.error(messages.getMessage('errorDeployingComponents'), error);
       Logger.logVerbose(error);
       // Even if deployment fails completely, continue with report generation
@@ -295,7 +297,8 @@ export default class Migrate extends SfCommand<MigrateResult> {
       messages,
       actionItems,
       objectsToProcess,
-      migrateOnly
+      migrateOnly,
+      deploymentFailed
     );
     Logger.log(
       messages.getMessage('migrationSuccessfulMessage', [

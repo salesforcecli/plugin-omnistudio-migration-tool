@@ -284,6 +284,7 @@
   "deployComponentsManually": "Metadata Components deployment failed. Please deploy using generated package.xml manually using Salesforce CLI or Workbench. Check the logs for detailed error information.",
   "omniscriptDeploymentFailedContinuing": "Omniscript package deployment failed, continuing with report generation. Manual deployment required.",
   "deploymentFailedContinuing": "Deployment failed, continuing with report generation. Manual deployment required.",
+  "manualDeploymentNeeded": "Manual deployment needed",
   "ensurePackageInstalled": "Please ensure omniscript customization package is properly installed: %s",
   "packageDeploymentFailedWithError": "Omniscript package deployment failed after %s attempts. Error: %s. Please check deployment logs and org settings.",
   "maxRetryAttemptsExceeded": "Maximum retry attempts (%s) exceeded for omniscript package deployment",

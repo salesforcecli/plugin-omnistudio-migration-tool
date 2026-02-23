@@ -219,18 +219,50 @@ describe('PostMigrate', () => {
         }
       };
 
-      // Act
-      await postMigrate.deploy(actionItems);
-
+      // Act & Assert — deploy should re-throw the error
       try {
-        // Assert
+        await postMigrate.deploy(actionItems);
+        expect.fail('Expected deploy to re-throw the error');
+      } catch (thrownError) {
+        expect(thrownError).to.equal(error);
         expect(deployerStub.called).to.be.true;
         expect(logErrorStub.called).to.be.true;
         expect(deployLogVerboseStub.called).to.be.true;
         expect(actionItems.length).to.be.greaterThan(0);
         expect(actionItems[0]).to.include('Omniscript customization package deployment failed');
       } finally {
-        // Always clean up the temporary file
+        cleanup();
+      }
+    });
+
+    it('should re-throw general deployment errors after adding action items', async () => {
+      // Arrange
+      const error = new Error('Generic deployment failure');
+      sandbox.stub(Deployer.prototype, 'deploy').rejects(error);
+      const actionItems: string[] = [];
+      const tempPackageXml = path.join(process.cwd(), 'package.xml');
+      fs.writeFileSync(tempPackageXml, '<?xml version="1.0" encoding="UTF-8"?><Package></Package>');
+
+      const cleanup = () => {
+        if (fs.existsSync(tempPackageXml)) {
+          fs.unlinkSync(tempPackageXml);
+        }
+      };
+
+      // Act & Assert
+      try {
+        let caughtError: unknown = null;
+        try {
+          await postMigrate.deploy(actionItems);
+        } catch (e) {
+          caughtError = e;
+        }
+
+        expect(caughtError).to.not.be.null;
+        expect((caughtError as Error).message).to.equal('Generic deployment failure');
+        expect(actionItems.length).to.be.greaterThan(0);
+        expect(actionItems[0]).to.include('Component deployment failed');
+      } finally {
         cleanup();
       }
     });

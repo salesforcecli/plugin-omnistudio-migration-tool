@@ -4,6 +4,7 @@ import { QueryTools } from '../query';
 import { NetUtils } from '../net';
 import { getMigrationHeading } from '../stringUtils';
 import { isStandardDataModelWithMetadataAPIEnabled } from '../dataModelService';
+import { Constants } from '../constants/stringContants';
 
 /**
  * OmniStudioMetadataCleanupService
@@ -17,17 +18,17 @@ import { isStandardDataModelWithMetadataAPIEnabled } from '../dataModelService';
 
 export class OmniStudioMetadataCleanupService {
   private static readonly CONFIG_TABLES = [
-    'OmniUiCardConfig',
-    'OmniScriptConfig',
-    'OmniIntegrationProcConfig',
-    'OmniDataTransformConfig',
+    Constants.OmniUiCardConfigTable,
+    Constants.OmniScriptConfigTable,
+    Constants.OmniIntegrationProcConfigTable,
+    Constants.OmniDataTransformConfigTable,
   ];
 
-  private static readonly FIELD_MAP = {
-    OmniUiCardConfig: getMigrationHeading('Flexcard'),
-    OmniScriptConfig: getMigrationHeading('OmniScript'),
-    OmniIntegrationProcConfig: getMigrationHeading('Integration Procedure'),
-    OmniDataTransformConfig: getMigrationHeading('Data Mapper'),
+  private static readonly FIELD_MAP: Record<string, string> = {
+    [Constants.OmniUiCardConfigTable]: getMigrationHeading('Flexcard'),
+    [Constants.OmniScriptConfigTable]: getMigrationHeading('OmniScript'),
+    [Constants.OmniIntegrationProcConfigTable]: getMigrationHeading('Integration Procedure'),
+    [Constants.OmniDataTransformConfigTable]: getMigrationHeading('Data Mapper'),
   };
 
   private readonly connection: Connection;

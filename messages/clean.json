@@ -1,0 +1,23 @@
+{
+  "commandDescription": "Deactivates and deletes Omnistudio records (Omniscript, Integration Procedure, Flexcard, Data Mapper) that contain special characters in their name fields, or are duplicates of deployed records. These records block enabling the Omnistudio Metadata API on the standard data model.",
+  "examples": ["sf omnistudio:migration:clean -u orguser@domain.com"],
+  "enableVerboseOutput": "Enable verbose output",
+  "confirmDeletion": "By proceeding further, you hereby consent to deactivate and permanently delete all Omnistudio records with special characters in their name fields, and existing orphan records. Do you want to proceed? [y/n]",
+  "operationCancelled": "Operation cancelled.",
+  "deletionComplete": "Cleanup of Omnistudio records with special characters and existing orphan records is complete.",
+  "standardDataModelRequired": "This command is only applicable for orgs on the standard data model.",
+  "metadataApiAlreadyEnabled": "The Omnistudio Metadata API is already enabled. No cleanup required.",
+  "errorRunningClean": "Clean process failed: %s",
+  "noSpecialCharRecords": "No %s records found with special characters.",
+  "foundSpecialCharRecordsToRemove": "Found %s %s record(s) with special characters to remove.",
+  "deactivatingRecords": "Deactivating %s %s record(s)...",
+  "deactivatedRecords": "Successfully deactivated %s %s record(s).",
+  "deletingRecords": "Deleting %s %s record(s)...",
+  "deletedRecords": "Successfully deleted %s %s record(s).",
+  "deleteRecordsFailed": "We couldn't delete %s records. Some records may not have been deleted.",
+  "errorRemovingSpecialCharRecords": "We couldn't remove %s records with special characters: %s",
+  "noNullUniqueNameRecords": "No %s records found that are duplicates of deployed records.",
+  "foundNullUniqueNameRecords": "Found %s %s record(s) that are duplicates of deployed records.",
+  "errorCleaningNullUniqueNameRecords": "We couldn't clean %s duplicate record: %s",
+  "nullUniqueNameCleanupComplete": "Cleanup of existing orphan records is complete."
+}

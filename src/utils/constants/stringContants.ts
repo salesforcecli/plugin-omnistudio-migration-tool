@@ -70,4 +70,15 @@ export const Constants = {
   // Generic Constants
   On: 'on',
   Off: 'off',
+
+  // SObject API names
+  OmniProcessObjectName: 'OmniProcess',
+  OmniUiCardObjectName: 'OmniUiCard',
+  OmniDataTransformObjectName: 'OmniDataTransform',
+
+  // Config table names
+  OmniScriptConfigTable: 'OmniScriptConfig',
+  OmniIntegrationProcConfigTable: 'OmniIntegrationProcConfig',
+  OmniDataTransformConfigTable: 'OmniDataTransformConfig',
+  OmniUiCardConfigTable: 'OmniUiCardConfig',
 };

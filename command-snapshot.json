@@ -6,6 +6,12 @@
     "alias": []
   },
   {
+    "command": "omnistudio:migration:clean",
+    "plugin": "@salesforce/plugin-omnistudio-migration-tool",
+    "flags": ["target-org", "verbose"],
+    "alias": []
+  },
+  {
     "command": "omnistudio:migration:info",
     "plugin": "@salesforce/plugin-omnistudio-migration-tool",
     "flags": ["allversions", "name", "target-org", "verbose"],

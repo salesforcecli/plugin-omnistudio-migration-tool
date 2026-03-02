@@ -72,21 +72,21 @@ describe('ResultsBuilder deployment-status helpers', () => {
     });
   });
 
-  describe('resolveStatusCssClass', () => {
+  describe('resolveStatusClass', () => {
     it('should return text-success for Successfully migrated when deployment did not fail', () => {
       RB.deploymentFailed = false;
-      expect(RB.resolveStatusCssClass('Successfully migrated')).to.equal('text-success');
+      expect(RB.resolveStatusClass('Successfully migrated')).to.equal('text-success');
     });
 
     it('should return text-error for non-success statuses', () => {
       RB.deploymentFailed = false;
-      expect(RB.resolveStatusCssClass('Failed')).to.equal('text-error');
-      expect(RB.resolveStatusCssClass('Skipped')).to.equal('text-error');
+      expect(RB.resolveStatusClass('Failed')).to.equal('text-error');
+      expect(RB.resolveStatusClass('Skipped')).to.equal('text-error');
     });
 
     it('should return text-error when deployment failed and status is Successfully migrated', () => {
       RB.deploymentFailed = true;
-      expect(RB.resolveStatusCssClass('Successfully migrated')).to.equal('text-error');
+      expect(RB.resolveStatusClass('Successfully migrated')).to.equal('text-error');
     });
   });
 

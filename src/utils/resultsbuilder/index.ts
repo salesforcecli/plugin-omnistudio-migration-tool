@@ -33,7 +33,7 @@ import { createFilterGroupParam, createRowDataParam } from '../reportGenerator/r
 import { FileDiffUtil } from '../lwcparser/fileutils/FileDiffUtil';
 import { Logger } from '../logger';
 import { getMigrationHeading } from '../stringUtils';
-import { Constants } from '../constants/stringContants';
+import { Constants, Status } from '../constants/stringContants';
 import { isStandardDataModel, isStandardDataModelWithMetadataAPIEnabled } from '../dataModelService';
 import { CustomLabelMigrationInfo, CustomLabelMigrationReporter } from './CustomLabelMigrationReporter';
 
@@ -56,8 +56,8 @@ export class ResultsBuilder {
 
   private static flexiPageFileSuffix = '.flexipage-meta.xml';
 
-  private static successStatus = ['Ready for migration', 'Complete', 'Successfully migrated'];
-  private static errorStatus = ['Failed', 'Needs manual intervention'];
+  private static successStatus = [Status.ReadyForMigration, Status.Complete, Status.SuccessfullyMigrated];
+  private static errorStatus = [Status.Failed, Status.NeedsManualIntervention];
 
   /** Set at report generation start; used to show "Manual deployment needed" when deployment failed */
   private static deploymentFailed = false;
@@ -191,11 +191,11 @@ export class ResultsBuilder {
               false,
               undefined,
               undefined,
-              item.status === 'Successfully migrated' ? 'text-success' : 'text-error'
+              item.status === Status.SuccessfullyMigrated ? 'text-success' : 'text-error'
             ),
             createRowDataParam(
               'errors',
-              item.errors ? 'Failed' : 'Has No Errors',
+              item.errors ? Status.Failed : 'Has No Errors',
               false,
               1,
               1,
@@ -288,11 +288,11 @@ export class ResultsBuilder {
         // Handle both old and new data formats
         const labelName = record.name || record.labelName;
         const cloneStatus =
-          record.status === 'Complete'
+          record.status === Status.Complete
             ? 'created'
             : record.status === 'Error'
             ? 'error'
-            : record.status === 'Skipped'
+            : record.status === Status.Skipped
             ? 'duplicate'
             : record.status || 'duplicate';
         const message = record.message || '';
@@ -516,7 +516,7 @@ export class ResultsBuilder {
             false,
             undefined,
             undefined,
-            this.resolveStatusCssClass(item.status)
+            this.resolveStatusClass(item.status)
           ),
           createRowDataParam(
             'diff',
@@ -557,7 +557,9 @@ export class ResultsBuilder {
       },
       assessmentDate: new Date().toLocaleString(),
       total: result.length,
-      filterGroups: [createFilterGroupParam('Filter by Errors', 'warnings', ['Failed', 'Successfully Completed'])],
+      filterGroups: [
+        createFilterGroupParam('Filter by Errors', 'warnings', [Status.Failed, Status.SuccessfullyCompleted]),
+      ],
       headerGroups: [
         {
           header: [
@@ -631,7 +633,7 @@ export class ResultsBuilder {
           ]),
           createRowDataParam(
             'warnings',
-            item.errors.length > 0 ? 'Failed' : 'Successfully Completed',
+            item.errors.length > 0 ? Status.Failed : Status.SuccessfullyCompleted,
             false,
             1,
             1,
@@ -729,7 +731,7 @@ export class ResultsBuilder {
       const commonRowSpan = Math.max(1, lwcAssessmentInfo.changeInfos.length);
       const actualStatus = this.getStatusFromErrors(lwcAssessmentInfo.errors);
       const displayStatus = this.resolveDisplayStatus(actualStatus, messages);
-      const statusCssClass = this.resolveStatusCssClass(actualStatus);
+      const statusClass = this.resolveStatusClass(actualStatus);
       for (const fileChangeInfo of lwcAssessmentInfo.changeInfos) {
         rows.push({
           rowId: rid,
@@ -746,7 +748,7 @@ export class ResultsBuilder {
                     false,
                     undefined,
                     undefined,
-                    statusCssClass
+                    statusClass
                   ),
                 ]
               : []),
@@ -777,8 +779,8 @@ export class ResultsBuilder {
                   createRowDataParam(
                     'comments',
                     lwcAssessmentInfo.warnings && lwcAssessmentInfo.warnings.length > 0
-                      ? 'Failed'
-                      : 'Successfully Completed',
+                      ? Status.Failed
+                      : Status.SuccessfullyCompleted,
                     false,
                     commonRowSpan,
                     1,
@@ -985,14 +987,14 @@ export class ResultsBuilder {
     let error = 0;
     let skip = 0;
     data.forEach((item) => {
-      if (item.status === 'Successfully migrated') complete++;
-      if (item.status === 'Failed') error++;
-      if (item.status === 'Skipped') skip++;
+      if (item.status === Status.SuccessfullyMigrated) complete++;
+      if (item.status === Status.Failed) error++;
+      if (item.status === Status.Skipped) skip++;
     });
     return [
-      { name: 'Successfully migrated', count: complete, cssClass: 'text-success' },
-      { name: 'Skipped', count: skip, cssClass: 'text-error' },
-      { name: 'Failed', count: error, cssClass: 'text-error' },
+      { name: Status.SuccessfullyMigrated, count: complete, cssClass: 'text-success' },
+      { name: Status.Skipped, count: skip, cssClass: 'text-error' },
+      { name: Status.Failed, count: error, cssClass: 'text-error' },
     ];
   }
 
@@ -1010,8 +1012,8 @@ export class ResultsBuilder {
     data.forEach((item) => {
       // Handle both old and new status formats
       const status = item.status || (item as any).cloneStatus;
-      if (status === 'error' || status === 'Error' || status === 'Failed') error++;
-      else if (status === 'duplicate' || status === 'Skipped') duplicate++;
+      if (status === 'error' || status === 'Error' || status === Status.Failed) error++;
+      else if (status === 'duplicate' || status === Status.Skipped) duplicate++;
     });
 
     // Use totalCount if provided, otherwise fall back to data length
@@ -1019,9 +1021,9 @@ export class ResultsBuilder {
     const successfullyMigrated = Math.max(0, actualTotal - error - duplicate);
 
     return [
-      { name: 'Successfully migrated', count: successfullyMigrated, cssClass: 'text-success' },
-      { name: 'Failed', count: error, cssClass: 'text-error' },
-      { name: 'Skipped', count: duplicate, cssClass: 'text-warning' },
+      { name: Status.SuccessfullyMigrated, count: successfullyMigrated, cssClass: 'text-success' },
+      { name: Status.Failed, count: error, cssClass: 'text-error' },
+      { name: Status.Skipped, count: duplicate, cssClass: 'text-warning' },
     ];
   }
 
@@ -1035,9 +1037,9 @@ export class ResultsBuilder {
       else error++;
     });
     return [
-      { name: 'Successfully migrated', count: complete, cssClass: 'text-success' },
-      { name: 'Skipped', count: 0, cssClass: 'text-error' },
-      { name: 'Failed', count: error, cssClass: 'text-error' },
+      { name: Status.SuccessfullyMigrated, count: complete, cssClass: 'text-success' },
+      { name: Status.Skipped, count: 0, cssClass: 'text-error' },
+      { name: Status.Failed, count: error, cssClass: 'text-error' },
     ];
   }
 
@@ -1048,17 +1050,17 @@ export class ResultsBuilder {
     failed: number;
   }): SummaryItemDetailParam[] {
     const result: SummaryItemDetailParam[] = [
-      { name: 'Successfully migrated', count: counts.completed, cssClass: 'text-success' },
+      { name: Status.SuccessfullyMigrated, count: counts.completed, cssClass: 'text-success' },
     ];
     if (counts.manualDeploymentNeeded > 0) {
       result.push({
-        name: 'Manual deployment needed',
+        name: Status.ManualDeploymentNeeded,
         count: counts.manualDeploymentNeeded,
         cssClass: 'text-error',
       });
     }
-    result.push({ name: 'Skipped', count: counts.skipped, cssClass: 'text-error' });
-    result.push({ name: 'Failed', count: counts.failed, cssClass: 'text-error' });
+    result.push({ name: Status.Skipped, count: counts.skipped, cssClass: 'text-error' });
+    result.push({ name: Status.Failed, count: counts.failed, cssClass: 'text-error' });
     return result;
   }
 
@@ -1075,9 +1077,9 @@ export class ResultsBuilder {
     for (const status of statuses) {
       if (this.isManualDeploymentNeeded(status)) {
         manualDeploymentNeeded++;
-      } else if (status === 'Successfully migrated') {
+      } else if (status === Status.SuccessfullyMigrated) {
         completed++;
-      } else if (status === 'Skipped') {
+      } else if (status === Status.Skipped) {
         skipped++;
       } else {
         failed++;
@@ -1110,13 +1112,13 @@ export class ResultsBuilder {
   }
 
   private static getStatusFromErrors(errors: string[]): string {
-    if (errors && errors.length > 0) return 'Failed';
-    return 'Successfully migrated';
+    if (errors && errors.length > 0) return Status.Failed;
+    return Status.SuccessfullyMigrated;
   }
 
   /** True when deployment failed but the component was successfully processed locally. */
   private static isManualDeploymentNeeded(status: string): boolean {
-    return this.deploymentFailed && status === 'Successfully migrated';
+    return this.deploymentFailed && status === Status.SuccessfullyMigrated;
   }
 
   /** Returns display status — "Manual deployment needed" when deployment failed, original status otherwise. */
@@ -1125,9 +1127,9 @@ export class ResultsBuilder {
   }
 
   /** Returns CSS class — error for manual deployment needed, success/error otherwise. */
-  private static resolveStatusCssClass(status: string): string {
+  private static resolveStatusClass(status: string): string {
     if (this.isManualDeploymentNeeded(status)) return 'text-error';
-    return status === 'Successfully migrated' ? 'text-success' : 'text-error';
+    return status === Status.SuccessfullyMigrated ? 'text-success' : 'text-error';
   }
 
   private static getRowsForExperienceSites(
@@ -1158,7 +1160,7 @@ export class ResultsBuilder {
     messages: Messages<string>
   ): ReportDataParam[] {
     const displayStatus = this.resolveDisplayStatus(page.status, messages);
-    const statusCssClass = this.resolveStatusCssClass(page.status);
+    const statusClass = this.resolveStatusClass(page.status);
     return [
       createRowDataParam(
         'name',
@@ -1173,7 +1175,7 @@ export class ResultsBuilder {
       ),
       createRowDataParam('pageName', page.name, false, 1, 1, false, undefined, undefined),
       createRowDataParam('path', page.name + this.experienceSiteFileSuffix, false, 1, 1, true, page.path),
-      createRowDataParam('status', displayStatus, false, 1, 1, false, undefined, undefined, statusCssClass),
+      createRowDataParam('status', displayStatus, false, 1, 1, false, undefined, undefined, statusClass),
       createRowDataParam(
         'diff',
         page.name + 'diff',

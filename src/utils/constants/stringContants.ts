@@ -48,3 +48,14 @@ export const Constants = {
   On: 'on',
   Off: 'off',
 };
+
+export const Status = {
+  SuccessfullyMigrated: 'Successfully migrated',
+  Failed: 'Failed',
+  Skipped: 'Skipped',
+  Complete: 'Complete',
+  ReadyForMigration: 'Ready for migration',
+  NeedsManualIntervention: 'Needs manual intervention',
+  ManualDeploymentNeeded: 'Manual deployment needed',
+  SuccessfullyCompleted: 'Successfully Completed',
+};

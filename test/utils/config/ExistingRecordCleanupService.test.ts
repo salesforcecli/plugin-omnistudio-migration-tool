@@ -76,7 +76,7 @@ describe('ExistingRecordCleanupService', () => {
       expect(sobjectDeleteStub.called).to.be.false;
       expect(netUtilsRequestStub.called).to.be.false;
       const logMessages = loggerLogStub.args.map((a) => a[0] as string);
-      expect(logMessages.some((m) => m.includes('nullUniqueNameCleanupComplete'))).to.be.true;
+      expect(logMessages.some((m) => m.includes('nullUniqueNameCleanupPhaseStart'))).to.be.true;
     });
 
     it('should find and delete orphan OmniScript records with UniqueName = null', async () => {
@@ -274,15 +274,15 @@ describe('ExistingRecordCleanupService', () => {
       expect(sobjectDeleteStub.firstCall.args[0]).to.equal('ip-orphan-id');
     });
 
-    it('should log nullUniqueNameCleanupComplete after processing all entities', async () => {
+    it('should log nullUniqueNameCleanupPhaseStart once before processing all entities', async () => {
       // Arrange: default — all config tables empty
 
       // Act
       await service.cleanAll();
 
-      // Assert
+      // Assert: phase header logged exactly once at the start
       const logMessages = loggerLogStub.args.map((a) => a[0] as string);
-      expect(logMessages.some((m) => m.includes('nullUniqueNameCleanupComplete'))).to.be.true;
+      expect(logMessages.filter((m) => m.includes('nullUniqueNameCleanupPhaseStart'))).to.have.length(1);
     });
 
     it('should log noNullUniqueNameRecords when config has developer names but no orphan records are found', async () => {

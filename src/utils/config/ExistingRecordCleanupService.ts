@@ -146,10 +146,10 @@ export class ExistingRecordCleanupService {
   }
 
   public async cleanAll(): Promise<void> {
+    Logger.log(this.messages.getMessage('nullUniqueNameCleanupPhaseStart'));
     for (const config of ENTITY_CONFIGS) {
       await this.processEntity(config);
     }
-    Logger.log(this.messages.getMessage('nullUniqueNameCleanupComplete'));
   }
 
   // ── Generic per-entity pipeline ──────────────────────────────────────────

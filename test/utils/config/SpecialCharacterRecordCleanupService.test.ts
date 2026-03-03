@@ -68,8 +68,8 @@ describe('SpecialCharacterRecordCleanupService', () => {
       expect(queryStub.callCount).to.equal(4); // one query per entity config
       expect(netUtilsRequestStub.called).to.be.false;
       expect(sobjectDeleteStub.called).to.be.false;
-      // Each of the 4 entities logs: sectionStart + noSpecialCharRecords = 8 total
-      expect(loggerLogStub.callCount).to.equal(8);
+      // 1 phaseStart + each of 4 entities logs: sectionStart + noSpecialCharRecords = 9 total
+      expect(loggerLogStub.callCount).to.equal(9);
       expect(loggerErrorStub.called).to.be.false;
     });
 

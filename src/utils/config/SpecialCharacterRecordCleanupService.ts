@@ -71,6 +71,7 @@ export class SpecialCharacterRecordCleanupService {
   }
 
   public async deactivateAndDelete(): Promise<void> {
+    Logger.log(this.messages.getMessage('specialCharCleanupPhaseStart'));
     for (const config of ENTITY_CONFIGS) {
       try {
         Logger.log(this.messages.getMessage('specialCharCleanupSectionStart', [config.entityName]));

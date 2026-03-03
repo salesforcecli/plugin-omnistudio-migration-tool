@@ -16,12 +16,10 @@
   "deactivatedRecords": "Successfully deactivated %s %s records.",
   "deletingRecords": "Deleting %s %s records that prevent enabling the Omnistudio Metadata API...",
   "deletedRecords": "Successfully deleted %s %s records.",
-  "deleteRecordsFailed": "We couldn't delete %s records. Some records may not have been deleted.",
   "errorRemovingSpecialCharRecords": "We couldn't remove %s records with special characters: %s",
   "nullUniqueNameCleanupSectionStart": "Scanning existing %s records without a deployment reference (UniqueName is not set). These records prevent enabling the Omnistudio Metadata API.",
   "noNullUniqueNameRecords": "No existing %s records without a unique name found.",
   "foundNullUniqueNameRecords": "Found %s existing %s records without a unique name that prevent enabling the Omnistudio Metadata API.",
-  "skippingOrphanRecords": "Skipping %s: no deployed counterpart found. These records will not be deleted.",
   "deactivationFailed": "Could not deactivate %s record %s: %s",
   "deletionFailed": "Could not delete %s record %s: %s",
   "nullUniqueNameCleanupComplete": "Cleanup of existing records without a unique name is complete."

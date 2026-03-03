@@ -80,6 +80,7 @@ export default class Clean extends SfCommand<CleanResult> {
       return { success: false };
     }
 
+    Logger.warn(messages.getMessage('sandboxWarning'));
     const confirmed = await askConfirmation(messages.getMessage('confirmDeletion'));
     if (!confirmed) {
       Logger.log(messages.getMessage('operationCancelled'));

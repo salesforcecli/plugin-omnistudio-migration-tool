@@ -15,15 +15,26 @@ interface EntityConfig {
   configTable: string;
   entityName: string;
   objectName: string;
+  // Additional SELECT fields beyond Id and IsActive (used to build a human-readable error label)
+  selectFields: string;
   // Parses one DeveloperName into a deduplication key + version number (null = skip)
   parseDeveloperName: (developerName: string) => { mapKey: string; version: number } | null;
   // Builds the SOQL WHERE clause from a mapKey and a comma-separated versions string
   buildSoqlWhere: (mapKey: string, versionsStr: string) => string;
+  // Builds a human-readable identifier for a record (used in error messages)
+  buildLabel: (record: RecordRef) => string;
 }
 
 interface RecordRef {
   Id: string;
   IsActive: boolean;
+  // Identifying fields populated from selectFields — entity-specific, may be absent on other entities
+  Type?: string;
+  SubType?: string;
+  Language?: string;
+  Name?: string;
+  AuthorName?: string;
+  VersionNumber?: number;
 }
 
 // ── Module-level helpers ──────────────────────────────────────────────────────
@@ -61,20 +72,31 @@ const ENTITY_CONFIGS: EntityConfig[] = [
     configTable: Constants.OmniScriptConfigTable,
     entityName: Constants.OmniScriptComponentName,
     objectName: Constants.OmniProcessObjectName,
+    selectFields: 'Type, SubType, Language, VersionNumber',
     parseDeveloperName: parseOmniProcessDeveloperName,
     buildSoqlWhere: (mapKey, versionsStr): string => buildOmniProcessWhere(mapKey, versionsStr, false),
+    buildLabel: (r): string =>
+      `Type: ${r.Type ?? ''}, SubType: ${r.SubType ?? ''}, Language: ${r.Language ?? ''}, Version: ${
+        r.VersionNumber ?? ''
+      }`,
   },
   {
     configTable: Constants.OmniIntegrationProcConfigTable,
     entityName: Constants.IntegrationProcedureComponentName,
     objectName: Constants.OmniProcessObjectName,
+    selectFields: 'Type, SubType, Language, VersionNumber',
     parseDeveloperName: parseOmniProcessDeveloperName,
     buildSoqlWhere: (mapKey, versionsStr): string => buildOmniProcessWhere(mapKey, versionsStr, true),
+    buildLabel: (r): string =>
+      `Type: ${r.Type ?? ''}, SubType: ${r.SubType ?? ''}, Language: ${r.Language ?? ''}, Version: ${
+        r.VersionNumber ?? ''
+      }`,
   },
   {
     configTable: Constants.OmniDataTransformConfigTable,
     entityName: Constants.DataMapperComponentName,
     objectName: Constants.OmniDataTransformObjectName,
+    selectFields: 'Name, VersionNumber',
     parseDeveloperName: (developerName): { mapKey: string; version: number } | null => {
       const lastUnderscore = developerName.lastIndexOf('_');
       if (lastUnderscore <= 0 || lastUnderscore >= developerName.length - 1) return null;
@@ -84,11 +106,13 @@ const ENTITY_CONFIGS: EntityConfig[] = [
     },
     buildSoqlWhere: (mapKey, versionsStr): string =>
       `Name = '${escapeSoql(mapKey)}' AND VersionNumber IN (${versionsStr}) AND UniqueName = null`,
+    buildLabel: (r): string => `Name: ${r.Name ?? ''}, Version: ${r.VersionNumber ?? ''}`,
   },
   {
     configTable: Constants.OmniUiCardConfigTable,
     entityName: Constants.FlexCardComponentName,
     objectName: Constants.OmniUiCardObjectName,
+    selectFields: 'Name, AuthorName, VersionNumber',
     parseDeveloperName: (developerName): { mapKey: string; version: number } | null => {
       const parts = developerName.split('_');
       if (parts.length < 3) return null;
@@ -105,6 +129,8 @@ const ENTITY_CONFIGS: EntityConfig[] = [
         ` AND VersionNumber IN (${versionsStr}) AND UniqueName = null`
       );
     },
+    buildLabel: (r): string =>
+      `Name: ${r.Name ?? ''}, AuthorName: ${r.AuthorName ?? ''}, Version: ${r.VersionNumber ?? ''}`,
   },
 ];
 
@@ -129,6 +155,8 @@ export class ExistingRecordCleanupService {
   // ── Generic per-entity pipeline ──────────────────────────────────────────
 
   private async processEntity(config: EntityConfig): Promise<void> {
+    Logger.log(this.messages.getMessage('nullUniqueNameCleanupSectionStart', [config.entityName]));
+
     let offset = 0;
     let hasMore = true;
     while (hasMore) {
@@ -137,8 +165,8 @@ export class ExistingRecordCleanupService {
 
       const versionMap = this.buildVersionMap(developerNames, config.parseDeveloperName);
       if (versionMap.size > 0) {
-        const records = await this.queryRecords(config.objectName, versionMap, config.buildSoqlWhere);
-        await this.deactivateAndDeleteRecords(config.objectName, config.entityName, records);
+        const records = await this.queryRecords(config, versionMap);
+        await this.deactivateAndDeleteRecords(config, records);
       }
 
       offset += BATCH_SIZE;
@@ -169,16 +197,15 @@ export class ExistingRecordCleanupService {
     return versionMap;
   }
 
-  // Queries the main object for records with UniqueName = null matching each key
-  private async queryRecords(
-    objectName: string,
-    versionMap: Map<string, Set<number>>,
-    buildSoqlWhere: EntityConfig['buildSoqlWhere']
-  ): Promise<RecordRef[]> {
+  // Queries the main object for records with UniqueName = null matching each key.
+  // selectFields are included so buildLabel can produce human-readable error messages.
+  private async queryRecords(config: EntityConfig, versionMap: Map<string, Set<number>>): Promise<RecordRef[]> {
     const records: RecordRef[] = [];
     for (const [mapKey, versions] of versionMap) {
       const versionsStr = Array.from(versions).join(', ');
-      const soql = `SELECT Id, IsActive FROM ${objectName} WHERE ${buildSoqlWhere(mapKey, versionsStr)} LIMIT 100`;
+      const soql =
+        `SELECT Id, IsActive, ${config.selectFields} FROM ${config.objectName}` +
+        ` WHERE ${config.buildSoqlWhere(mapKey, versionsStr)}`;
       const result = await this.connection.query<RecordRef>(soql);
       records.push(...result.records);
     }
@@ -187,54 +214,55 @@ export class ExistingRecordCleanupService {
 
   // ── Shared deactivate + delete ───────────────────────────────────────────
 
-  private async deactivateAndDeleteRecords(
-    objectName: string,
-    entityName: string,
-    records: RecordRef[]
-  ): Promise<void> {
+  private async deactivateAndDeleteRecords(config: EntityConfig, records: RecordRef[]): Promise<void> {
     if (records.length === 0) {
-      Logger.log(this.messages.getMessage('noNullUniqueNameRecords', [entityName]));
+      Logger.log(this.messages.getMessage('noNullUniqueNameRecords', [config.entityName]));
       return;
     }
 
-    Logger.log(this.messages.getMessage('foundNullUniqueNameRecords', [records.length, entityName]));
+    Logger.log(this.messages.getMessage('foundNullUniqueNameRecords', [records.length, config.entityName]));
+
+    // Build label map once so both deactivation and deletion can report human-readable identifiers
+    const idToLabel = new Map(records.map((r) => [r.Id, config.buildLabel(r)]));
 
     const activeIds = records.filter((r) => r.IsActive).map((r) => r.Id);
     const failedDeactivateIds = new Set<string>();
 
     if (activeIds.length > 0) {
-      Logger.log(this.messages.getMessage('deactivatingRecords', [activeIds.length, entityName]));
+      Logger.log(this.messages.getMessage('deactivatingRecords', [activeIds.length, config.entityName]));
       // Deactivate one at a time to avoid UNKNOWN_ERROR (matches existing migration pattern)
       for (const id of activeIds) {
         try {
           await NetUtils.request(
             this.connection,
-            `sobjects/${objectName}/${id}`,
+            `sobjects/${config.objectName}/${id}`,
             { IsActive: false },
             RequestMethod.PATCH
           );
-        } catch {
-          // If deactivation fails, exclude from deletion (matches Apex error handling)
+        } catch (error) {
+          const label = idToLabel.get(id) ?? id;
+          Logger.error(this.messages.getMessage('deactivationFailed', [config.entityName, label, String(error)]));
           failedDeactivateIds.add(id);
         }
       }
       Logger.log(
-        this.messages.getMessage('deactivatedRecords', [activeIds.length - failedDeactivateIds.size, entityName])
+        this.messages.getMessage('deactivatedRecords', [activeIds.length - failedDeactivateIds.size, config.entityName])
       );
       await this.sleep();
     }
 
     const idsToDelete = records.map((r) => r.Id).filter((id) => !failedDeactivateIds.has(id));
 
-    Logger.log(this.messages.getMessage('deletingRecords', [idsToDelete.length, entityName]));
+    Logger.log(this.messages.getMessage('deletingRecords', [idsToDelete.length, config.entityName]));
     for (const id of idsToDelete) {
       try {
-        await this.connection.sobject(objectName).delete(id);
+        await this.connection.sobject(config.objectName).delete(id);
       } catch (error) {
-        Logger.error(this.messages.getMessage('errorCleaningNullUniqueNameRecords', [entityName, String(error)]));
+        const label = idToLabel.get(id) ?? id;
+        Logger.error(this.messages.getMessage('deletionFailed', [config.entityName, label, String(error)]));
       }
     }
-    Logger.log(this.messages.getMessage('deletedRecords', [idsToDelete.length, entityName]));
+    Logger.log(this.messages.getMessage('deletedRecords', [idsToDelete.length, config.entityName]));
   }
 
   private sleep(): Promise<void> {

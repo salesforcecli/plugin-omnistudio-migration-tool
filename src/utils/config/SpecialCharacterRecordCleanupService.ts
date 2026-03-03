@@ -11,6 +11,10 @@ interface EntityConfig {
   entityName: string;
   nameFieldsToCheck: string[];
   filters?: Map<string, any>;
+  // Extra fields to SELECT for label building that are not part of nameFieldsToCheck (e.g. Language)
+  additionalLabelFields?: string[];
+  // Builds a human-readable identifier matching the UniqueName format (used in error messages)
+  buildLabel: (record: Record<string, unknown>) => string;
 }
 
 // Fields checked per entity are aligned with the UniqueName (Config DeveloperName) derivation:
@@ -22,23 +26,38 @@ const ENTITY_CONFIGS: EntityConfig[] = [
     objectName: Constants.OmniProcessObjectName,
     entityName: Constants.OmniScriptComponentName,
     nameFieldsToCheck: ['Type', 'SubType'],
+    additionalLabelFields: ['Language'],
     filters: new Map([['IsIntegrationProcedure', false]]),
+    buildLabel: (r): string =>
+      `Type: ${String(r['Type'] ?? '')}, SubType: ${String(r['SubType'] ?? '')}, Language: ${String(
+        r['Language'] ?? ''
+      )}, Version: ${String(r['VersionNumber'] ?? '')}`,
   },
   {
     objectName: Constants.OmniProcessObjectName,
     entityName: Constants.IntegrationProcedureComponentName,
     nameFieldsToCheck: ['Type', 'SubType'],
+    additionalLabelFields: ['Language'],
     filters: new Map([['IsIntegrationProcedure', true]]),
+    buildLabel: (r): string =>
+      `Type: ${String(r['Type'] ?? '')}, SubType: ${String(r['SubType'] ?? '')}, Language: ${String(
+        r['Language'] ?? ''
+      )}, Version: ${String(r['VersionNumber'] ?? '')}`,
   },
   {
     objectName: Constants.OmniUiCardObjectName,
     entityName: Constants.FlexCardComponentName,
     nameFieldsToCheck: ['Name', 'AuthorName'],
+    buildLabel: (r): string =>
+      `Name: ${String(r['Name'] ?? '')}, AuthorName: ${String(r['AuthorName'] ?? '')}, Version: ${String(
+        r['VersionNumber'] ?? ''
+      )}`,
   },
   {
     objectName: Constants.OmniDataTransformObjectName,
     entityName: Constants.DataMapperComponentName,
     nameFieldsToCheck: ['Name'],
+    buildLabel: (r): string => `Name: ${String(r['Name'] ?? '')}, Version: ${String(r['VersionNumber'] ?? '')}`,
   },
 ];
 
@@ -54,6 +73,8 @@ export class SpecialCharacterRecordCleanupService {
   public async deactivateAndDelete(): Promise<void> {
     for (const config of ENTITY_CONFIGS) {
       try {
+        Logger.log(this.messages.getMessage('specialCharCleanupSectionStart', [config.entityName]));
+
         const records = await this.getRecordsWithSpecialCharacters(config);
         if (records.length === 0) {
           Logger.log(this.messages.getMessage('noSpecialCharRecords', [config.entityName]));
@@ -62,15 +83,20 @@ export class SpecialCharacterRecordCleanupService {
 
         Logger.log(this.messages.getMessage('foundSpecialCharRecordsToRemove', [records.length, config.entityName]));
 
-        const ids: string[] = records.map((r) => r.Id as string);
-        const activeIds: string[] = records.filter((r) => r.IsActive === true).map((r) => r.Id as string);
+        // Build a label map once so deactivation and deletion can both report human-readable identifiers
+        const idToLabel = new Map(records.map((r) => [r.Id as string, config.buildLabel(r)]));
+        const ids = Array.from(idToLabel.keys());
+        const activeIds = records.filter((r) => r.IsActive === true).map((r) => r.Id as string);
 
+        let failedDeactivateIds = new Set<string>();
         if (activeIds.length > 0) {
-          await this.deactivateRecords(config, activeIds);
+          failedDeactivateIds = await this.deactivateRecords(config, activeIds, idToLabel);
           await this.sleep();
         }
 
-        await this.deleteRecords(config, ids);
+        // Skip records that failed deactivation to avoid attempting to delete still-active records
+        const idsToDelete = ids.filter((id) => !failedDeactivateIds.has(id));
+        await this.deleteRecords(config, idsToDelete, idToLabel);
       } catch (error) {
         Logger.error(this.messages.getMessage('errorRemovingSpecialCharRecords', [config.entityName, String(error)]));
       }
@@ -78,7 +104,14 @@ export class SpecialCharacterRecordCleanupService {
   }
 
   private async getRecordsWithSpecialCharacters(config: EntityConfig): Promise<Array<Record<string, unknown>>> {
-    const queryFields = ['Id', 'IsActive', ...config.nameFieldsToCheck];
+    // VersionNumber and additionalLabelFields are included so buildLabel can produce a complete identifier
+    const queryFields = [
+      'Id',
+      'IsActive',
+      'VersionNumber',
+      ...config.nameFieldsToCheck,
+      ...(config.additionalLabelFields ?? []),
+    ];
     const allRecords = await QueryTools.query(this.connection, config.objectName, queryFields, config.filters);
 
     const results: Array<Record<string, unknown>> = [];
@@ -94,28 +127,45 @@ export class SpecialCharacterRecordCleanupService {
     return results;
   }
 
-  private async deactivateRecords(config: EntityConfig, ids: string[]): Promise<void> {
+  private async deactivateRecords(
+    config: EntityConfig,
+    ids: string[],
+    idToLabel: Map<string, string>
+  ): Promise<Set<string>> {
     Logger.log(this.messages.getMessage('deactivatingRecords', [ids.length, config.entityName]));
 
+    const failedIds = new Set<string>();
     // Deactivate one at a time to avoid UNKNOWN_ERROR on OmniProcess (matches existing migration pattern)
     for (const id of ids) {
-      await NetUtils.request(
-        this.connection,
-        `sobjects/${config.objectName}/${id}`,
-        { IsActive: false },
-        RequestMethod.PATCH
-      );
+      try {
+        await NetUtils.request(
+          this.connection,
+          `sobjects/${config.objectName}/${id}`,
+          { IsActive: false },
+          RequestMethod.PATCH
+        );
+      } catch (error) {
+        const label = idToLabel.get(id) ?? id;
+        Logger.error(this.messages.getMessage('deactivationFailed', [config.entityName, label, String(error)]));
+        failedIds.add(id);
+      }
     }
 
-    Logger.log(this.messages.getMessage('deactivatedRecords', [ids.length, config.entityName]));
+    Logger.log(this.messages.getMessage('deactivatedRecords', [ids.length - failedIds.size, config.entityName]));
+    return failedIds;
   }
 
-  private async deleteRecords(config: EntityConfig, ids: string[]): Promise<void> {
+  private async deleteRecords(config: EntityConfig, ids: string[], idToLabel: Map<string, string>): Promise<void> {
     Logger.log(this.messages.getMessage('deletingRecords', [ids.length, config.entityName]));
 
     // Delete one at a time using jsforce sobject delete to avoid ECONNRESET on composite/sobjects endpoint
     for (const id of ids) {
-      await this.connection.sobject(config.objectName).delete(id);
+      try {
+        await this.connection.sobject(config.objectName).delete(id);
+      } catch (error) {
+        const label = idToLabel.get(id) ?? id;
+        Logger.error(this.messages.getMessage('deletionFailed', [config.entityName, label, String(error)]));
+      }
     }
 
     Logger.log(this.messages.getMessage('deletedRecords', [ids.length, config.entityName]));

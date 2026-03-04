@@ -237,16 +237,26 @@ export class ExistingRecordCleanupService {
     return versionMap;
   }
 
-  // Queries the main object for records with UniqueName = null matching each key.
-  // selectFields are included so buildLabel can produce human-readable error messages.
+  // Queries the main object for records with UniqueName = null matching all keys in a single
+  // batched query (OR conditions) instead of one query per key, to avoid hitting API governor limits.
+  // Each call receives at most BATCH_SIZE (50) keys so the OR clause stays well within SOQL limits.
   private async queryRecords(config: EntityConfig, versionMap: Map<string, Set<number>>): Promise<RecordRef[]> {
-    const records: RecordRef[] = [];
-    for (const [mapKey, versions] of versionMap) {
+    if (versionMap.size === 0) return [];
+
+    const conditions = Array.from(versionMap.entries()).map(([mapKey, versions]) => {
       const versionsStr = Array.from(versions).join(', ');
-      const soql =
-        `SELECT Id, IsActive, ${config.selectFields} FROM ${config.objectName}` +
-        ` WHERE ${config.buildSoqlWhere(mapKey, versionsStr)}`;
-      const result = await this.connection.query<RecordRef>(soql);
+      return `(${config.buildSoqlWhere(mapKey, versionsStr)})`;
+    });
+
+    const soql =
+      `SELECT Id, IsActive, ${config.selectFields} FROM ${config.objectName}` + ` WHERE ${conditions.join(' OR ')}`;
+
+    let result = await this.connection.query<RecordRef>(soql);
+    const records = [...result.records];
+
+    // Follow pagination so large result sets are fully retrieved
+    while (result.nextRecordsUrl) {
+      result = await this.connection.queryMore<RecordRef>(result.nextRecordsUrl);
       records.push(...result.records);
     }
     return records;

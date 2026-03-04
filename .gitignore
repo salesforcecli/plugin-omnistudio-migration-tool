@@ -46,6 +46,8 @@ oclif.manifest.json
 omnistudio_migration
 
 assessment_reports/
-migration_reports/
+migration_report/
 .sfdx/
 package.xml
+OmnistudioDeployment.xml
+clean_assessment/

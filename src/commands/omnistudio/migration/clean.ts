@@ -80,12 +80,12 @@ export default class Clean extends SfCommand<CleanResult> {
     initializeDataModelService(orgs);
 
     if (!isStandardDataModel()) {
-      Logger.error(messages.getMessage('standardDataModelRequired'));
+      Logger.warn(messages.getMessage('standardDataModelRequired'));
       return { success: false };
     }
 
     if (isStandardDataModelWithMetadataAPIEnabled()) {
-      Logger.error(messages.getMessage('metadataApiAlreadyEnabled'));
+      Logger.log(messages.getMessage('metadataApiAlreadyEnabled'));
       return { success: false };
     }
 

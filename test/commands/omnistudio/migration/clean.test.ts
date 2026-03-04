@@ -97,7 +97,7 @@ describe('Clean command', () => {
   }
 
   describe('runClean', () => {
-    it('should return failure and log error when org is not on standard data model', async () => {
+    it('should return failure and log warning when org is not on standard data model', async () => {
       // Arrange: real isStandardDataModel() returns false because omniStudioOrgPermissionEnabled = false
       getOrgDetailsStub.resolves(CUSTOM_ORG_DETAILS);
       const instance = createCleanInstance();
@@ -107,13 +107,13 @@ describe('Clean command', () => {
 
       // Assert
       expect(result).to.deep.equal({ success: false });
-      expect(loggerErrorStub.calledOnce).to.be.true;
+      expect(loggerWarnStub.calledOnce).to.be.true;
       expect(askConfirmationStub.called).to.be.false;
       expect(deactivateAndDeleteStub.called).to.be.false;
       expect(cleanAllStub.called).to.be.false;
     });
 
-    it('should return failure and log error when Omnistudio Metadata API is already enabled', async () => {
+    it('should return failure and log message when Omnistudio Metadata API is already enabled', async () => {
       // Arrange: real isStandardDataModelWithMetadataAPIEnabled() returns true
       getOrgDetailsStub.resolves(METADATA_API_ENABLED_ORG_DETAILS);
       const instance = createCleanInstance();
@@ -123,7 +123,7 @@ describe('Clean command', () => {
 
       // Assert
       expect(result).to.deep.equal({ success: false });
-      expect(loggerErrorStub.calledOnce).to.be.true;
+      expect(loggerLogStub.calledOnce).to.be.true;
       expect(askConfirmationStub.called).to.be.false;
       expect(deactivateAndDeleteStub.called).to.be.false;
     });

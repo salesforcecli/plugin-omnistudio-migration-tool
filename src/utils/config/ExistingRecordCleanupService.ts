@@ -159,28 +159,20 @@ export class ExistingRecordCleanupService {
     const result = new Map<string, RecordRef[]>();
     for (const config of ENTITY_CONFIGS) {
       Logger.log(this.messages.getMessage('assessScanningEntity', [config.entityName]));
-      const records: RecordRef[] = [];
-      let offset = 0;
-      let hasMore = true;
-      while (hasMore) {
-        const developerNames = await this.fetchConfigDeveloperNames(config.configTable, offset);
-        if (developerNames.length === 0) break;
-
-        const versionMap = this.buildVersionMap(developerNames, config.parseDeveloperName);
-        if (versionMap.size > 0) {
-          const batch = await this.queryRecords(config, versionMap);
-          records.push(...batch);
+      try {
+        const records = await this.fetchMatchingRecords(config);
+        if (records.length > 0) {
+          Logger.log(this.messages.getMessage('assessEntityFound', [records.length, config.entityName]));
+        } else {
+          Logger.log(this.messages.getMessage('assessEntityNone', [config.entityName]));
         }
-
-        offset += BATCH_SIZE;
-        if (developerNames.length < BATCH_SIZE) hasMore = false;
+        result.set(config.entityName, records);
+      } catch (error) {
+        Logger.error(
+          this.messages.getMessage('errorAssessingNullUniqueNameRecords', [config.entityName, String(error)])
+        );
+        result.set(config.entityName, []);
       }
-      if (records.length > 0) {
-        Logger.log(this.messages.getMessage('assessEntityFound', [records.length, config.entityName]));
-      } else {
-        Logger.log(this.messages.getMessage('assessEntityNone', [config.entityName]));
-      }
-      result.set(config.entityName, records);
     }
     return result;
   }
@@ -188,15 +180,22 @@ export class ExistingRecordCleanupService {
   public async cleanAll(): Promise<void> {
     Logger.log(this.messages.getMessage('nullUniqueNameCleanupPhaseStart'));
     for (const config of ENTITY_CONFIGS) {
-      await this.processEntity(config);
+      Logger.log(this.messages.getMessage('nullUniqueNameCleanupSectionStart', [config.entityName]));
+      try {
+        const records = await this.fetchMatchingRecords(config);
+        await this.deactivateAndDeleteRecords(config, records);
+      } catch (error) {
+        Logger.error(
+          this.messages.getMessage('errorCleaningNullUniqueNameRecords', [config.entityName, String(error)])
+        );
+      }
     }
   }
 
   // ── Generic per-entity pipeline ──────────────────────────────────────────
 
-  private async processEntity(config: EntityConfig): Promise<void> {
-    Logger.log(this.messages.getMessage('nullUniqueNameCleanupSectionStart', [config.entityName]));
-
+  private async fetchMatchingRecords(config: EntityConfig): Promise<RecordRef[]> {
+    const records: RecordRef[] = [];
     let offset = 0;
     let hasMore = true;
     while (hasMore) {
@@ -205,19 +204,21 @@ export class ExistingRecordCleanupService {
 
       const versionMap = this.buildVersionMap(developerNames, config.parseDeveloperName);
       if (versionMap.size > 0) {
-        const records = await this.queryRecords(config, versionMap);
-        await this.deactivateAndDeleteRecords(config, records);
+        const batch = await this.queryRecords(config, versionMap);
+        records.push(...batch);
       }
 
       offset += BATCH_SIZE;
       if (developerNames.length < BATCH_SIZE) hasMore = false;
     }
+    return records;
   }
 
   private async fetchConfigDeveloperNames(configTable: string, offset: number): Promise<string[]> {
     const result = await this.connection.query<{ DeveloperName: string }>(
       `SELECT DeveloperName FROM ${configTable} LIMIT ${BATCH_SIZE} OFFSET ${offset}`
     );
+    if (!result?.records) return [];
     return result.records.map((r) => r.DeveloperName);
   }
 
@@ -252,11 +253,12 @@ export class ExistingRecordCleanupService {
       `SELECT Id, IsActive, ${config.selectFields} FROM ${config.objectName}` + ` WHERE ${conditions.join(' OR ')}`;
 
     let result = await this.connection.query<RecordRef>(soql);
+    if (!result?.records) return [];
     const records = [...result.records];
 
-    // Follow pagination so large result sets are fully retrieved
     while (result.nextRecordsUrl) {
       result = await this.connection.queryMore<RecordRef>(result.nextRecordsUrl);
+      if (!result?.records) break;
       records.push(...result.records);
     }
     return records;

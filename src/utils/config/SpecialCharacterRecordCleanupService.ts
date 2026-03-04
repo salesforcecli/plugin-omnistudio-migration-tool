@@ -207,7 +207,6 @@ export class SpecialCharacterRecordCleanupService {
       }
       bar.increment();
     }
-    bar.stop();
 
     Logger.log(this.messages.getMessage('deletedRecords', [ids.length, config.entityName]));
   }

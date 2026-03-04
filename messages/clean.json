@@ -25,6 +25,8 @@
   "deactivationFailed": "Could not deactivate %s record %s: %s",
   "deletionFailed": "Could not delete %s record %s: %s",
   "errorAssessingSpecialCharRecords": "Failed to scan %s records for special characters: %s",
+  "errorAssessingNullUniqueNameRecords": "Failed to scan %s records without unique names: %s",
+  "errorCleaningNullUniqueNameRecords": "We couldn't remove %s records without a unique name: %s",
   "assessFlagDescription": "Scan your org and preview which records would be removed by the clean command, without making any changes. Results are saved as JSON files in the clean_assessment folder.",
   "assessPhaseStart": "Starting assessment — your org will not be modified.",
   "assessSpecialCharPhaseStart": " Phase 1 (Preview): Scanning for records with special characters in their unique name fields ",

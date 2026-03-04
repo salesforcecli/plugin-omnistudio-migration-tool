@@ -1,8 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 import { Connection, Messages } from '@salesforce/core';
+import { Ux } from '@salesforce/sf-plugins-core';
 import { Logger } from '../logger';
 import { NetUtils, RequestMethod } from '../net';
 import { Constants } from '../constants/stringContants';
+import { createProgressBar } from '../../migration/base';
 
 const BATCH_SIZE = 50;
 
@@ -140,9 +142,47 @@ export class ExistingRecordCleanupService {
   private readonly connection: Connection;
   private readonly messages: Messages<string>;
 
-  public constructor(connection: Connection, messages: Messages<string>) {
+  // ux is accepted for API consistency with the rest of the codebase but not used directly —
+  // createProgressBar renders to stdout independently of the Ux wrapper.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  public constructor(connection: Connection, messages: Messages<string>, _ux: Ux) {
     this.connection = connection;
     this.messages = messages;
+  }
+
+  /**
+   * Returns all records that would be deactivated and deleted per entity, without making any changes.
+   * Keys are entity names (e.g. "OmniScript"). Values are the matching RecordRef objects.
+   */
+  public async assess(): Promise<Map<string, RecordRef[]>> {
+    Logger.log(this.messages.getMessage('assessNullUniqueNamePhaseStart'));
+    const result = new Map<string, RecordRef[]>();
+    for (const config of ENTITY_CONFIGS) {
+      Logger.log(this.messages.getMessage('assessScanningEntity', [config.entityName]));
+      const records: RecordRef[] = [];
+      let offset = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const developerNames = await this.fetchConfigDeveloperNames(config.configTable, offset);
+        if (developerNames.length === 0) break;
+
+        const versionMap = this.buildVersionMap(developerNames, config.parseDeveloperName);
+        if (versionMap.size > 0) {
+          const batch = await this.queryRecords(config, versionMap);
+          records.push(...batch);
+        }
+
+        offset += BATCH_SIZE;
+        if (developerNames.length < BATCH_SIZE) hasMore = false;
+      }
+      if (records.length > 0) {
+        Logger.log(this.messages.getMessage('assessEntityFound', [records.length, config.entityName]));
+      } else {
+        Logger.log(this.messages.getMessage('assessEntityNone', [config.entityName]));
+      }
+      result.set(config.entityName, records);
+    }
+    return result;
   }
 
   public async cleanAll(): Promise<void> {
@@ -230,6 +270,10 @@ export class ExistingRecordCleanupService {
 
     if (activeIds.length > 0) {
       Logger.log(this.messages.getMessage('deactivatingRecords', [activeIds.length, config.entityName]));
+
+      const deactivateBar = createProgressBar('Deactivating', config.entityName as any);
+      deactivateBar.start(activeIds.length, 0);
+
       // Deactivate one at a time to avoid UNKNOWN_ERROR (matches existing migration pattern)
       for (const id of activeIds) {
         try {
@@ -244,7 +288,10 @@ export class ExistingRecordCleanupService {
           Logger.error(this.messages.getMessage('deactivationFailed', [config.entityName, label, String(error)]));
           failedDeactivateIds.add(id);
         }
+        deactivateBar.increment();
       }
+      deactivateBar.stop();
+
       Logger.log(
         this.messages.getMessage('deactivatedRecords', [activeIds.length - failedDeactivateIds.size, config.entityName])
       );
@@ -254,6 +301,10 @@ export class ExistingRecordCleanupService {
     const idsToDelete = records.map((r) => r.Id).filter((id) => !failedDeactivateIds.has(id));
 
     Logger.log(this.messages.getMessage('deletingRecords', [idsToDelete.length, config.entityName]));
+
+    const deleteBar = createProgressBar('Deleting', config.entityName as any);
+    deleteBar.start(idsToDelete.length, 0);
+
     for (const id of idsToDelete) {
       try {
         await this.connection.sobject(config.objectName).delete(id);
@@ -261,7 +312,10 @@ export class ExistingRecordCleanupService {
         const label = idToLabel.get(id) ?? id;
         Logger.error(this.messages.getMessage('deletionFailed', [config.entityName, label, String(error)]));
       }
+      deleteBar.increment();
     }
+    deleteBar.stop();
+
     Logger.log(this.messages.getMessage('deletedRecords', [idsToDelete.length, config.entityName]));
   }
 

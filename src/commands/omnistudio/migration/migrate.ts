@@ -277,6 +277,7 @@ export default class Migrate extends SfCommand<MigrateResult> {
       org.getConnection().version,
       messages
     );
+    generatePackageXml.createOmnistudioDeploymentXml(org.getConnection().version);
 
     try {
       await postMigrate.deploy(actionItems);

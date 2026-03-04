@@ -56,6 +56,33 @@ export class generatePackageXml {
     fs.writeFileSync(filePath, packageXmlContent.trim());
   }
 
+  // Generates OmnistudioDeployment.xml containing all four core OmniStudio metadata types
+  public static createOmnistudioDeploymentXml(version: string): void {
+    const packageXmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>*</members>
+        <name>OmniScript</name>
+    </types>
+    <types>
+        <members>*</members>
+        <name>OmniUiCard</name>
+    </types>
+    <types>
+        <members>*</members>
+        <name>OmniDataTransform</name>
+    </types>
+    <types>
+        <members>*</members>
+        <name>OmniIntegrationProcedure</name>
+    </types>
+    <version>${version}</version>
+</Package>`;
+
+    const filePath = path.join(process.cwd(), 'OmnistudioDeployment.xml');
+    fs.writeFileSync(filePath, packageXmlContent);
+  }
+
   // Backup method without additional types
   public static backupChangeList(apexClasses: string[], lwcComponents: string[]): void {
     const apexXml = generatePackageXml.getXmlElementforMembers(apexClasses, 'ApexClass');

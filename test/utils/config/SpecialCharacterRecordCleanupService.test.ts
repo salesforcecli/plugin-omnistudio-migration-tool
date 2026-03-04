@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { expect } from 'chai';
 import { Connection, Messages } from '@salesforce/core';
+import { Ux } from '@salesforce/sf-plugins-core';
 import sinon = require('sinon');
 import { SpecialCharacterRecordCleanupService } from '../../../src/utils/config/SpecialCharacterRecordCleanupService';
 import { Logger } from '../../../src/utils/logger';
@@ -10,6 +11,7 @@ import { NetUtils } from '../../../src/utils/net';
 describe('SpecialCharacterRecordCleanupService', () => {
   let connection: Connection;
   let messages: Messages<string>;
+  let ux: Ux;
   let sandbox: sinon.SinonSandbox;
   let loggerLogStub: sinon.SinonStub;
   let loggerErrorStub: sinon.SinonStub;
@@ -29,6 +31,8 @@ describe('SpecialCharacterRecordCleanupService', () => {
       getMessage: sandbox.stub().callsFake((key: string, args?: unknown[]) => `${key}:${args?.join(',') ?? ''}`),
     } as unknown as Messages<string>;
 
+    ux = {} as Ux;
+
     loggerLogStub = sandbox.stub(Logger, 'log');
     loggerErrorStub = sandbox.stub(Logger, 'error');
     queryStub = sandbox.stub(QueryTools, 'query');
@@ -41,7 +45,7 @@ describe('SpecialCharacterRecordCleanupService', () => {
 
   describe('constructor', () => {
     it('should initialize with connection and messages', () => {
-      const service = new SpecialCharacterRecordCleanupService(connection, messages);
+      const service = new SpecialCharacterRecordCleanupService(connection, messages, ux);
       expect(service).to.be.instanceOf(SpecialCharacterRecordCleanupService);
     });
   });
@@ -53,7 +57,7 @@ describe('SpecialCharacterRecordCleanupService', () => {
     let clock: sinon.SinonFakeTimers;
 
     beforeEach(() => {
-      service = new SpecialCharacterRecordCleanupService(connection, messages);
+      service = new SpecialCharacterRecordCleanupService(connection, messages, ux);
       clock = sandbox.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     });
 
@@ -263,6 +267,71 @@ describe('SpecialCharacterRecordCleanupService', () => {
       expect(sobjectDeleteStub.callCount).to.equal(2);
       expect(loggerErrorStub.calledOnce).to.be.true;
       expect(loggerErrorStub.firstCall.args[0]).to.include('Type: Type@1, SubType: Sub, Language: English, Version: 2');
+    });
+  });
+
+  describe('assess', () => {
+    let service: SpecialCharacterRecordCleanupService;
+
+    beforeEach(() => {
+      service = new SpecialCharacterRecordCleanupService(connection, messages, ux);
+    });
+
+    it('should return an empty map per entity when no special character records exist', async () => {
+      // Arrange: all four entity queries return empty arrays
+      queryStub.resolves([]);
+
+      // Act
+      const result = await service.assess();
+
+      // Assert: map has entries for all entities, each with an empty array
+      expect(result.size).to.equal(4);
+      for (const records of result.values()) {
+        expect(records).to.have.length(0);
+      }
+      // No deactivation or deletion should have happened
+      expect(netUtilsRequestStub.called).to.be.false;
+      expect(sobjectDeleteStub.called).to.be.false;
+    });
+
+    it('should return records with special characters for each entity without modifying them', async () => {
+      // Arrange: OmniScript entity returns one record with special char in Type
+      const specialCharRecord = {
+        Id: 'a01',
+        IsActive: true,
+        Type: 'Test#1',
+        SubType: 'Sub',
+        Language: 'English',
+        VersionNumber: 1,
+      };
+      queryStub.onFirstCall().resolves([specialCharRecord]); // OmniScript
+      queryStub.onSecondCall().resolves([]); // IntegrationProcedure
+      queryStub.onThirdCall().resolves([]); // FlexCard
+      queryStub.resolves([]); // DataMapper
+
+      // Act
+      const result = await service.assess();
+
+      // Assert: OmniScript entry has one record; no API calls made
+      expect(result.get('OmniScript')).to.have.length(1);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      expect(result.get('OmniScript')![0]).to.deep.include({ Id: 'a01' });
+      expect(netUtilsRequestStub.called).to.be.false;
+      expect(sobjectDeleteStub.called).to.be.false;
+    });
+
+    it('should return empty array for an entity when its query throws', async () => {
+      // Arrange: first query (OmniScript) throws
+      queryStub.onFirstCall().rejects(new Error('Query failed'));
+      queryStub.resolves([]);
+
+      // Act
+      const result = await service.assess();
+
+      // Assert: OmniScript returns empty array; error logged; other entities still processed
+      expect(result.get('OmniScript')).to.deep.equal([]);
+      expect(loggerErrorStub.calledOnce).to.be.true;
+      expect(result.size).to.equal(4);
     });
   });
 });

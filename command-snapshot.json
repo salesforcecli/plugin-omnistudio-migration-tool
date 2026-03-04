@@ -8,7 +8,7 @@
   {
     "command": "omnistudio:migration:clean",
     "plugin": "@salesforce/plugin-omnistudio-migration-tool",
-    "flags": ["target-org", "verbose"],
+    "flags": ["assess", "target-org", "verbose"],
     "alias": []
   },
   {

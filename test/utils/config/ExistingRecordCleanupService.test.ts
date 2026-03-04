@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { expect } from 'chai';
 import { Connection, Messages } from '@salesforce/core';
+import { Ux } from '@salesforce/sf-plugins-core';
 import sinon = require('sinon');
 import { ExistingRecordCleanupService } from '../../../src/utils/config/ExistingRecordCleanupService';
 import { Logger } from '../../../src/utils/logger';
@@ -15,6 +16,7 @@ import { NetUtils } from '../../../src/utils/net';
 describe('ExistingRecordCleanupService', () => {
   let connection: Connection;
   let messages: Messages<string>;
+  let ux: Ux;
   let sandbox: sinon.SinonSandbox;
   let loggerLogStub: sinon.SinonStub;
   let loggerErrorStub: sinon.SinonStub;
@@ -36,6 +38,8 @@ describe('ExistingRecordCleanupService', () => {
       getMessage: sandbox.stub().callsFake((key: string, args?: unknown[]) => `${key}:${args?.join(',') ?? ''}`),
     } as unknown as Messages<string>;
 
+    ux = {} as Ux;
+
     loggerLogStub = sandbox.stub(Logger, 'log');
     loggerErrorStub = sandbox.stub(Logger, 'error');
     netUtilsRequestStub = sandbox.stub(NetUtils, 'request').resolves({});
@@ -50,7 +54,7 @@ describe('ExistingRecordCleanupService', () => {
 
   describe('constructor', () => {
     it('should initialize with connection and messages', () => {
-      const service = new ExistingRecordCleanupService(connection, messages);
+      const service = new ExistingRecordCleanupService(connection, messages, ux);
       expect(service).to.be.instanceOf(ExistingRecordCleanupService);
     });
   });
@@ -62,7 +66,7 @@ describe('ExistingRecordCleanupService', () => {
     let clock: sinon.SinonFakeTimers;
 
     beforeEach(() => {
-      service = new ExistingRecordCleanupService(connection, messages);
+      service = new ExistingRecordCleanupService(connection, messages, ux);
       clock = sandbox.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     });
 
@@ -357,6 +361,93 @@ describe('ExistingRecordCleanupService', () => {
       expect(dmSoql).to.not.be.undefined;
       expect(dmSoql).to.include("Name = 'Complex_Mapper_Name'");
       expect(sobjectDeleteStub.calledOnce).to.be.true;
+    });
+  });
+
+  describe('assess', () => {
+    let service: ExistingRecordCleanupService;
+
+    beforeEach(() => {
+      service = new ExistingRecordCleanupService(connection, messages, ux);
+    });
+
+    it('should return empty arrays for all entities when config tables are empty', async () => {
+      // Arrange: all config table queries return no developer names
+      queryStub.resolves({ records: [] });
+
+      // Act
+      const result = await service.assess();
+
+      // Assert: map contains all 4 entities with empty arrays
+      expect(result.size).to.equal(4);
+      for (const records of result.values()) {
+        expect(records).to.have.length(0);
+      }
+      // No deactivation or deletion
+      expect(netUtilsRequestStub.called).to.be.false;
+      expect(sobjectDeleteStub.called).to.be.false;
+    });
+
+    it('should return orphan records without deactivating or deleting them', async () => {
+      // Arrange: OmniScriptConfig has one developer name → orphan OmniScript record found
+      queryStub.callsFake((soql: string) => {
+        if (soql.includes('OmniScriptConfig')) {
+          return Promise.resolve({ records: [{ DeveloperName: 'TestType_TestSub_English_1' }] });
+        }
+        if (soql.includes('OmniProcess') && soql.includes('UniqueName = null')) {
+          return Promise.resolve({
+            records: [
+              {
+                Id: 'orphan-os-id',
+                IsActive: false,
+                Type: 'TestType',
+                SubType: 'TestSub',
+                Language: 'English',
+                VersionNumber: 1,
+              },
+            ],
+          });
+        }
+        return Promise.resolve({ records: [] });
+      });
+
+      // Act
+      const result = await service.assess();
+
+      // Assert: OmniScript entry contains the orphan record; no mutations
+      const osRecords = result.get('OmniScript') ?? [];
+      expect(osRecords).to.have.length(1);
+      expect(osRecords[0].Id).to.equal('orphan-os-id');
+      expect(netUtilsRequestStub.called).to.be.false;
+      expect(sobjectDeleteStub.called).to.be.false;
+    });
+
+    it('should accumulate orphan records across multiple batches per entity', async () => {
+      // Arrange: OmniScriptConfig returns exactly BATCH_SIZE (50) names in the first page → triggers second page
+      const firstBatch = Array.from({ length: 50 }, (_, i) => ({ DeveloperName: `Type_Sub_English_${i + 1}` }));
+      const secondBatch: Array<{ DeveloperName: string }> = [];
+
+      queryStub.callsFake((soql: string) => {
+        if (soql.includes('OmniScriptConfig') && soql.includes('OFFSET 0')) {
+          return Promise.resolve({ records: firstBatch });
+        }
+        if (soql.includes('OmniScriptConfig') && soql.includes('OFFSET 50')) {
+          return Promise.resolve({ records: secondBatch });
+        }
+        if (soql.includes('OmniProcess') && soql.includes('UniqueName = null')) {
+          return Promise.resolve({ records: [{ Id: 'batch-orphan', IsActive: false }] });
+        }
+        return Promise.resolve({ records: [] });
+      });
+
+      // Act
+      const result = await service.assess();
+
+      // Assert: records from the first batch's matching query are returned
+      const osRecords = result.get('OmniScript') ?? [];
+      expect(osRecords.length).to.be.greaterThan(0);
+      expect(netUtilsRequestStub.called).to.be.false;
+      expect(sobjectDeleteStub.called).to.be.false;
     });
   });
 });

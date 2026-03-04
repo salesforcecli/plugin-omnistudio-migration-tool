@@ -1,10 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 import { Connection, Messages } from '@salesforce/core';
+import { Ux } from '@salesforce/sf-plugins-core';
 import { QueryTools } from '../query';
 import { hasOnlyAlphanumericCharacters } from '../recordPrioritization';
 import { Logger } from '../logger';
 import { NetUtils, RequestMethod } from '../net';
 import { Constants } from '../constants/stringContants';
+import { createProgressBar } from '../../migration/base';
 
 interface EntityConfig {
   objectName: string;
@@ -65,9 +67,37 @@ export class SpecialCharacterRecordCleanupService {
   private readonly connection: Connection;
   private readonly messages: Messages<string>;
 
-  public constructor(connection: Connection, messages: Messages<string>) {
+  // ux is accepted for API consistency with the rest of the codebase but not used directly —
+  // createProgressBar renders to stdout independently of the Ux wrapper.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  public constructor(connection: Connection, messages: Messages<string>, _ux: Ux) {
     this.connection = connection;
     this.messages = messages;
+  }
+
+  /**
+   * Returns all records that would be deactivated and deleted per entity, without making any changes.
+   * Keys are entity names (e.g. "OmniScript"). Values are the raw records including all label fields.
+   */
+  public async assess(): Promise<Map<string, Array<Record<string, unknown>>>> {
+    Logger.log(this.messages.getMessage('assessSpecialCharPhaseStart'));
+    const result = new Map<string, Array<Record<string, unknown>>>();
+    for (const config of ENTITY_CONFIGS) {
+      Logger.log(this.messages.getMessage('assessScanningEntity', [config.entityName]));
+      try {
+        const records = await this.getRecordsWithSpecialCharacters(config);
+        if (records.length > 0) {
+          Logger.log(this.messages.getMessage('assessEntityFound', [records.length, config.entityName]));
+        } else {
+          Logger.log(this.messages.getMessage('assessEntityNone', [config.entityName]));
+        }
+        result.set(config.entityName, records);
+      } catch (error) {
+        Logger.error(this.messages.getMessage('errorAssessingSpecialCharRecords', [config.entityName, String(error)]));
+        result.set(config.entityName, []);
+      }
+    }
+    return result;
   }
 
   public async deactivateAndDelete(): Promise<void> {
@@ -135,6 +165,9 @@ export class SpecialCharacterRecordCleanupService {
   ): Promise<Set<string>> {
     Logger.log(this.messages.getMessage('deactivatingRecords', [ids.length, config.entityName]));
 
+    const bar = createProgressBar('Deactivating', config.entityName as any);
+    bar.start(ids.length, 0);
+
     const failedIds = new Set<string>();
     // Deactivate one at a time to avoid UNKNOWN_ERROR on OmniProcess (matches existing migration pattern)
     for (const id of ids) {
@@ -150,7 +183,9 @@ export class SpecialCharacterRecordCleanupService {
         Logger.error(this.messages.getMessage('deactivationFailed', [config.entityName, label, String(error)]));
         failedIds.add(id);
       }
+      bar.increment();
     }
+    bar.stop();
 
     Logger.log(this.messages.getMessage('deactivatedRecords', [ids.length - failedIds.size, config.entityName]));
     return failedIds;
@@ -158,6 +193,9 @@ export class SpecialCharacterRecordCleanupService {
 
   private async deleteRecords(config: EntityConfig, ids: string[], idToLabel: Map<string, string>): Promise<void> {
     Logger.log(this.messages.getMessage('deletingRecords', [ids.length, config.entityName]));
+
+    const bar = createProgressBar('Deleting', config.entityName as any);
+    bar.start(ids.length, 0);
 
     // Delete one at a time using jsforce sobject delete to avoid ECONNRESET on composite/sobjects endpoint
     for (const id of ids) {
@@ -167,7 +205,9 @@ export class SpecialCharacterRecordCleanupService {
         const label = idToLabel.get(id) ?? id;
         Logger.error(this.messages.getMessage('deletionFailed', [config.entityName, label, String(error)]));
       }
+      bar.increment();
     }
+    bar.stop();
 
     Logger.log(this.messages.getMessage('deletedRecords', [ids.length, config.entityName]));
   }

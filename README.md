@@ -114,6 +114,128 @@ sf omnistudio:migration:migrate -u YOUR_ORG_USERNAME@DOMAIN.COM --only=autonumbe
 
 5. An HTML page will be open in your default browser with the results of your migration/assessment job.
 
+## Clean Command
+
+The clean command deactivates and deletes Omnistudio records (Omniscripts, Integration Procedures, Flexcards, and Data Mappers) that prevent enabling the Omnistudio Metadata API. This includes records with special characters in unique name fields or missing unique names.
+
+⚠️ **Warning:** This action is permanent. Run in a testing sandbox and verify results before running in your production environment.
+
+### Prerequisites for Clean Command
+
+Before running the clean command, ensure that:
+
+1. **Standard Data Model**: Your org must be using the standard data model (not custom data model)
+2. **Metadata API Not Enabled**: The Omnistudio Metadata API must not already be enabled in your org
+3. **Backup Components**: All Omnistudio components should be backed up or deployed to a testing sandbox
+4. **Testing Sandbox**: Always run the clean command in a testing sandbox first to verify results
+5. **Org Authentication**: You must be authenticated to your Salesforce org using `sf org login web`
+
+### Clean Command Process
+
+The clean command runs in two phases:
+
+1. **Phase 1: Special Character Cleanup**
+
+   - Scans and removes records with special characters in their unique name fields
+   - These records are incompatible with the Metadata API
+
+2. **Phase 2: Missing Unique Name Cleanup**
+   - Scans and removes records without a deployment reference (missing unique names)
+   - These records also prevent enabling the Metadata API
+
+### Clean Command with Assessment (Preview Mode)
+
+Use the `--assess` flag to preview which records would be removed without making any changes to your org. This is the recommended first step before running the actual clean command.
+
+**Features:**
+
+- No changes are made to your org
+- Assessment reports are saved to the `clean_assessment` folder in your current directory
+- Reports are generated as JSON files for each component type
+- Shows both special character records and orphan records (missing unique names)
+
+**Usage:**
+
+```bash
+# Preview what would be cleaned (no changes made)
+sf omnistudio:migration:clean -u YOUR_ORG_USERNAME@DOMAIN.COM --assess
+
+# With verbose output
+sf omnistudio:migration:clean -u YOUR_ORG_USERNAME@DOMAIN.COM --assess --verbose
+```
+
+**Assessment Output:**
+
+- Assessment reports are saved in the `clean_assessment` folder
+- Each component type (Omniscripts, Integration Procedures, Flexcards, Data Mappers) has its own JSON file
+- Each JSON file contains:
+  - `component`: Component type name
+  - `specialCharacterRecords`: Records with special characters in unique name fields
+  - `orphanRecords`: Records without deployment references (missing unique names)
+  - `totalToDelete`: Total number of records that would be removed
+
+### Clean Command (Actual Cleanup)
+
+After reviewing the assessment reports, you can run the clean command to permanently remove the incompatible records.
+
+**Important Notes:**
+
+- This action is **permanent** and cannot be undone
+- You will be prompted for confirmation before any deletions occur
+- The command will deactivate records first, then delete them
+- After cleanup, you should be able to enable the Omnistudio Metadata API
+
+**Usage:**
+
+```bash
+# Clean incompatible records (requires confirmation)
+sf omnistudio:migration:clean -u YOUR_ORG_USERNAME@DOMAIN.COM
+
+# With verbose output
+sf omnistudio:migration:clean -u YOUR_ORG_USERNAME@DOMAIN.COM --verbose
+```
+
+**What Happens:**
+
+1. The command validates that your org meets prerequisites (standard data model, Metadata API not enabled)
+2. You are shown a warning and asked to confirm the deletion
+3. Phase 1: Records with special characters are deactivated and deleted
+4. Phase 2: Records without unique names are deactivated and deleted
+5. Cleanup completion message is displayed
+
+### Clean Command Usage & Parameters
+
+```
+USAGE
+  $ sf omnistudio:migration:clean -u <username> [--assess] [--verbose]
+
+OPTIONS
+  -u, --target-org=<username>                       (required) username or alias for the target org
+                                                    (aliases: --targetusername - deprecated)
+
+  --assess                                           preview which records would be removed by the clean command,
+                                                    without making any changes. Results are saved to the
+                                                    'clean_assessment' folder.
+
+  --verbose                                          enable verbose output
+```
+
+### Clean Command Examples
+
+```bash
+# Step 1: Preview what would be cleaned (recommended first step)
+sf omnistudio:migration:clean -u orguser@domain.com --assess
+
+# Step 2: Review the assessment reports in the clean_assessment folder
+
+# Step 3: Run the actual cleanup (after verifying assessment results)
+sf omnistudio:migration:clean -u orguser@domain.com
+
+# With verbose output for detailed information
+sf omnistudio:migration:clean -u orguser@domain.com --assess --verbose
+sf omnistudio:migration:clean -u orguser@domain.com --verbose
+```
+
 ### Assess Usage & parameters
 
 ```

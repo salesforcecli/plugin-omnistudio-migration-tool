@@ -71,18 +71,22 @@ export class generatePackageXml {
     const omniIntegrationProcedureXml = generatePackageXml.getXmlElementforMembers(['*'], 'OmniIntegrationProcedure');
     const customLabelsXml = generatePackageXml.getXmlElementforMembers(['*'], 'CustomLabels');
 
-    const packageXmlContent = `
-<?xml version="1.0" encoding="UTF-8"?>
+    // Build array of non-empty XML sections to avoid blank lines and ensure proper spacing
+    const xmlSections = [
+      apexXml,
+      lwcXml,
+      expsiteXml,
+      flexipageXml,
+      omniScriptXml,
+      omniUiCardXml,
+      omniDataTransformXml,
+      omniIntegrationProcedureXml,
+      customLabelsXml,
+    ].filter((xml) => xml && xml.trim().length > 0);
+
+    const packageXmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
-      ${apexXml}
-      ${lwcXml}
-      ${expsiteXml}
-      ${flexipageXml}
-      ${omniScriptXml}
-      ${omniUiCardXml}
-      ${omniDataTransformXml}
-      ${omniIntegrationProcedureXml}
-      ${customLabelsXml}
+      ${xmlSections.join('\n      ')}
     <version>${version}</version>
 </Package>`;
 

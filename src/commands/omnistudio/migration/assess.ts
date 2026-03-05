@@ -131,7 +131,8 @@ export default class Assess extends SfCommand<AssessmentInfo> {
 
     // Perform comprehensive validation using ValidatorService
     const validator = new ValidatorService(orgs, messages, conn);
-    const isValidationPassed = await validator.validate();
+    // Pass true to skip OmniStudio license check for assessment
+    const isValidationPassed = await validator.validate(true);
 
     if (!isValidationPassed) {
       return;

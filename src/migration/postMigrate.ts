@@ -234,6 +234,9 @@ export class PostMigrate extends BaseMigrationTool {
 
       // Log the specific error details for troubleshooting
       Logger.logVerbose(`Deployment error details: ${errorMessage}`);
+
+      // Re-throw so callers (migrate.ts) can track deploymentFailed state
+      throw error;
     }
   }
 }

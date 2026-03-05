@@ -1144,4 +1144,231 @@ describe('ValidatorService', () => {
       expect(loggerErrorStub.firstCall.args[0]).to.equal('DR versioning is enabled');
     });
   });
+
+  describe('validate with isAssessment parameter', () => {
+    it('should skip license check when isAssessment is true for custom data model', async () => {
+      // Arrange
+      const orgs: OmnistudioOrgDetails = {
+        hasValidNamespace: true,
+        packageDetails: { namespace: 'TestNamespace' },
+        omniStudioOrgPermissionEnabled: false,
+        isFoundationPackage: false,
+      } as OmnistudioOrgDetails;
+      sandbox.stub(OrgPreferences, 'checkDRVersioning').resolves(false);
+      (messages.getMessage as sinon.SinonStub)
+        .withArgs('validatingDrVersioningDisabled')
+        .returns('Validating DR versioning disabled');
+      (messages.getMessage as sinon.SinonStub).withArgs('drVersioningDisabled').returns('DR versioning is disabled');
+      (messages.getMessage as sinon.SinonStub)
+        .withArgs('skippingLicenseCheckForAssessment')
+        .returns('Skipping OmniStudio license check for assessment');
+      isStandardDataModelStub.returns(false); // Custom data model
+      const validator = new ValidatorService(orgs, messages, connection);
+
+      // Act
+      const result = await validator.validate(true); // isAssessment = true
+
+      // Assert
+      expect(result).to.be.true;
+      expect((connection.query as sinon.SinonStub).called).to.be.false; // License query should NOT be called
+      expect(loggerLogVerboseStub.called).to.be.true; // Should log verbose messages
+    });
+
+    it('should run license check when isAssessment is false for custom data model', async () => {
+      // Arrange
+      const orgs: OmnistudioOrgDetails = {
+        hasValidNamespace: true,
+        packageDetails: { namespace: 'TestNamespace' },
+        omniStudioOrgPermissionEnabled: false,
+        isFoundationPackage: false,
+      } as OmnistudioOrgDetails;
+      const queryResult = {
+        records: [{ total: '5' }],
+      };
+      (connection.query as sinon.SinonStub).resolves(queryResult);
+      sandbox.stub(OrgPreferences, 'checkDRVersioning').resolves(false);
+      (messages.getMessage as sinon.SinonStub)
+        .withArgs('validatingDrVersioningDisabled')
+        .returns('Validating DR versioning disabled');
+      (messages.getMessage as sinon.SinonStub).withArgs('drVersioningDisabled').returns('DR versioning is disabled');
+      isStandardDataModelStub.returns(false); // Custom data model
+      const validator = new ValidatorService(orgs, messages, connection);
+
+      // Act
+      const result = await validator.validate(false); // isAssessment = false
+
+      // Assert
+      expect(result).to.be.true;
+      expect((connection.query as sinon.SinonStub).calledOnce).to.be.true; // License query SHOULD be called
+      expect(loggerLogVerboseStub.calledWith('Skipping OmniStudio license check for assessment')).to.be.false;
+    });
+
+    it('should run license check when isAssessment is not provided (defaults to false) for custom data model', async () => {
+      // Arrange
+      const orgs: OmnistudioOrgDetails = {
+        hasValidNamespace: true,
+        packageDetails: { namespace: 'TestNamespace' },
+        omniStudioOrgPermissionEnabled: false,
+        isFoundationPackage: false,
+      } as OmnistudioOrgDetails;
+      const queryResult = {
+        records: [{ total: '5' }],
+      };
+      (connection.query as sinon.SinonStub).resolves(queryResult);
+      sandbox.stub(OrgPreferences, 'checkDRVersioning').resolves(false);
+      (messages.getMessage as sinon.SinonStub)
+        .withArgs('validatingDrVersioningDisabled')
+        .returns('Validating DR versioning disabled');
+      (messages.getMessage as sinon.SinonStub).withArgs('drVersioningDisabled').returns('DR versioning is disabled');
+      isStandardDataModelStub.returns(false); // Custom data model
+      const validator = new ValidatorService(orgs, messages, connection);
+
+      // Act
+      const result = await validator.validate(); // No parameter, should default to false
+
+      // Assert
+      expect(result).to.be.true;
+      expect((connection.query as sinon.SinonStub).calledOnce).to.be.true; // License query SHOULD be called
+      expect(loggerLogVerboseStub.calledWith('Skipping OmniStudio license check for assessment')).to.be.false;
+    });
+
+    it('should not skip license check for standard data model even when isAssessment is true', async () => {
+      // Arrange
+      const orgs: OmnistudioOrgDetails = {
+        hasValidNamespace: true,
+        packageDetails: { namespace: 'TestNamespace' },
+        omniStudioOrgPermissionEnabled: true,
+        isFoundationPackage: false,
+      } as OmnistudioOrgDetails;
+      isStandardDataModelStub.returns(true); // Standard data model
+      sandbox.stub(OrgPreferences, 'checkDRVersioning').resolves(false);
+
+      // Mock the OmniInteractionConfig query that's called by validateOmniInteractionConfig
+      (connection.query as sinon.SinonStub).resolves({
+        totalSize: 1,
+        records: [{ DeveloperName: 'TheFirstInstalledOmniPackage', Value: 'omnistudio' }],
+      });
+
+      const validator = new ValidatorService(orgs, messages, connection);
+
+      // Act
+      const result = await validator.validate(true); // isAssessment = true
+
+      // Assert
+      expect(result).to.be.true;
+      expect((connection.query as sinon.SinonStub).calledOnce).to.be.true; // OmniInteractionConfig query IS called
+      expect(loggerLogVerboseStub.calledWith('Skipping OmniStudio license check for assessment')).to.be.false;
+    });
+
+    it('should return true for assessment mode even when licenses are not available (custom data model)', async () => {
+      // Arrange
+      const orgs: OmnistudioOrgDetails = {
+        hasValidNamespace: true,
+        packageDetails: { namespace: 'TestNamespace' },
+        omniStudioOrgPermissionEnabled: false,
+        isFoundationPackage: false,
+      } as OmnistudioOrgDetails;
+      const queryResult = {
+        records: [], // No licenses
+      };
+      (connection.query as sinon.SinonStub).resolves(queryResult);
+      sandbox.stub(OrgPreferences, 'checkDRVersioning').resolves(false);
+      (messages.getMessage as sinon.SinonStub)
+        .withArgs('validatingDrVersioningDisabled')
+        .returns('Validating DR versioning disabled');
+      (messages.getMessage as sinon.SinonStub).withArgs('drVersioningDisabled').returns('DR versioning is disabled');
+      (messages.getMessage as sinon.SinonStub)
+        .withArgs('skippingLicenseCheckForAssessment')
+        .returns('Skipping OmniStudio license check for assessment');
+      isStandardDataModelStub.returns(false); // Custom data model
+      const validator = new ValidatorService(orgs, messages, connection);
+
+      // Act
+      const result = await validator.validate(true); // isAssessment = true
+
+      // Assert
+      expect(result).to.be.true; // Should pass even without licenses
+      expect((connection.query as sinon.SinonStub).called).to.be.false; // License query should NOT be called
+      expect(loggerLogVerboseStub.called).to.be.true; // Should log verbose messages
+    });
+
+    it('should return false for migration mode when licenses are not available (custom data model)', async () => {
+      // Arrange
+      const orgs: OmnistudioOrgDetails = {
+        hasValidNamespace: true,
+        packageDetails: { namespace: 'TestNamespace' },
+        omniStudioOrgPermissionEnabled: false,
+        isFoundationPackage: false,
+      } as OmnistudioOrgDetails;
+      const queryResult = {
+        records: [], // No licenses
+      };
+      (connection.query as sinon.SinonStub).resolves(queryResult);
+      (messages.getMessage as sinon.SinonStub).withArgs('noOmniStudioLicenses').returns('No licenses found');
+      sandbox.stub(OrgPreferences, 'checkDRVersioning').resolves(false);
+      (messages.getMessage as sinon.SinonStub)
+        .withArgs('validatingDrVersioningDisabled')
+        .returns('Validating DR versioning disabled');
+      (messages.getMessage as sinon.SinonStub).withArgs('drVersioningDisabled').returns('DR versioning is disabled');
+      isStandardDataModelStub.returns(false); // Custom data model
+      const validator = new ValidatorService(orgs, messages, connection);
+
+      // Act
+      const result = await validator.validate(false); // isAssessment = false (migration mode)
+
+      // Assert
+      expect(result).to.be.false; // Should fail without licenses
+      expect((connection.query as sinon.SinonStub).calledOnce).to.be.true; // License query SHOULD be called
+      expect(loggerErrorStub.calledOnce).to.be.true;
+      expect(loggerErrorStub.firstCall.args[0]).to.equal('No licenses found');
+    });
+
+    it('should still perform basic validations in assessment mode', async () => {
+      // Arrange
+      const orgs: OmnistudioOrgDetails = {
+        hasValidNamespace: false, // Invalid namespace
+        packageDetails: { namespace: 'TestNamespace' },
+        omniStudioOrgPermissionEnabled: false,
+        isFoundationPackage: false,
+      } as OmnistudioOrgDetails;
+      (messages.getMessage as sinon.SinonStub)
+        .withArgs('unknownNamespace')
+        .returns("Org doesn't have Omnistudio namespace(s) configured");
+      isStandardDataModelStub.returns(false); // Custom data model
+      const validator = new ValidatorService(orgs, messages, connection);
+
+      // Act
+      const result = await validator.validate(true); // isAssessment = true
+
+      // Assert
+      expect(result).to.be.false; // Should still fail basic validation
+      expect(loggerErrorStub.calledOnce).to.be.true;
+      expect(loggerErrorStub.firstCall.args[0]).to.equal("Org doesn't have Omnistudio namespace(s) configured");
+    });
+
+    it('should still check DR versioning in assessment mode', async () => {
+      // Arrange
+      const orgs: OmnistudioOrgDetails = {
+        hasValidNamespace: true,
+        packageDetails: { namespace: 'TestNamespace' },
+        omniStudioOrgPermissionEnabled: false,
+        isFoundationPackage: false,
+      } as OmnistudioOrgDetails;
+      sandbox.stub(OrgPreferences, 'checkDRVersioning').resolves(true); // DR versioning enabled
+      (messages.getMessage as sinon.SinonStub)
+        .withArgs('validatingDrVersioningDisabled')
+        .returns('Validating DR versioning disabled');
+      (messages.getMessage as sinon.SinonStub).withArgs('drVersioningEnabled').returns('DR versioning is enabled');
+      isStandardDataModelStub.returns(false); // Custom data model
+      const validator = new ValidatorService(orgs, messages, connection);
+
+      // Act
+      const result = await validator.validate(true); // isAssessment = true
+
+      // Assert
+      expect(result).to.be.false; // Should fail DR versioning check
+      expect(loggerErrorStub.calledOnce).to.be.true;
+      expect(loggerErrorStub.firstCall.args[0]).to.equal('DR versioning is enabled');
+    });
+  });
 });

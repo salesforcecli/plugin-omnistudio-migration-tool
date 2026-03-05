@@ -272,6 +272,29 @@ describe('OrgPreferences', () => {
         }
       }
     });
+
+    it('should return empty array and warn when INVALID_TYPE error occurs for OmniInteractionConfig', async () => {
+      // Arrange
+      const error = {
+        errorCode: 'INVALID_TYPE',
+        message: "sObject type 'OmniInteractionConfig' is not supported",
+      };
+      const queryStub = sandbox.stub().rejects(error);
+      connection.query = queryStub;
+      const loggerWarnStub = sandbox.stub();
+
+      // Mock Logger.warn
+      const LoggerModule = await import('../../src/utils/logger');
+      sandbox.stub(LoggerModule.Logger, 'warn').callsFake(loggerWarnStub);
+
+      // Act
+      const result = await OrgPreferences.checkRollbackFlags(connection);
+
+      // Assert
+      expect(result).to.be.an('array').that.is.empty;
+      expect(loggerWarnStub.calledOnce).to.be.true;
+      expect(loggerWarnStub.firstCall.args[0]).to.include('Omnistudio permissions');
+    });
   });
 
   describe('isExperienceBundleMetadataAPIEnabled', () => {
@@ -516,6 +539,255 @@ describe('OrgPreferences', () => {
     });
   });
 
+  describe('isStandardDesignerEnabled', () => {
+    it('should return true when namespace matches TheFirstInstalledOmniPackage value', async () => {
+      // Arrange
+      const queryResult = {
+        totalSize: 2,
+        records: [
+          {
+            DeveloperName: 'TheFirstInstalledOmniPackage',
+            Value: 'vlocity_ins',
+          },
+          {
+            DeveloperName: 'InstalledIndustryPackage',
+            Value: 'vlocity_cmt',
+          },
+        ],
+      };
+      const queryStub = sandbox.stub().resolves(queryResult);
+      connection.query = queryStub;
+
+      // Act
+      const result = await OrgPreferences.isStandardDesignerEnabled(connection, 'vlocity_ins');
+
+      // Assert
+      expect(result).to.be.true;
+      expect(queryStub.calledOnce).to.be.true;
+      expect(queryStub.firstCall.args[0]).to.include('SELECT DeveloperName, Value FROM OmniInteractionConfig');
+      expect(queryStub.firstCall.args[0]).to.include('TheFirstInstalledOmniPackage');
+      expect(queryStub.firstCall.args[0]).to.include('InstalledIndustryPackage');
+    });
+
+    it('should return true when namespace matches InstalledIndustryPackage value', async () => {
+      // Arrange
+      const queryResult = {
+        totalSize: 2,
+        records: [
+          {
+            DeveloperName: 'TheFirstInstalledOmniPackage',
+            Value: 'vlocity_ins',
+          },
+          {
+            DeveloperName: 'InstalledIndustryPackage',
+            Value: 'vlocity_cmt',
+          },
+        ],
+      };
+      const queryStub = sandbox.stub().resolves(queryResult);
+      connection.query = queryStub;
+
+      // Act
+      const result = await OrgPreferences.isStandardDesignerEnabled(connection, 'vlocity_cmt');
+
+      // Assert
+      expect(result).to.be.true;
+      expect(queryStub.calledOnce).to.be.true;
+    });
+
+    it('should return false when namespace does not match any value', async () => {
+      // Arrange
+      const queryResult = {
+        totalSize: 2,
+        records: [
+          {
+            DeveloperName: 'TheFirstInstalledOmniPackage',
+            Value: 'vlocity_ins',
+          },
+          {
+            DeveloperName: 'InstalledIndustryPackage',
+            Value: 'vlocity_cmt',
+          },
+        ],
+      };
+      const queryStub = sandbox.stub().resolves(queryResult);
+      connection.query = queryStub;
+
+      // Act
+      const result = await OrgPreferences.isStandardDesignerEnabled(connection, 'omnistudio');
+
+      // Assert
+      expect(result).to.be.false;
+      expect(queryStub.calledOnce).to.be.true;
+    });
+
+    it('should return false when totalSize is 0', async () => {
+      // Arrange
+      const queryResult = {
+        totalSize: 0,
+        records: [],
+      };
+      const queryStub = sandbox.stub().resolves(queryResult);
+      connection.query = queryStub;
+
+      // Act
+      const result = await OrgPreferences.isStandardDesignerEnabled(connection, 'vlocity_ins');
+
+      // Assert
+      expect(result).to.be.false;
+      expect(queryStub.calledOnce).to.be.true;
+    });
+
+    it('should return false when totalSize is null', async () => {
+      // Arrange
+      const queryResult = {
+        totalSize: null,
+        records: [],
+      };
+      const queryStub = sandbox.stub().resolves(queryResult);
+      connection.query = queryStub;
+
+      // Act
+      const result = await OrgPreferences.isStandardDesignerEnabled(connection, 'vlocity_ins');
+
+      // Assert
+      expect(result).to.be.false;
+      expect(queryStub.calledOnce).to.be.true;
+    });
+
+    it('should return false when totalSize is undefined', async () => {
+      // Arrange
+      const queryResult = {
+        records: [],
+      };
+      const queryStub = sandbox.stub().resolves(queryResult);
+      connection.query = queryStub;
+
+      // Act
+      const result = await OrgPreferences.isStandardDesignerEnabled(connection, 'vlocity_ins');
+
+      // Assert
+      expect(result).to.be.false;
+      expect(queryStub.calledOnce).to.be.true;
+    });
+
+    it('should return false when records array is empty', async () => {
+      // Arrange
+      const queryResult = {
+        totalSize: 0,
+        records: [],
+      };
+      const queryStub = sandbox.stub().resolves(queryResult);
+      connection.query = queryStub;
+
+      // Act
+      const result = await OrgPreferences.isStandardDesignerEnabled(connection, 'vlocity_ins');
+
+      // Assert
+      expect(result).to.be.false;
+      expect(queryStub.calledOnce).to.be.true;
+    });
+
+    it('should handle case-sensitive namespace comparison', async () => {
+      // Arrange
+      const queryResult = {
+        totalSize: 1,
+        records: [
+          {
+            DeveloperName: 'TheFirstInstalledOmniPackage',
+            Value: 'vlocity_ins',
+          },
+        ],
+      };
+      const queryStub = sandbox.stub().resolves(queryResult);
+      connection.query = queryStub;
+
+      // Act
+      const result = await OrgPreferences.isStandardDesignerEnabled(connection, 'Vlocity_ins'); // Wrong case
+
+      // Assert
+      expect(result).to.be.false;
+      expect(queryStub.calledOnce).to.be.true;
+    });
+
+    it('should return false when query result is undefined', async () => {
+      // Arrange
+      const queryStub = sandbox.stub().resolves(undefined);
+      connection.query = queryStub;
+
+      // Act
+      const result = await OrgPreferences.isStandardDesignerEnabled(connection, 'vlocity_ins');
+
+      // Assert
+      expect(result).to.be.false;
+      expect(queryStub.calledOnce).to.be.true;
+    });
+
+    it('should return false when query result is null', async () => {
+      // Arrange
+      const queryStub = sandbox.stub().resolves(null);
+      connection.query = queryStub;
+
+      // Act
+      const result = await OrgPreferences.isStandardDesignerEnabled(connection, 'vlocity_ins');
+
+      // Assert
+      expect(result).to.be.false;
+      expect(queryStub.calledOnce).to.be.true;
+    });
+
+    it('should return false and warn when INVALID_TYPE error occurs for OmniInteractionConfig', async () => {
+      // Arrange
+      const error = {
+        errorCode: 'INVALID_TYPE',
+        message: "sObject type 'OmniInteractionConfig' is not supported",
+      };
+      const queryStub = sandbox.stub().rejects(error);
+      connection.query = queryStub;
+      const loggerWarnStub = sandbox.stub();
+
+      // Mock Logger.warn
+      const LoggerModule = await import('../../src/utils/logger');
+      sandbox.stub(LoggerModule.Logger, 'warn').callsFake(loggerWarnStub);
+
+      // Act
+      const result = await OrgPreferences.isStandardDesignerEnabled(connection, 'vlocity_ins');
+
+      // Assert
+      expect(result).to.be.false;
+      expect(loggerWarnStub.calledOnce).to.be.true;
+      expect(loggerWarnStub.firstCall.args[0]).to.include('Omnistudio permissions');
+    });
+
+    it('should return false when query fails with generic Error object', async () => {
+      // Arrange
+      const error = new Error('Query failed');
+      const queryStub = sandbox.stub().rejects(error);
+      connection.query = queryStub;
+
+      // Act
+      const result = await OrgPreferences.isStandardDesignerEnabled(connection, 'vlocity_ins');
+
+      // Assert
+      expect(result).to.be.false;
+      expect(queryStub.calledOnce).to.be.true;
+    });
+
+    it('should return false when query fails with non-Error object', async () => {
+      // Arrange
+      const error = 'String error message';
+      const queryStub = sandbox.stub().rejects(error);
+      connection.query = queryStub;
+
+      // Act
+      const result = await OrgPreferences.isStandardDesignerEnabled(connection, 'vlocity_ins');
+
+      // Assert
+      expect(result).to.be.false;
+      expect(queryStub.calledOnce).to.be.true;
+    });
+  });
+
   describe('isFoundationPackage', () => {
     it('should return true when foundation package (omnistudio) is the first installed package', async () => {
       // Arrange
@@ -731,6 +1003,29 @@ describe('OrgPreferences', () => {
       // Assert
       expect(result).to.be.false;
       expect(queryStub.calledOnce).to.be.true;
+    });
+
+    it('should return false and warn when INVALID_TYPE error occurs for OmniInteractionConfig', async () => {
+      // Arrange
+      const error = {
+        errorCode: 'INVALID_TYPE',
+        message: "sObject type 'OmniInteractionConfig' is not supported",
+      };
+      const queryStub = sandbox.stub().rejects(error);
+      connection.query = queryStub;
+      const loggerWarnStub = sandbox.stub();
+
+      // Mock Logger.warn
+      const LoggerModule = await import('../../src/utils/logger');
+      sandbox.stub(LoggerModule.Logger, 'warn').callsFake(loggerWarnStub);
+
+      // Act
+      const result = await OrgPreferences.isFoundationPackage(connection);
+
+      // Assert
+      expect(result).to.be.false;
+      expect(loggerWarnStub.calledOnce).to.be.true;
+      expect(loggerWarnStub.firstCall.args[0]).to.include('Omnistudio permissions');
     });
   });
 });

@@ -15,7 +15,7 @@ export class ValidatorService {
     this.connection = connection;
   }
 
-  public async validate(): Promise<boolean> {
+  public async validate(isAssessment = false): Promise<boolean> {
     const basicValidation = this.validateNamespace() && this.validatePackageInstalled();
     if (!basicValidation) {
       return false;
@@ -39,6 +39,12 @@ export class ValidatorService {
     }
 
     // For custom data model, validate if licenses are valid
+    // Skip license check during assessment
+    if (isAssessment) {
+      Logger.logVerbose(this.messages.getMessage('skippingLicenseCheckForAssessment'));
+      return true;
+    }
+
     const isLicensesValid = await this.validateOmniStudioLicenses();
     return isLicensesValid;
   }

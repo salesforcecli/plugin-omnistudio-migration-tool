@@ -8,6 +8,7 @@ import { YES_SHORT, YES_LONG, NO_SHORT, NO_LONG } from '../utils/projectPathUtil
 import { documentRegistry } from '../utils/constants/documentRegistry';
 import { OmniStudioMetadataCleanupService } from '../utils/config/OmniStudioMetadataCleanupService';
 import { isStandardDataModelWithMetadataAPIEnabled } from '../utils/dataModelService';
+import { sfProject } from '../utils/sfcli/project/sfProject';
 import { BaseMigrationTool } from './base';
 
 const authEnvKey = 'OMA_AUTH_KEY';
@@ -132,15 +133,9 @@ export class PreMigrate extends BaseMigrationTool {
       authKey: undefined,
     };
     if (consent && includeLwc) {
-      deploymentConfig.authKey = process.env[authEnvKey];
-      if (!deploymentConfig.authKey) {
-        Logger.warn(this.messages.getMessage('authKeyEnvVarNotSet'));
-        actionItems.push(
-          `${this.messages.getMessage('authKeyEnvVarNotSet')}\n${this.messages.getMessage('manualDeploymentSteps', [
-            documentRegistry.manualDeploymentSteps,
-          ])}`
-        );
-      }
+      const lwcPrereqResult = await this.checkLwcDeployPrerequisites(actionItems);
+      deploymentConfig.authKey = lwcPrereqResult.authKey;
+      deploymentConfig.autoDeploy = lwcPrereqResult.autoDeploy;
     }
 
     if (!consent) {
@@ -213,6 +208,70 @@ export class PreMigrate extends BaseMigrationTool {
       return false;
     }
     return await omniStudioMetadataCleanupService.cleanupOmniStudioMetadataTables();
+  }
+
+  private async checkLwcDeployPrerequisites(
+    actionItems: string[]
+  ): Promise<{ autoDeploy: boolean; authKey: string | undefined }> {
+    const missingPrerequisites: string[] = [];
+
+    const isNpmAvailable = sfProject.isNpmInstalled();
+    if (!isNpmAvailable) {
+      missingPrerequisites.push(this.messages.getMessage('npmNotInstalled'));
+    }
+
+    const authKey = process.env[authEnvKey];
+    if (!authKey) {
+      missingPrerequisites.push(this.messages.getMessage('authKeyEnvVarNotSet'));
+    }
+
+    if (missingPrerequisites.length === 0) {
+      return { autoDeploy: true, authKey };
+    }
+
+    Logger.warn(this.messages.getMessage('lwcDeployPrerequisitesMissing', [missingPrerequisites.join(' ')]));
+
+    const proceedWithManual = await this.getManualLwcDeploymentConsent();
+
+    if (proceedWithManual) {
+      Logger.log(this.messages.getMessage('manualLwcDeploymentProceeding'));
+      actionItems.push(
+        `${missingPrerequisites.join(' ')}\n${this.messages.getMessage('manualDeploymentSteps', [
+          documentRegistry.manualDeploymentSteps,
+        ])}`
+      );
+      return { autoDeploy: true, authKey: undefined };
+    }
+
+    Logger.error(this.messages.getMessage('npmAndAuthKeyRequired'));
+    process.exit(1);
+  }
+
+  private async getManualLwcDeploymentConsent(): Promise<boolean> {
+    const askWithTimeOut = PromptUtil.askWithTimeOut(this.messages);
+    const validResponse = false;
+
+    while (!validResponse) {
+      try {
+        const resp = await askWithTimeOut(
+          Logger.prompt.bind(Logger),
+          this.messages.getMessage('manualLwcDeploymentPrompt')
+        );
+        const response = typeof resp === 'string' ? resp.trim().toLowerCase() : '';
+
+        if (response === YES_SHORT || response === YES_LONG) {
+          return true;
+        } else if (response === NO_SHORT || response === NO_LONG) {
+          return false;
+        } else {
+          Logger.error(this.messages.getMessage('invalidYesNoResponse'));
+        }
+      } catch (err) {
+        Logger.error(this.messages.getMessage('requestTimedOut'));
+        process.exit(1);
+      }
+    }
+    return false;
   }
 
   // This needs to be behind timeout

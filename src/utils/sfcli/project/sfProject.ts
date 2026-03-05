@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as shell from 'shelljs';
 import { Messages } from '@salesforce/core';
 import { Logger } from '../../logger';
 import { cli } from '../../shell/cli';
@@ -101,6 +102,10 @@ export class sfProject {
       Logger.error(messages.getMessage('deploymentIdNotFound'));
       throw new Error(messages.getMessage('deploymentIdNotFound'));
     }
+  }
+
+  public static isNpmInstalled(): boolean {
+    return !!shell.which('npm');
   }
 
   public static createNPMConfigFile(authKey: string): void {

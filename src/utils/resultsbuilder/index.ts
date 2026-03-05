@@ -33,7 +33,7 @@ import { createFilterGroupParam, createRowDataParam } from '../reportGenerator/r
 import { FileDiffUtil } from '../lwcparser/fileutils/FileDiffUtil';
 import { Logger } from '../logger';
 import { getMigrationHeading } from '../stringUtils';
-import { Constants } from '../constants/stringContants';
+import { Constants, Status } from '../constants/stringContants';
 import { isStandardDataModel, isStandardDataModelWithMetadataAPIEnabled } from '../dataModelService';
 import { CustomLabelMigrationInfo, CustomLabelMigrationReporter } from './CustomLabelMigrationReporter';
 
@@ -56,8 +56,11 @@ export class ResultsBuilder {
 
   private static flexiPageFileSuffix = '.flexipage-meta.xml';
 
-  private static successStatus = ['Ready for migration', 'Complete', 'Successfully migrated'];
-  private static errorStatus = ['Failed', 'Needs manual intervention'];
+  private static successStatus = [Status.ReadyForMigration, Status.Complete, Status.SuccessfullyMigrated];
+  private static errorStatus = [Status.Failed, Status.NeedsManualIntervention];
+
+  /** Set at report generation start; used to show "Manual deployment needed" when deployment failed */
+  private static deploymentFailed = false;
 
   public static async generateReport(
     results: MigratedObject[],
@@ -67,8 +70,11 @@ export class ResultsBuilder {
     messages: Messages<string>,
     actionItems: string[],
     objectsToProcess: string[],
-    migrateOnly: string
+    migrateOnly: string,
+    deploymentFailed = false
   ): Promise<void> {
+    ResultsBuilder.deploymentFailed = deploymentFailed;
+
     fs.mkdirSync(resultsDir, { recursive: true });
     Logger.info(messages.getMessage('generatingComponentReports'));
     for (const result of results) {
@@ -185,11 +191,11 @@ export class ResultsBuilder {
               false,
               undefined,
               undefined,
-              item.status === 'Successfully migrated' ? 'text-success' : 'text-error'
+              item.status === Status.SuccessfullyMigrated ? 'text-success' : 'text-error'
             ),
             createRowDataParam(
               'errors',
-              item.errors ? 'Failed' : 'Has No Errors',
+              item.errors ? Status.Failed : 'Has No Errors',
               false,
               1,
               1,
@@ -282,11 +288,11 @@ export class ResultsBuilder {
         // Handle both old and new data formats
         const labelName = record.name || record.labelName;
         const cloneStatus =
-          record.status === 'Complete'
+          record.status === Status.Complete
             ? 'created'
             : record.status === 'Error'
             ? 'error'
-            : record.status === 'Skipped'
+            : record.status === Status.Skipped
             ? 'duplicate'
             : record.status || 'duplicate';
         const message = record.message || '';
@@ -382,7 +388,9 @@ export class ResultsBuilder {
       total: result.length,
       filterGroups: [
         ...this.getStatusFilterGroup(
-          result.flatMap((item) => item.experienceSiteAssessmentPageInfos.map((page) => page.status))
+          result.flatMap((item) =>
+            item.experienceSiteAssessmentPageInfos.map((page) => this.resolveDisplayStatus(page.status, messages))
+          )
         ),
       ],
       headerGroups: [
@@ -421,7 +429,7 @@ export class ResultsBuilder {
           ],
         },
       ],
-      rows: this.getRowsForExperienceSites(result),
+      rows: this.getRowsForExperienceSites(result, messages),
       props: JSON.stringify({
         recordName: 'Pages',
         rowBased: true,
@@ -453,7 +461,9 @@ export class ResultsBuilder {
       },
       assessmentDate: new Date().toLocaleString(),
       total: result.length,
-      filterGroups: [...this.getStatusFilterGroup(result.map((item) => item.status))],
+      filterGroups: [
+        ...this.getStatusFilterGroup(result.map((item) => this.resolveDisplayStatus(item.status, messages))),
+      ],
       headerGroups: [
         {
           header: [
@@ -499,14 +509,14 @@ export class ResultsBuilder {
           createRowDataParam('path', item.name, false, 1, 1, true, item.path),
           createRowDataParam(
             'status',
-            item.status,
+            this.resolveDisplayStatus(item.status, messages),
             false,
             1,
             1,
             false,
             undefined,
             undefined,
-            item.status === 'Successfully migrated' ? 'text-success' : 'text-error'
+            this.resolveStatusClass(item.status)
           ),
           createRowDataParam(
             'diff',
@@ -547,7 +557,9 @@ export class ResultsBuilder {
       },
       assessmentDate: new Date().toLocaleString(),
       total: result.length,
-      filterGroups: [createFilterGroupParam('Filter by Errors', 'warnings', ['Failed', 'Successfully Completed'])],
+      filterGroups: [
+        createFilterGroupParam('Filter by Errors', 'warnings', [Status.Failed, Status.SuccessfullyCompleted]),
+      ],
       headerGroups: [
         {
           header: [
@@ -621,7 +633,7 @@ export class ResultsBuilder {
           ]),
           createRowDataParam(
             'warnings',
-            item.errors.length > 0 ? 'Failed' : 'Successfully Completed',
+            item.errors.length > 0 ? Status.Failed : Status.SuccessfullyCompleted,
             false,
             1,
             1,
@@ -658,7 +670,11 @@ export class ResultsBuilder {
       },
       assessmentDate: new Date().toLocaleString(),
       total: result.length,
-      filterGroups: [...this.getStatusFilterGroup(result.flatMap((item) => this.getStatusFromErrors(item.errors)))],
+      filterGroups: [
+        ...this.getStatusFilterGroup(
+          result.flatMap((item) => this.resolveDisplayStatus(this.getStatusFromErrors(item.errors), messages))
+        ),
+      ],
       headerGroups: [
         {
           header: [
@@ -695,7 +711,7 @@ export class ResultsBuilder {
           ],
         },
       ],
-      rows: this.getLwcRowsForReport(result),
+      rows: this.getLwcRowsForReport(result, messages),
     };
 
     const reportTemplate = fs.readFileSync(reportTemplateFilePath, 'utf8');
@@ -703,13 +719,19 @@ export class ResultsBuilder {
     fs.writeFileSync(path.join(resultsDir, lwcFileName), html);
   }
 
-  private static getLwcRowsForReport(lwcAssessmentInfos: LWCAssessmentInfo[]): ReportRowParam[] {
+  private static getLwcRowsForReport(
+    lwcAssessmentInfos: LWCAssessmentInfo[],
+    messages: Messages<string>
+  ): ReportRowParam[] {
     const rows: ReportRowParam[] = [];
 
     for (const lwcAssessmentInfo of lwcAssessmentInfos) {
       let showCommon = true;
       const rid = `${this.rowClass}${this.rowId++}`;
       const commonRowSpan = Math.max(1, lwcAssessmentInfo.changeInfos.length);
+      const actualStatus = this.getStatusFromErrors(lwcAssessmentInfo.errors);
+      const displayStatus = this.resolveDisplayStatus(actualStatus, messages);
+      const statusClass = this.resolveStatusClass(actualStatus);
       for (const fileChangeInfo of lwcAssessmentInfo.changeInfos) {
         rows.push({
           rowId: rid,
@@ -719,14 +741,14 @@ export class ResultsBuilder {
                   createRowDataParam('name', lwcAssessmentInfo.name, true, commonRowSpan, 1, false),
                   createRowDataParam(
                     'status',
-                    this.getStatusFromErrors(lwcAssessmentInfo.errors),
+                    displayStatus,
                     false,
                     commonRowSpan,
                     1,
                     false,
                     undefined,
                     undefined,
-                    this.getStatusCssClass(lwcAssessmentInfo.errors)
+                    statusClass
                   ),
                 ]
               : []),
@@ -757,8 +779,8 @@ export class ResultsBuilder {
                   createRowDataParam(
                     'comments',
                     lwcAssessmentInfo.warnings && lwcAssessmentInfo.warnings.length > 0
-                      ? 'Failed'
-                      : 'Successfully Completed',
+                      ? Status.Failed
+                      : Status.SuccessfullyCompleted,
                     false,
                     commonRowSpan,
                     1,
@@ -965,14 +987,14 @@ export class ResultsBuilder {
     let error = 0;
     let skip = 0;
     data.forEach((item) => {
-      if (item.status === 'Successfully migrated') complete++;
-      if (item.status === 'Failed') error++;
-      if (item.status === 'Skipped') skip++;
+      if (item.status === Status.SuccessfullyMigrated) complete++;
+      if (item.status === Status.Failed) error++;
+      if (item.status === Status.Skipped) skip++;
     });
     return [
-      { name: 'Successfully migrated', count: complete, cssClass: 'text-success' },
-      { name: 'Skipped', count: skip, cssClass: 'text-error' },
-      { name: 'Failed', count: error, cssClass: 'text-error' },
+      { name: Status.SuccessfullyMigrated, count: complete, cssClass: 'text-success' },
+      { name: Status.Skipped, count: skip, cssClass: 'text-error' },
+      { name: Status.Failed, count: error, cssClass: 'text-error' },
     ];
   }
 
@@ -990,8 +1012,8 @@ export class ResultsBuilder {
     data.forEach((item) => {
       // Handle both old and new status formats
       const status = item.status || (item as any).cloneStatus;
-      if (status === 'error' || status === 'Error' || status === 'Failed') error++;
-      else if (status === 'duplicate' || status === 'Skipped') duplicate++;
+      if (status === 'error' || status === 'Error' || status === Status.Failed) error++;
+      else if (status === 'duplicate' || status === Status.Skipped) duplicate++;
     });
 
     // Use totalCount if provided, otherwise fall back to data length
@@ -999,9 +1021,9 @@ export class ResultsBuilder {
     const successfullyMigrated = Math.max(0, actualTotal - error - duplicate);
 
     return [
-      { name: 'Successfully migrated', count: successfullyMigrated, cssClass: 'text-success' },
-      { name: 'Failed', count: error, cssClass: 'text-error' },
-      { name: 'Skipped', count: duplicate, cssClass: 'text-warning' },
+      { name: Status.SuccessfullyMigrated, count: successfullyMigrated, cssClass: 'text-success' },
+      { name: Status.Failed, count: error, cssClass: 'text-error' },
+      { name: Status.Skipped, count: duplicate, cssClass: 'text-warning' },
     ];
   }
 
@@ -1015,63 +1037,72 @@ export class ResultsBuilder {
       else error++;
     });
     return [
-      { name: 'Successfully migrated', count: complete, cssClass: 'text-success' },
-      { name: 'Skipped', count: 0, cssClass: 'text-error' },
-      { name: 'Failed', count: error, cssClass: 'text-error' },
+      { name: Status.SuccessfullyMigrated, count: complete, cssClass: 'text-success' },
+      { name: Status.Skipped, count: 0, cssClass: 'text-error' },
+      { name: Status.Failed, count: error, cssClass: 'text-error' },
     ];
+  }
+
+  private static buildStatusSummary(counts: {
+    completed: number;
+    manualDeploymentNeeded: number;
+    skipped: number;
+    failed: number;
+  }): SummaryItemDetailParam[] {
+    const result: SummaryItemDetailParam[] = [
+      { name: Status.SuccessfullyMigrated, count: counts.completed, cssClass: 'text-success' },
+    ];
+    if (counts.manualDeploymentNeeded > 0) {
+      result.push({
+        name: Status.ManualDeploymentNeeded,
+        count: counts.manualDeploymentNeeded,
+        cssClass: 'text-error',
+      });
+    }
+    result.push({ name: Status.Skipped, count: counts.skipped, cssClass: 'text-error' });
+    result.push({ name: Status.Failed, count: counts.failed, cssClass: 'text-error' });
+    return result;
+  }
+
+  private static countStatusesFromItems(statuses: string[]): {
+    completed: number;
+    manualDeploymentNeeded: number;
+    skipped: number;
+    failed: number;
+  } {
+    let completed = 0;
+    let manualDeploymentNeeded = 0;
+    let skipped = 0;
+    let failed = 0;
+    for (const status of statuses) {
+      if (this.isManualDeploymentNeeded(status)) {
+        manualDeploymentNeeded++;
+      } else if (status === Status.SuccessfullyMigrated) {
+        completed++;
+      } else if (status === Status.Skipped) {
+        skipped++;
+      } else {
+        failed++;
+      }
+    }
+    return { completed, manualDeploymentNeeded, skipped, failed };
   }
 
   private static getDifferentStatusDataForFlexipage(data: FlexiPageAssessmentInfo[]): SummaryItemDetailParam[] {
-    let completed = 0;
-    let skipped = 0;
-    let failed = 0;
-    data.forEach((item) => {
-      if (item.status === 'Successfully migrated') completed++;
-      else if (item.status === 'Skipped') skipped++;
-      else failed++;
-    });
-
-    return [
-      { name: 'Successfully migrated', count: completed, cssClass: 'text-success' },
-      { name: 'Skipped', count: skipped, cssClass: 'text-error' },
-      { name: 'Failed', count: failed, cssClass: 'text-error' },
-    ];
+    return this.buildStatusSummary(this.countStatusesFromItems(data.map((item) => item.status)));
   }
 
   private static getDifferentStatusDataForLwc(data: LWCAssessmentInfo[]): SummaryItemDetailParam[] {
-    let completed = 0;
-    let failed = 0;
-    data.forEach((item) => {
-      if (this.getStatusFromErrors(item.errors) === 'Successfully migrated') completed++;
-      else failed++;
-    });
-
-    return [
-      { name: 'Successfully migrated', count: completed, cssClass: 'text-success' },
-      { name: 'Skipped', count: 0, cssClass: 'text-error' },
-      { name: 'Failed', count: failed, cssClass: 'text-error' },
-    ];
+    return this.buildStatusSummary(
+      this.countStatusesFromItems(data.map((item) => this.getStatusFromErrors(item.errors)))
+    );
   }
 
   private static getDifferentStatusDataForExperienceSites(
     data: ExperienceSiteAssessmentInfo[]
   ): SummaryItemDetailParam[] {
-    let completed = 0;
-    let skipped = 0;
-    let failed = 0;
-    data
-      .flatMap((item) => item.experienceSiteAssessmentPageInfos)
-      .forEach((item) => {
-        if (item.status === 'Successfully migrated') completed++;
-        else if (item.status === 'Skipped') skipped++;
-        else failed++;
-      });
-
-    return [
-      { name: 'Successfully migrated', count: completed, cssClass: 'text-success' },
-      { name: 'Skipped', count: skipped, cssClass: 'text-error' },
-      { name: 'Failed', count: failed, cssClass: 'text-error' },
-    ];
+    const statuses = data.flatMap((item) => item.experienceSiteAssessmentPageInfos.map((page) => page.status));
+    return this.buildStatusSummary(this.countStatusesFromItems(statuses));
   }
 
   private static getStatusFilterGroup(statuses: string[]): FilterGroupParam[] {
@@ -1081,17 +1112,30 @@ export class ResultsBuilder {
   }
 
   private static getStatusFromErrors(errors: string[]): string {
-    if (errors && errors.length > 0) return 'Failed';
-    return 'Successfully migrated';
+    if (errors && errors.length > 0) return Status.Failed;
+    return Status.SuccessfullyMigrated;
   }
 
-  private static getStatusCssClass(errors: string[], neutralSuccess = false): string {
-    if (errors && errors.length > 0) return 'text-error';
-    if (neutralSuccess) return '';
-    return 'text-success';
+  /** True when deployment failed but the component was successfully processed locally. */
+  private static isManualDeploymentNeeded(status: string): boolean {
+    return this.deploymentFailed && status === Status.SuccessfullyMigrated;
   }
 
-  private static getRowsForExperienceSites(result: ExperienceSiteAssessmentInfo[]): ReportRowParam[] {
+  /** Returns display status — "Manual deployment needed" when deployment failed, original status otherwise. */
+  private static resolveDisplayStatus(status: string, messages: Messages<string>): string {
+    return this.isManualDeploymentNeeded(status) ? messages.getMessage('manualDeploymentNeeded') : status;
+  }
+
+  /** Returns CSS class — error for manual deployment needed, success/error otherwise. */
+  private static resolveStatusClass(status: string): string {
+    if (this.isManualDeploymentNeeded(status)) return 'text-error';
+    return status === Status.SuccessfullyMigrated ? 'text-success' : 'text-error';
+  }
+
+  private static getRowsForExperienceSites(
+    result: ExperienceSiteAssessmentInfo[],
+    messages: Messages<string>
+  ): ReportRowParam[] {
     const rows: ReportRowParam[] = [];
 
     result.forEach((item) => {
@@ -1100,7 +1144,7 @@ export class ResultsBuilder {
       item.experienceSiteAssessmentPageInfos.forEach((page) => {
         rows.push({
           rowId: rId,
-          data: this.getRowDataForExperienceSites(page, item, showBundleName),
+          data: this.getRowDataForExperienceSites(page, item, showBundleName, messages),
         });
         showBundleName = false;
       });
@@ -1112,8 +1156,11 @@ export class ResultsBuilder {
   private static getRowDataForExperienceSites(
     page: ExperienceSiteAssessmentPageInfo,
     item: ExperienceSiteAssessmentInfo,
-    showBundleName: boolean
+    showBundleName: boolean,
+    messages: Messages<string>
   ): ReportDataParam[] {
+    const displayStatus = this.resolveDisplayStatus(page.status, messages);
+    const statusClass = this.resolveStatusClass(page.status);
     return [
       createRowDataParam(
         'name',
@@ -1128,17 +1175,7 @@ export class ResultsBuilder {
       ),
       createRowDataParam('pageName', page.name, false, 1, 1, false, undefined, undefined),
       createRowDataParam('path', page.name + this.experienceSiteFileSuffix, false, 1, 1, true, page.path),
-      createRowDataParam(
-        'status',
-        page.status,
-        false,
-        1,
-        1,
-        false,
-        undefined,
-        undefined,
-        page.status === 'Successfully migrated' ? 'text-success' : 'text-error'
-      ),
+      createRowDataParam('status', displayStatus, false, 1, 1, false, undefined, undefined, statusClass),
       createRowDataParam(
         'diff',
         page.name + 'diff',

@@ -279,7 +279,13 @@ export default class Migrate extends SfCommand<MigrateResult> {
       messages
     );
     try {
-      generatePackageXml.createOmnistudioDeploymentXml(org.getConnection().version);
+      generatePackageXml.createOmnistudioDeploymentXml(
+        relatedObjectMigrationResult.apexAssessmentInfos,
+        deploymentConfig.autoDeploy && deploymentConfig.authKey ? relatedObjectMigrationResult.lwcAssessmentInfos : [],
+        relatedObjectMigrationResult.experienceSiteAssessmentInfos,
+        relatedObjectMigrationResult.flexipageAssessmentInfos,
+        org.getConnection().version
+      );
     } catch (error) {
       Logger.error(messages.getMessage('unexpectedError'), error);
       Logger.logVerbose(error);

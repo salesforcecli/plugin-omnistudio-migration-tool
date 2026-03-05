@@ -20,20 +20,11 @@ export class generatePackageXml {
     messages: Messages<string>
   ): void {
     fs.rmSync(path.join(process.cwd(), 'package.xml'), { force: true });
-    const apexXml = generatePackageXml.getXmlElementforMembers(this.getApexclasses(apexAssementInfos), 'ApexClass');
-    const lwcXml = generatePackageXml.getXmlElementforMembers(
-      this.getLwcs(lwcAssessmentInfos),
-      'LightningComponentBundle'
-    );
-
-    const expsiteXml = generatePackageXml.getXmlElementforMembers(
-      this.getExperienceSiteXml(experienceSiteAssessmentInfo),
-      'ExperienceBundle'
-    );
-
-    const flexipageXml = generatePackageXml.getXmlElementforMembers(
-      this.getFlexipageXml(flexipageAssessmentInfos),
-      'FlexiPage'
+    const { apexXml, lwcXml, expsiteXml, flexipageXml } = generatePackageXml.getRelatedObjectsXml(
+      apexAssementInfos,
+      lwcAssessmentInfos,
+      experienceSiteAssessmentInfo,
+      flexipageAssessmentInfos
     );
 
     if (!apexXml && !lwcXml && !expsiteXml && !flexipageXml) {
@@ -56,31 +47,47 @@ export class generatePackageXml {
     fs.writeFileSync(filePath, packageXmlContent.trim());
   }
 
-  // Generates OmnistudioDeployment.xml containing all four core OmniStudio metadata types
-  public static createOmnistudioDeploymentXml(version: string): void {
-    const packageXmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+  // Generates OmnistudioDeployment.xml containing OmniStudio components and related objects
+  public static createOmnistudioDeploymentXml(
+    apexAssementInfos: ApexAssessmentInfo[],
+    lwcAssessmentInfos: LWCAssessmentInfo[],
+    experienceSiteAssessmentInfo: ExperienceSiteAssessmentInfo[],
+    flexipageAssessmentInfos: FlexiPageAssessmentInfo[],
+    version: string
+  ): void {
+    fs.rmSync(path.join(process.cwd(), 'OmnistudioDeployment.xml'), { force: true });
+    // Related objects XML
+    const { apexXml, lwcXml, expsiteXml, flexipageXml } = generatePackageXml.getRelatedObjectsXml(
+      apexAssementInfos,
+      lwcAssessmentInfos,
+      experienceSiteAssessmentInfo,
+      flexipageAssessmentInfos
+    );
+
+    // OmniStudio components XML (always included)
+    const omniScriptXml = generatePackageXml.getXmlElementforMembers(['*'], 'OmniScript');
+    const omniUiCardXml = generatePackageXml.getXmlElementforMembers(['*'], 'OmniUiCard');
+    const omniDataTransformXml = generatePackageXml.getXmlElementforMembers(['*'], 'OmniDataTransform');
+    const omniIntegrationProcedureXml = generatePackageXml.getXmlElementforMembers(['*'], 'OmniIntegrationProcedure');
+    const customLabelsXml = generatePackageXml.getXmlElementforMembers(['*'], 'CustomLabels');
+
+    const packageXmlContent = `
+<?xml version="1.0" encoding="UTF-8"?>
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
-    <types>
-        <members>*</members>
-        <name>OmniScript</name>
-    </types>
-    <types>
-        <members>*</members>
-        <name>OmniUiCard</name>
-    </types>
-    <types>
-        <members>*</members>
-        <name>OmniDataTransform</name>
-    </types>
-    <types>
-        <members>*</members>
-        <name>OmniIntegrationProcedure</name>
-    </types>
+      ${apexXml}
+      ${lwcXml}
+      ${expsiteXml}
+      ${flexipageXml}
+      ${omniScriptXml}
+      ${omniUiCardXml}
+      ${omniDataTransformXml}
+      ${omniIntegrationProcedureXml}
+      ${customLabelsXml}
     <version>${version}</version>
 </Package>`;
 
     const filePath = path.join(process.cwd(), 'OmnistudioDeployment.xml');
-    fs.writeFileSync(filePath, packageXmlContent);
+    fs.writeFileSync(filePath, packageXmlContent.trim());
   }
 
   // Backup method without additional types
@@ -99,6 +106,35 @@ export class generatePackageXml {
 
     const filePath = path.join(__dirname, 'backup-package.xml');
     fs.writeFileSync(filePath, packageXmlContent.trim());
+  }
+
+  // Helper method to generate XML for related objects
+  private static getRelatedObjectsXml(
+    apexAssementInfos: ApexAssessmentInfo[],
+    lwcAssessmentInfos: LWCAssessmentInfo[],
+    experienceSiteAssessmentInfo: ExperienceSiteAssessmentInfo[],
+    flexipageAssessmentInfos: FlexiPageAssessmentInfo[]
+  ): {
+    apexXml: string;
+    lwcXml: string;
+    expsiteXml: string;
+    flexipageXml: string;
+  } {
+    const apexXml = generatePackageXml.getXmlElementforMembers(this.getApexclasses(apexAssementInfos), 'ApexClass');
+    const lwcXml = generatePackageXml.getXmlElementforMembers(
+      this.getLwcs(lwcAssessmentInfos),
+      'LightningComponentBundle'
+    );
+    const expsiteXml = generatePackageXml.getXmlElementforMembers(
+      this.getExperienceSiteXml(experienceSiteAssessmentInfo),
+      'ExperienceBundle'
+    );
+    const flexipageXml = generatePackageXml.getXmlElementforMembers(
+      this.getFlexipageXml(flexipageAssessmentInfos),
+      'FlexiPage'
+    );
+
+    return { apexXml, lwcXml, expsiteXml, flexipageXml };
   }
 
   private static getXmlElementforMembers(members: string[], type: string): string {

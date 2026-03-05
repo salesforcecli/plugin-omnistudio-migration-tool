@@ -258,7 +258,7 @@ describe('Clean command', () => {
       // Assert: "Starting assessment" header logged, and the clean-org message logged
       const loggedMessages = loggerLogStub.args.map((args: any[]) => args[0] as string);
       expect(loggedMessages.some((m) => m.includes('Starting assessment'))).to.be.true;
-      expect(loggedMessages.some((m) => m.includes('no records require cleanup'))).to.be.true;
+      expect(loggedMessages.some((m) => m.includes('No records require removal'))).to.be.true;
     });
 
     it('should write one JSON file per component when records are found', async () => {

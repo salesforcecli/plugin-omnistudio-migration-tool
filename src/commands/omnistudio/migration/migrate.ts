@@ -119,6 +119,7 @@ export default class Migrate extends SfCommand<MigrateResult> {
     }
   }
 
+  // eslint-disable-next-line complexity
   public async runMigration(parsedFlags: MigrateFlags, ux: Ux, logger: CoreLogger): Promise<MigrateResult> {
     const migrateOnly = parsedFlags.only || '';
     let allVersions = parsedFlags.allversions || false;
@@ -277,7 +278,12 @@ export default class Migrate extends SfCommand<MigrateResult> {
       org.getConnection().version,
       messages
     );
-    generatePackageXml.createOmnistudioDeploymentXml(org.getConnection().version);
+    try {
+      generatePackageXml.createOmnistudioDeploymentXml(org.getConnection().version);
+    } catch (error) {
+      Logger.error(messages.getMessage('unexpectedError'), error);
+      Logger.logVerbose(error);
+    }
 
     let deploymentFailed = false;
     try {

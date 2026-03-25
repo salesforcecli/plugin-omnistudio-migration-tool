@@ -9,6 +9,8 @@ import sinon = require('sinon');
 import { PreMigrate } from '../../src/migration/premigrate';
 import { Logger } from '../../src/utils/logger';
 import { PromptUtil } from '../../src/utils/promptUtil';
+import { OmniStudioMetadataCleanupService } from '../../src/utils/config/OmniStudioMetadataCleanupService';
+import * as dataModelService from '../../src/utils/dataModelService';
 
 describe('PreMigrate - handleAllVersionsPrerequisites for Standard Data Model', () => {
   let preMigrate: PreMigrate;
@@ -119,6 +121,25 @@ describe('PreMigrate - handleAllVersionsPrerequisites for Standard Data Model', 
       expect(logVerboseStub.called).to.be.false; // No logging since flag was already set
       expect(logErrorStub.called).to.be.false;
       expect(processExitStub.called).to.be.false;
+    });
+  });
+
+  describe('OmniStudio metadata prerequisites', () => {
+    it('should log cleanup required and exit when config tables are not empty', async () => {
+      // Arrange
+      getMessageStub
+        .withArgs('cleanupMetadataTablesRequired')
+        .returns('Omnistudio configuration tables contain records.');
+      sandbox.stub(dataModelService, 'isStandardDataModelWithMetadataAPIEnabled').returns(false);
+      sandbox.stub(preMigrate, 'getOmniStudioMetadataEnableConsent').resolves(true);
+      sandbox.stub(OmniStudioMetadataCleanupService.prototype, 'hasCleanOmniStudioMetadataTables').resolves(false);
+
+      // Act
+      await preMigrate.handleOmnistudioMetadataPrerequisites();
+
+      // Assert
+      expect(logErrorStub.calledWith('Omnistudio configuration tables contain records.')).to.be.true;
+      expect(processExitStub.calledWith(1)).to.be.true;
     });
   });
 });

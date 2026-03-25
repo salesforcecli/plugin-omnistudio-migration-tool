@@ -200,14 +200,8 @@ export class PreMigrate extends BaseMigrationTool {
       Logger.logVerbose(this.messages.getMessage('metadataTablesAlreadyClean'));
       return true;
     }
-
-    const consent = await this.getMetadataCleanupConsent();
-
-    if (!consent) {
-      Logger.error(this.messages.getMessage('metadataCleanupConsentNotGiven'));
-      return false;
-    }
-    return await omniStudioMetadataCleanupService.cleanupOmniStudioMetadataTables();
+    Logger.error(this.messages.getMessage('cleanupMetadataTablesRequired'));
+    return false;
   }
 
   private async checkLwcDeployPrerequisites(
@@ -319,6 +313,8 @@ export class PreMigrate extends BaseMigrationTool {
    *
    * @returns Promise<boolean> - true if user consents, false otherwise
    */
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore TS6133: kept intentionally for future metadata cleanup flow.
   private async getMetadataCleanupConsent(): Promise<boolean> {
     const askWithTimeOut = PromptUtil.askWithTimeOut(this.messages);
     let validResponse = false;

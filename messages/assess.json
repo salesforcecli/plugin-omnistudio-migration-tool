@@ -232,5 +232,5 @@
   "processingNotRequired": "Assessment is not required for orgs on standard data model with the Omnistudio Metadata setting turned on.",
   "skippingTruncation": "Skipping truncation as the org is on standard data model.",
   "loglevelFlagDeprecated": "loglevel is deprecated. Use --verbose instead",
-  "cleanupMetadataTablesRequired": "Omnistudio configuration tables contain records. Manually clean up the tables.\n<a href='https://help.salesforce.com/s/articleView?id=xcloud.os_enable_omnistudio_metadata_api_support.htm&type=5' target='_blank'>Cleanup Metadata Tables</a>"
+  "cleanupMetadataTablesRequired": "Omnistudio configuration tables contain records. Back up your Omnistudio component table data, and manually clean up the Omnistudio configuration tables. <a href='https://help.salesforce.com/s/articleView?id=xcloud.os_enable_omnistudio_metadata_api_support.htm&type=5' target='_blank'>Learn more about cleaning up tables in Salesforce Help</a>"
 }

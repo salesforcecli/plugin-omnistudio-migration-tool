@@ -127,9 +127,16 @@ describe('PreMigrate - handleAllVersionsPrerequisites for Standard Data Model', 
   describe('OmniStudio metadata prerequisites', () => {
     it('should log cleanup required and exit when config tables are not empty', async () => {
       // Arrange
+      const expectedMessage = 'Omnistudio configuration tables contain records.';
+      getMessageStub.withArgs('cleanupMetadataTablesRequired').returns(expectedMessage);
       getMessageStub
-        .withArgs('cleanupMetadataTablesRequired')
-        .returns('Omnistudio configuration tables contain records.');
+        .withArgs('cleanupMetadataTablesHelpUrl')
+        .returns(
+          'https://help.salesforce.com/s/articleView?id=xcloud.os_enable_omnistudio_metadata_api_support.htm&type=5'
+        );
+      getMessageStub
+        .withArgs('cleanupMetadataTablesHelpLinkText')
+        .returns('Learn more about cleaning up tables in Salesforce Help');
       sandbox.stub(dataModelService, 'isStandardDataModelWithMetadataAPIEnabled').returns(false);
       sandbox.stub(preMigrate, 'getOmniStudioMetadataEnableConsent').resolves(true);
       sandbox.stub(OmniStudioMetadataCleanupService.prototype, 'hasCleanOmniStudioMetadataTables').resolves(false);
@@ -137,8 +144,9 @@ describe('PreMigrate - handleAllVersionsPrerequisites for Standard Data Model', 
       // Act
       await preMigrate.handleOmnistudioMetadataPrerequisites();
 
-      // Assert
-      expect(logErrorStub.calledWith('Omnistudio configuration tables contain records.')).to.be.true;
+      // Assert - Logger.error is called with the message + ANSI clickable link appended
+      expect(logErrorStub.calledOnce).to.be.true;
+      expect((logErrorStub.firstCall.args[0] as string).startsWith(expectedMessage)).to.be.true;
       expect(processExitStub.calledWith(1)).to.be.true;
     });
   });

@@ -24,6 +24,7 @@ describe('Cross-Component Dependency Updates Integration Tests', () => {
       hasValidNamespace: true,
       isFoundationPackage: false,
       isOmnistudioMetadataAPIEnabled: false,
+      isDRVersioningEnabled: false,
     };
     initializeDataModelService(mockOrgDetails);
 

@@ -17,6 +17,7 @@ describe('NameMappingRegistry', () => {
       hasValidNamespace: true,
       isFoundationPackage: false,
       isOmnistudioMetadataAPIEnabled: false,
+      isDRVersioningEnabled: false,
     };
     initializeDataModelService(mockOrgDetails);
 
@@ -337,6 +338,7 @@ describe('NameMappingRegistry', () => {
         hasValidNamespace: false,
         isFoundationPackage: false,
         isOmnistudioMetadataAPIEnabled: false,
+        isDRVersioningEnabled: false,
       };
       initializeDataModelService(mockStandardOrgDetails);
 

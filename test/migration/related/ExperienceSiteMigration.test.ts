@@ -93,6 +93,7 @@ describe('ExperienceSiteMigration', () => {
       hasValidNamespace: true,
       isFoundationPackage: false,
       isOmnistudioMetadataAPIEnabled: false,
+      isDRVersioningEnabled: false,
     };
     initializeDataModelService(mockOrgDetails);
 
@@ -764,6 +765,7 @@ describe('ExperienceSiteMigration', () => {
         hasValidNamespace: true,
         isFoundationPackage: false,
         isOmnistudioMetadataAPIEnabled: false,
+        isDRVersioningEnabled: false,
       };
       initializeDataModelService(mockOrgDetails);
 

@@ -1,8 +1,10 @@
 /* eslint-disable */
 import { AnyJson } from '@salesforce/ts-types';
+import { Connection, Messages } from '@salesforce/core';
+import { Ux } from '@salesforce/sf-plugins-core';
 import DRBundleMappings from '../mappings/DRBundle';
 import DRMapItemMappings from '../mappings/DRMapItem';
-import { DebugTimer, oldNew, QueryTools } from '../utils';
+import { DebugTimer, oldNew, QueryTools, SortDirection } from '../utils';
 import { NetUtils } from '../utils/net';
 import { BaseMigrationTool } from './base';
 import {
@@ -24,7 +26,11 @@ import { StringVal } from '../utils/StringValue/stringval';
 import { Logger } from '../utils/logger';
 import { createProgressBar } from './base';
 import { Constants } from '../utils/constants/stringContants';
-import { isStandardDataModel, isStandardDataModelWithMetadataAPIEnabled } from '../utils/dataModelService';
+import {
+  isDRVersioningEnabled,
+  isStandardDataModel,
+  isStandardDataModelWithMetadataAPIEnabled,
+} from '../utils/dataModelService';
 import { prioritizeCleanNamesFirst } from '../utils/recordPrioritization';
 
 export class DataRaptorMigrationTool extends BaseMigrationTool implements MigrationTool {
@@ -34,6 +40,27 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
   static readonly OMNIDATATRANSFORM_NAME = 'OmniDataTransform';
   static readonly OMNIDATATRANSFORMITEM_NAME = 'OmniDataTransformItem';
   private IS_STANDARD_DATA_MODEL: boolean = isStandardDataModel();
+  private readonly allVersions: boolean;
+
+  public constructor(
+    namespace: string,
+    connection: Connection,
+    logger: Logger,
+    messages: Messages<string>,
+    ux: Ux,
+    allVersions: boolean = false
+  ) {
+    super(namespace, connection, logger, messages, ux);
+    this.allVersions = allVersions;
+  }
+
+  // DR Versioning is a standard-data-model-only feature on the platform side
+  // (PlatformObjectMappings.cls: bOmniStudio && OmniInteractionConfigPtc.isOmniStudioDrVersionOrgPrefSet()).
+  // The custom-side `DRBundle__c` doesn't have IsActive__c / Version__c fields, so we must require
+  // standard DM in addition to the org pref before activating any version-aware behavior.
+  private isVersioningActive(): boolean {
+    return this.IS_STANDARD_DATA_MODEL && isDRVersioningEnabled();
+  }
 
   getName(): string {
     return 'Data Mappers';
@@ -176,8 +203,15 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
       // Transform the data raptor
       const transformedDataRaptor = this.mapDataRaptorRecord(dr);
 
+      // When migrating all versions of a versioned org, multiple bundles legitimately share the same
+      // Name; dedup by Name+Version so different versions don't collide with each other.
+      const dupKey =
+        this.isVersioningActive() && this.allVersions
+          ? `${transformedDataRaptor['Name'].toLowerCase()}|${transformedDataRaptor['VersionNumber'] ?? ''}`
+          : transformedDataRaptor['Name'].toLowerCase();
+
       // Verify duplicated names before trying to submitt
-      if (duplicatedNames.has(transformedDataRaptor['Name'].toLowerCase())) {
+      if (duplicatedNames.has(dupKey)) {
         this.setRecordErrors(dr, this.messages.getMessage('duplicatedDrName', [transformedDataRaptor['Name']]));
         originalDrRecords.set(recordId, dr);
         continue;
@@ -226,9 +260,9 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
       if (drUploadResponse && drUploadResponse.success === true) {
         // Append the processed DM name into duplicateNames Map
         const dataMapperName = transformedDataRaptor[DRBundleMappings.Name];
-        duplicatedNames.add(dataMapperName.toLowerCase());
+        duplicatedNames.add(dupKey);
 
-        const items = await this.getItemsForDataRaptor(dataRaptorItemsData, name, drUploadResponse.id);
+        const items = await this.getItemsForDataRaptor(dataRaptorItemsData, name, drUploadResponse.id, recordId);
         drUploadResponse.newName = dataMapperName;
 
         // Move the items
@@ -285,14 +319,19 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
   }
 
   private async getAllDRToItemsMap(): Promise<Map<string, AnyJson[]>> {
+    // When DR Versioning is on (standard DM only), multiple bundles share the same Name, so key
+    // items by parent ID instead of Name to avoid attaching items to the wrong version.
+    const useParentId = this.isVersioningActive();
+    const parentIdField = useParentId ? this.getItemFieldKey('OmniDataTransformationId__c') : '';
     const drToItemsMap = new Map<string, AnyJson[]>();
     const drItems = await this.getAllItems();
     for (const drItem of drItems) {
-      const drName = drItem['Name'];
-      if (drToItemsMap.has(drName)) {
-        drToItemsMap.get(drName).push(drItem);
+      const key = useParentId ? (drItem[parentIdField] as string) : (drItem['Name'] as string);
+      if (!key) continue;
+      if (drToItemsMap.has(key)) {
+        drToItemsMap.get(key).push(drItem);
       } else {
-        drToItemsMap.set(drName, [drItem]);
+        drToItemsMap.set(key, [drItem]);
       }
     }
     return drToItemsMap;
@@ -374,6 +413,9 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
     functionDefinitionMetadata: AnyJson[]
   ): Promise<DataRaptorAssessmentInfo> {
     const drName = dataRaptor['Name'];
+    const versioningOn = this.isVersioningActive();
+    const drVersion = versioningOn ? (dataRaptor[this.getBundleFieldKey('Version__c')] as number) : undefined;
+    const drIsActive = versioningOn ? Boolean(dataRaptor[this.getBundleFieldKey('IsActive__c')]) : undefined;
     // Await here since processOSComponents is now async
     Logger.info(this.messages.getMessage('processingDataRaptor', [drName]));
     const warnings: string[] = [];
@@ -398,11 +440,17 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
       assessmentStatus = 'Needs manual intervention';
     }
 
-    if (existingDataRaptorNames.has(existingDRNameVal.cleanName().toLowerCase())) {
+    // When migrating all versions, dedup by Name+Version so the same DR's other versions don't trip
+    // the duplicate-name warning. Otherwise dedup by Name as before.
+    const dedupKey =
+      versioningOn && this.allVersions
+        ? `${existingDRNameVal.cleanName().toLowerCase()}|${drVersion ?? ''}`
+        : existingDRNameVal.cleanName().toLowerCase();
+    if (existingDataRaptorNames.has(dedupKey)) {
       warnings.push(this.messages.getMessage('duplicatedName') + '  ' + existingDRNameVal.cleanName());
       assessmentStatus = 'Needs manual intervention';
     } else {
-      existingDataRaptorNames.add(existingDRNameVal.cleanName().toLowerCase());
+      existingDataRaptorNames.add(dedupKey);
     }
     const apexDependencies = [];
     if (dataRaptor[this.getBundleFieldKey('CustomInputClass__c')]) {
@@ -413,7 +461,8 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
     }
 
     const formulaChanges: oldNew[] = [];
-    const drItems = dataRaptorItemsMap.get(drName);
+    const itemsKey = versioningOn ? (dataRaptor['Id'] as string) : drName;
+    const drItems = dataRaptorItemsMap.get(itemsKey);
     if (drItems) {
       for (const drItem of drItems) {
         const formula = drItem[this.getItemFieldKey('Formula__c')];
@@ -445,23 +494,58 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
       errors: [],
       migrationStatus: assessmentStatus,
     };
+    if (versioningOn) {
+      dataRaptorAssessmentInfo.version = drVersion;
+      dataRaptorAssessmentInfo.isActive = drIsActive;
+    }
     return dataRaptorAssessmentInfo;
   }
 
   // Get All DRBundle__c records
   private async getAllDataRaptors(): Promise<AnyJson[]> {
-    //DebugTimer.getInstance().lap('Query DRBundle');
-    const dataRaptors = await QueryTools.queryAll(
-      this.connection,
-      this.getQueryNamespace(),
-      this.getBundleObjectName(),
-      this.getDRBundleFields()
-    ).catch((err) => {
+    const onInvalidType = (err: any) => {
       if (err.errorCode === 'INVALID_TYPE') {
         throw new InvalidEntityTypeError(`${this.getBundleObjectName()} type is not found under this namespace`);
       }
       throw err;
-    });
+    };
+
+    let dataRaptors: AnyJson[];
+    if (!this.isVersioningActive()) {
+      // Versioning not active (custom DM, or org pref off) — single row per Name; legacy unchanged.
+      dataRaptors = await QueryTools.queryAll(
+        this.connection,
+        this.getQueryNamespace(),
+        this.getBundleObjectName(),
+        this.getDRBundleFields()
+      ).catch(onInvalidType);
+    } else if (this.allVersions) {
+      // Org pref on + --allversions — migrate all versions.
+      Logger.info(this.messages.getMessage('allVersionsInfo', [this.allVersions]));
+      const sortFields = [
+        { field: this.getBundleFieldKey('Name'), direction: SortDirection.ASC },
+        { field: this.getBundleFieldKey('Version__c'), direction: SortDirection.ASC },
+      ];
+      dataRaptors = await QueryTools.queryWithFilterAndSort(
+        this.connection,
+        this.getQueryNamespace(),
+        this.getBundleObjectName(),
+        this.getDRBundleFields(),
+        new Map(),
+        sortFields
+      ).catch(onInvalidType);
+    } else {
+      // Org pref on + no --allversions — active version only (parity with OS/IP).
+      const filters = new Map<string, any>();
+      filters.set(this.getBundleFieldKey('IsActive__c'), true);
+      dataRaptors = await QueryTools.queryWithFilter(
+        this.connection,
+        this.getQueryNamespace(),
+        this.getBundleObjectName(),
+        this.getDRBundleFields(),
+        filters
+      ).catch(onInvalidType);
+    }
 
     // Apply prioritization only for standard data model
     if (this.IS_STANDARD_DATA_MODEL) {
@@ -503,16 +587,22 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
   private async getItemsForDataRaptor(
     dataRaptorItems: AnyJson[],
     drName: string,
-    drId: string
+    drId: string,
+    sourceParentId?: string
   ): Promise<TransformData> {
     //Query all Elements
     const mappedRecords = [];
     const originalRecords = new Map<string, AnyJson>();
 
+    // When DR Versioning is active (standard DM only), multiple bundles share the same Name, so
+    // match items by source parent ID to avoid attaching items to the wrong version.
+    const useParentId = this.isVersioningActive() && !!sourceParentId;
+    const parentIdField = useParentId ? this.getItemFieldKey('OmniDataTransformationId__c') : '';
+
     dataRaptorItems.forEach((drItem) => {
       const recordId = drItem['Id'];
-      // const itemParentId = drItem[nsPrefix + 'OmniDataTransformationId__c']
-      if (drItem['Name'] === drName) {
+      const matched = useParentId ? drItem[parentIdField] === sourceParentId : drItem['Name'] === drName;
+      if (matched) {
         mappedRecords.push(this.mapDataRaptorItemData(drItem, drId));
       }
 
@@ -549,7 +639,12 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
     }
 
     mappedObject['Name'] = this.cleanName(mappedObject['Name']);
-    mappedObject['IsActive'] = true;
+    // When DR Versioning is active (standard DM + org pref), mirror source IsActive so only the
+    // truly active version stays active in the target. Otherwise keep the legacy default of true
+    // (custom-side DRBundle__c may not populate IsActive).
+    mappedObject['IsActive'] = this.isVersioningActive()
+      ? Boolean(dataRaptorRecord[this.getBundleFieldKey('IsActive__c')])
+      : true;
 
     // BATCH framework requires that each record has an "attributes" property
     mappedObject['attributes'] = {
@@ -599,13 +694,21 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
   }
 
   private getDRBundleFields(): string[] {
-    return this.IS_STANDARD_DATA_MODEL ? Object.values(DRBundleMappings) : Object.keys(DRBundleMappings);
+    if (this.IS_STANDARD_DATA_MODEL) {
+      return Object.values(DRBundleMappings);
+    }
+    // On custom data model, exclude versioning fields (Version__c, IsActive__c) — they don't exist
+    // on vlocity_cmt__DRBundle__c.
+    return Object.keys(DRBundleMappings).filter((k) => k !== 'Version__c' && k !== 'IsActive__c');
   }
 
   private getDRMapItemFields(): string[] {
-    return this.IS_STANDARD_DATA_MODEL
-      ? [...new Set(Object.values(DRMapItemMappings))]
-      : Object.keys(DRMapItemMappings);
+    if (this.IS_STANDARD_DATA_MODEL) {
+      return [...new Set(Object.values(DRMapItemMappings))];
+    }
+    // On custom data model, exclude OmniDataTransformationId__c — it doesn't exist on
+    // vlocity_cmt__DRMapItem__c (parent linkage there is by Name).
+    return Object.keys(DRMapItemMappings).filter((k) => k !== 'OmniDataTransformationId__c');
   }
 
   private getBundleFieldKey(fieldName: string): string {

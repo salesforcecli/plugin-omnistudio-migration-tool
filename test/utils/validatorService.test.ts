@@ -389,94 +389,6 @@ describe('ValidatorService', () => {
     });
   });
 
-  describe('validateDrVersioningDisabled', () => {
-    it('should return true when DR versioning is disabled', async () => {
-      // Arrange
-      const orgs: OmnistudioOrgDetails = {
-        hasValidNamespace: true,
-        packageDetails: { namespace: 'TestNamespace' },
-        omniStudioOrgPermissionEnabled: false,
-        isFoundationPackage: false,
-      } as OmnistudioOrgDetails;
-      const queryResult = {
-        records: [{ total: '5' }],
-      };
-      (connection.query as sinon.SinonStub).resolves(queryResult);
-      sandbox.stub(OrgPreferences, 'checkDRVersioning').resolves(false);
-      (messages.getMessage as sinon.SinonStub)
-        .withArgs('validatingDrVersioningDisabled')
-        .returns('Validating DR versioning disabled');
-      (messages.getMessage as sinon.SinonStub).withArgs('drVersioningDisabled').returns('DR versioning is disabled');
-      const validator = new ValidatorService(orgs, messages, connection);
-
-      // Act
-      const result = await validator.validate();
-
-      // Assert
-      expect(result).to.be.true;
-      expect(loggerLogVerboseStub.calledWith('Validating DR versioning disabled')).to.be.true;
-      expect(loggerLogVerboseStub.calledWith('DR versioning is disabled')).to.be.true;
-    });
-
-    it('should return false when DR versioning is enabled', async () => {
-      // Arrange
-      const orgs: OmnistudioOrgDetails = {
-        hasValidNamespace: true,
-        packageDetails: { namespace: 'TestNamespace' },
-        omniStudioOrgPermissionEnabled: false,
-        isFoundationPackage: false,
-      } as OmnistudioOrgDetails;
-      const queryResult = {
-        records: [{ total: '5' }],
-      };
-      (connection.query as sinon.SinonStub).resolves(queryResult);
-      sandbox.stub(OrgPreferences, 'checkDRVersioning').resolves(true);
-      (messages.getMessage as sinon.SinonStub)
-        .withArgs('validatingDrVersioningDisabled')
-        .returns('Validating DR versioning disabled');
-      (messages.getMessage as sinon.SinonStub).withArgs('drVersioningEnabled').returns('DR versioning is enabled');
-      const validator = new ValidatorService(orgs, messages, connection);
-
-      // Act
-      const result = await validator.validate();
-
-      // Assert
-      expect(result).to.be.false;
-      expect(loggerLogVerboseStub.calledWith('Validating DR versioning disabled')).to.be.true;
-      expect(loggerErrorStub.calledWith('DR versioning is enabled')).to.be.true;
-    });
-
-    it('should return false when DR versioning check throws error', async () => {
-      // Arrange
-      const orgs: OmnistudioOrgDetails = {
-        hasValidNamespace: true,
-        packageDetails: { namespace: 'TestNamespace' },
-        omniStudioOrgPermissionEnabled: false,
-        isFoundationPackage: false,
-      } as OmnistudioOrgDetails;
-      const queryResult = {
-        records: [{ total: '5' }],
-      };
-      (connection.query as sinon.SinonStub).resolves(queryResult);
-      sandbox.stub(OrgPreferences, 'checkDRVersioning').rejects(new Error('Connection failed'));
-      (messages.getMessage as sinon.SinonStub)
-        .withArgs('validatingDrVersioningDisabled')
-        .returns('Validating DR versioning disabled');
-      (messages.getMessage as sinon.SinonStub)
-        .withArgs('errorValidatingDrVersioning')
-        .returns('Error validating DR versioning');
-      const validator = new ValidatorService(orgs, messages, connection);
-
-      // Act
-      const result = await validator.validate();
-
-      // Assert
-      expect(result).to.be.false;
-      expect(loggerLogVerboseStub.calledWith('Validating DR versioning disabled')).to.be.true;
-      expect(loggerErrorStub.calledWith('Error validating DR versioning')).to.be.true;
-    });
-  });
-
   describe('validateOmniInteractionConfig', () => {
     it('should return true when totalSize is 1 and DeveloperName is TheFirstInstalledOmniPackage with foundation package', async () => {
       // Arrange
@@ -1115,34 +1027,6 @@ describe('ValidatorService', () => {
       expect(result).to.be.false; // Should fail because namespace validation now returns false
       expect(loggerErrorStub.calledOnce).to.be.true; // Error should be logged
     });
-
-    it('should return false when DR versioning validation fails', async () => {
-      // Arrange
-      const orgs: OmnistudioOrgDetails = {
-        hasValidNamespace: true,
-        packageDetails: { namespace: 'TestNamespace' },
-        omniStudioOrgPermissionEnabled: false,
-        isFoundationPackage: false,
-      } as OmnistudioOrgDetails;
-      const queryResult = {
-        records: [{ total: '5' }],
-      };
-      (connection.query as sinon.SinonStub).resolves(queryResult);
-      sandbox.stub(OrgPreferences, 'checkDRVersioning').resolves(true);
-      (messages.getMessage as sinon.SinonStub)
-        .withArgs('validatingDrVersioningDisabled')
-        .returns('Validating DR versioning disabled');
-      (messages.getMessage as sinon.SinonStub).withArgs('drVersioningEnabled').returns('DR versioning is enabled');
-      const validator = new ValidatorService(orgs, messages, connection);
-
-      // Act
-      const result = await validator.validate();
-
-      // Assert
-      expect(result).to.be.false;
-      expect(loggerErrorStub.calledOnce).to.be.true;
-      expect(loggerErrorStub.firstCall.args[0]).to.equal('DR versioning is enabled');
-    });
   });
 
   describe('validate with isAssessment parameter', () => {
@@ -1344,31 +1228,6 @@ describe('ValidatorService', () => {
       expect(result).to.be.false; // Should still fail basic validation
       expect(loggerErrorStub.calledOnce).to.be.true;
       expect(loggerErrorStub.firstCall.args[0]).to.equal("Org doesn't have Omnistudio namespace(s) configured");
-    });
-
-    it('should still check DR versioning in assessment mode', async () => {
-      // Arrange
-      const orgs: OmnistudioOrgDetails = {
-        hasValidNamespace: true,
-        packageDetails: { namespace: 'TestNamespace' },
-        omniStudioOrgPermissionEnabled: false,
-        isFoundationPackage: false,
-      } as OmnistudioOrgDetails;
-      sandbox.stub(OrgPreferences, 'checkDRVersioning').resolves(true); // DR versioning enabled
-      (messages.getMessage as sinon.SinonStub)
-        .withArgs('validatingDrVersioningDisabled')
-        .returns('Validating DR versioning disabled');
-      (messages.getMessage as sinon.SinonStub).withArgs('drVersioningEnabled').returns('DR versioning is enabled');
-      isStandardDataModelStub.returns(false); // Custom data model
-      const validator = new ValidatorService(orgs, messages, connection);
-
-      // Act
-      const result = await validator.validate(true); // isAssessment = true
-
-      // Assert
-      expect(result).to.be.false; // Should fail DR versioning check
-      expect(loggerErrorStub.calledOnce).to.be.true;
-      expect(loggerErrorStub.firstCall.args[0]).to.equal('DR versioning is enabled');
     });
   });
 });

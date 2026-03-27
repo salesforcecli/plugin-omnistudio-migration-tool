@@ -20,16 +20,24 @@ export class PreMigrate extends BaseMigrationTool {
   }
 
   /**
-   * Ensures all versions are processed when on standard data model.
+   * Ensures all versions are processed.
    * If the -a flag was not provided, prompts user for consent.
    *
    * @param allVersionsFlagFromCLI - The allVersions flag value from CLI (-a flag)
+   * @param trigger - Why consent is being requested. 'standard-data-model' is the legacy flow;
+   * 'dr-versioning' is used when DR Versioning is enabled (custom data model included).
    * @returns true if all versions should be processed, false otherwise
    */
-  public async handleAllVersionsPrerequisites(allVersionsFlagFromCLI: boolean): Promise<boolean> {
+  public async handleAllVersionsPrerequisites(
+    allVersionsFlagFromCLI: boolean,
+    trigger: 'standard-data-model' | 'dr-versioning' = 'standard-data-model'
+  ): Promise<boolean> {
     if (allVersionsFlagFromCLI === false) {
-      // Get user consent to process allversions of OmniStudio components for standard data model migration
-      const omniStudioProcessAllVersionsConsent = await this.getOmnistudioProcessAllVersionsConsent();
+      const promptKey =
+        trigger === 'dr-versioning'
+          ? 'drVersioningAllVersionsProcessingConsent'
+          : 'omniStudioAllVersionsProcessingConsent';
+      const omniStudioProcessAllVersionsConsent = await this.getOmnistudioProcessAllVersionsConsent(promptKey);
       if (!omniStudioProcessAllVersionsConsent) {
         Logger.error(this.messages.getMessage('omniStudioAllVersionsProcessingConsentNotGiven'));
         process.exit(1);
@@ -353,17 +361,16 @@ export class PreMigrate extends BaseMigrationTool {
    *
    * @returns Promise<boolean> - true if user consents, false otherwise
    */
-  private async getOmnistudioProcessAllVersionsConsent(): Promise<boolean> {
+  private async getOmnistudioProcessAllVersionsConsent(
+    promptMessageKey = 'omniStudioAllVersionsProcessingConsent'
+  ): Promise<boolean> {
     const askWithTimeOut = PromptUtil.askWithTimeOut(this.messages);
     let validResponse = false;
     let consent = false;
 
     while (!validResponse) {
       try {
-        const resp = await askWithTimeOut(
-          Logger.prompt.bind(Logger),
-          this.messages.getMessage('omniStudioAllVersionsProcessingConsent')
-        );
+        const resp = await askWithTimeOut(Logger.prompt.bind(Logger), this.messages.getMessage(promptMessageKey));
         const response = typeof resp === 'string' ? resp.trim().toLowerCase() : '';
 
         if (response === YES_SHORT || response === YES_LONG) {

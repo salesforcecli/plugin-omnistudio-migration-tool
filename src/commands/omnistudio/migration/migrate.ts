@@ -34,6 +34,7 @@ import { GlobalAutoNumberMigrationTool } from '../../../migration/globalautonumb
 import {
   getFieldKeyForOmniscript,
   initializeDataModelService,
+  isDRVersioningEnabled,
   isFoundationPackage,
   isStandardDataModel,
   isStandardDataModelWithMetadataAPIEnabled,
@@ -176,9 +177,13 @@ export default class Migrate extends SfCommand<MigrateResult> {
     if (isStandardDataModel()) {
       if (!isStandardDataModelWithMetadataAPIEnabled()) {
         // Only if metadata API is off we need the allVersions Consent and Omnistudio Metadata Cleanup
-        allVersions = await preMigrate.handleAllVersionsPrerequisites(allVersions);
+        allVersions = await preMigrate.handleAllVersionsPrerequisites(allVersions, 'standard-data-model');
         await preMigrate.handleOmnistudioMetadataPrerequisites();
       }
+    } else if (isDRVersioningEnabled()) {
+      // Even on custom data model, prompt for all-versions consent when DR Versioning is on,
+      // so multi-version Data Mappers aren't silently dropped.
+      allVersions = await preMigrate.handleAllVersionsPrerequisites(allVersions, 'dr-versioning');
     }
 
     let actionItems = [];
@@ -567,7 +572,7 @@ export default class Migrate extends SfCommand<MigrateResult> {
   ): MigrationTool[] {
     if (!migrateOnly) {
       migrationObjects = [
-        new DataRaptorMigrationTool(namespace, conn, logger, messages, ux),
+        new DataRaptorMigrationTool(namespace, conn, logger, messages, ux, allVersions),
         // Integration Procedure
         new OmniScriptMigrationTool(OmniScriptExportType.IP, namespace, conn, logger, messages, ux, allVersions),
         // OmniScript
@@ -596,7 +601,7 @@ export default class Migrate extends SfCommand<MigrateResult> {
           migrationObjects.push(new CardMigrationTool(namespace, conn, logger, messages, ux, allVersions));
           break;
         case Constants.DataMapper:
-          migrationObjects.push(new DataRaptorMigrationTool(namespace, conn, logger, messages, ux));
+          migrationObjects.push(new DataRaptorMigrationTool(namespace, conn, logger, messages, ux, allVersions));
           break;
         case Constants.GlobalAutoNumber:
           if (isFoundationPackage()) {

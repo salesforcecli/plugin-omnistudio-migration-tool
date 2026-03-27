@@ -61,6 +61,7 @@ describe('FlexipageAssessmentReporter', () => {
         hasValidNamespace: true,
         isFoundationPackage: false,
         isOmnistudioMetadataAPIEnabled: false,
+        isDRVersioningEnabled: false,
       };
 
       // Act
@@ -94,6 +95,7 @@ describe('FlexipageAssessmentReporter', () => {
         hasValidNamespace: true,
         isFoundationPackage: false,
         isOmnistudioMetadataAPIEnabled: false,
+        isDRVersioningEnabled: false,
       };
 
       // Act
@@ -120,6 +122,7 @@ describe('FlexipageAssessmentReporter', () => {
         hasValidNamespace: true,
         isFoundationPackage: false,
         isOmnistudioMetadataAPIEnabled: false,
+        isDRVersioningEnabled: false,
       };
 
       // Act

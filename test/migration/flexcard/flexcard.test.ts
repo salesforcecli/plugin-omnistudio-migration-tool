@@ -27,6 +27,7 @@ describe('FlexCard Community Targets Functionality', () => {
       hasValidNamespace: true,
       isFoundationPackage: false,
       isOmnistudioMetadataAPIEnabled: false,
+      isDRVersioningEnabled: false,
     };
     initializeDataModelService(mockOrgDetails);
 

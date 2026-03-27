@@ -26,6 +26,7 @@ describe('OmniScript Content Processing - Comprehensive Tests', () => {
       hasValidNamespace: true,
       isFoundationPackage: false,
       isOmnistudioMetadataAPIEnabled: false,
+      isDRVersioningEnabled: false,
     };
     initializeDataModelService(mockOrgDetails);
 

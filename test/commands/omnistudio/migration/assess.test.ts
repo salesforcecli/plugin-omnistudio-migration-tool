@@ -63,6 +63,7 @@ describe('Assess Command - Metadata Cleanup Warning', () => {
         hasValidNamespace: true,
         isFoundationPackage: false,
         isOmnistudioMetadataAPIEnabled: false, // Metadata API disabled
+        isDRVersioningEnabled: false,
       };
       initializeDataModelService(mockOrgDetails);
     });
@@ -146,6 +147,7 @@ describe('Assess Command - Metadata Cleanup Warning', () => {
         hasValidNamespace: true,
         isFoundationPackage: false,
         isOmnistudioMetadataAPIEnabled: true, // Metadata API enabled
+        isDRVersioningEnabled: false,
       };
       initializeDataModelService(mockOrgDetails);
     });
@@ -176,6 +178,7 @@ describe('Assess Command - Metadata Cleanup Warning', () => {
         hasValidNamespace: true,
         isFoundationPackage: false,
         isOmnistudioMetadataAPIEnabled: false,
+        isDRVersioningEnabled: false,
       };
       initializeDataModelService(mockOrgDetails);
     });

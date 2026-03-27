@@ -27,6 +27,7 @@ describe('Storage Duplicate Logic - Multiple Versions Handling', () => {
       hasValidNamespace: true,
       isFoundationPackage: false,
       isOmnistudioMetadataAPIEnabled: false,
+      isDRVersioningEnabled: false,
     };
     initializeDataModelService(mockOrgDetails);
 
@@ -858,6 +859,7 @@ describe('Storage Duplicate Logic - Multiple Versions Handling', () => {
         hasValidNamespace: true,
         isFoundationPackage: false,
         isOmnistudioMetadataAPIEnabled: false,
+        isDRVersioningEnabled: false,
       };
       initializeDataModelService(mockStandardOrgDetails);
 

@@ -20,6 +20,7 @@ import { GlobalAutoNumberAssessmentReporter } from '../GlobalAutoNumberAssessmen
 import { FlexipageAssessmentReporter } from '../FlexipageAssessmentReporter';
 import { ExperienceSiteAssessmentReporter } from '../ExperienceSiteAssessmentReporter';
 import { CustomLabelAssessmentReporter } from '../CustomLabelAssessmentReporter';
+import { SaveForLaterAssessmentReporter } from '../SaveForLaterAssessmentReporter';
 
 /**
  * Helper class for assessment report generation
@@ -37,6 +38,7 @@ export class AssessmentReportHelper {
   private static readonly EXPERIENCE_SITE_FILE = 'experience_site_assessment.html';
   private static readonly LWC_FILE = 'lwc_assessment.html';
   private static readonly CUSTOM_LABEL_FILE = 'customlabel_assessment.html';
+  private static readonly SAVE_FOR_LATER_FILE = 'saveforlater_assessment.html';
   private static readonly DASHBOARD_TEMPLATE_NAME = 'dashboard.template';
 
   // =============================================================================
@@ -115,6 +117,10 @@ export class AssessmentReportHelper {
     }
     if (reports.includes(Constants.CustomLabel)) {
       summaryItems.push(this.createCustomLabelSummaryItem(result));
+    }
+    // Save for Later is included when it's in the reports array
+    if (reports.includes('sfl')) {
+      summaryItems.push(this.createSaveForLaterSummaryItem(result, messages));
     }
 
     return summaryItems;
@@ -367,6 +373,36 @@ export class AssessmentReportHelper {
   }
 
   /**
+   * Generates Save for Later assessment document
+   */
+  public static generateSaveForLaterDocument(
+    basePath: string,
+    fileName: string,
+    result: AssessmentInfo,
+    instanceUrl: string,
+    omnistudioOrgDetails: OmnistudioOrgDetails,
+    messages: Messages<string>,
+    template: string
+  ): void {
+    if (isStandardDataModelWithMetadataAPIEnabled()) {
+      return;
+    }
+
+    this.createDocument(
+      path.join(basePath, fileName),
+      TemplateParser.generate(
+        template,
+        SaveForLaterAssessmentReporter.getSaveForLaterAssessmentData(
+          result.saveForLaterAssessmentInfos || [],
+          instanceUrl,
+          omnistudioOrgDetails
+        ),
+        messages
+      )
+    );
+  }
+
+  /**
    * Generates Custom Label assessment document with pagination
    */
   public static generateCustomLabelDocument(
@@ -528,6 +564,23 @@ export class AssessmentReportHelper {
       data: LWCAssessmentReporter.getSummaryData(result.lwcAssessmentInfos),
       file: this.LWC_FILE,
     };
+  }
+
+  private static createSaveForLaterSummaryItem(result: AssessmentInfo, messages: Messages<string>): SummaryItemParam {
+    // Ensure we have an array
+    const saveForLaterData = Array.isArray(result.saveForLaterAssessmentInfos)
+      ? result.saveForLaterAssessmentInfos
+      : result.saveForLaterAssessmentInfos
+      ? [result.saveForLaterAssessmentInfos]
+      : [];
+
+    return this.createSummaryItem(
+      'OmniScript Saved Sessions',
+      saveForLaterData,
+      this.SAVE_FOR_LATER_FILE,
+      SaveForLaterAssessmentReporter,
+      messages.getMessage('processingNotRequired')
+    );
   }
 
   private static createCustomLabelSummaryItem(result: AssessmentInfo): SummaryItemParam {

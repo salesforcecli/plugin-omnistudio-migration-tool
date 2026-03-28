@@ -18,6 +18,7 @@ import { InvalidEntityTypeError, MigrationResult, MigrationTool } from '../../..
 import { ResultsBuilder } from '../../../utils/resultsbuilder';
 import { CardMigrationTool } from '../../../migration/flexcard';
 import { OmniScriptExportType, OmniScriptMigrationTool } from '../../../migration/omniscript';
+import { OmniScriptInstanceMigrationTool } from '../../../migration/omniscriptInstance';
 import { CustomLabelsMigrationTool } from '../../../migration/customLabels';
 import { Logger } from '../../../utils/logger';
 import OmnistudioRelatedObjectMigrationFacade from '../../../migration/related/OmnistudioRelatedObjectMigrationFacade';
@@ -250,6 +251,10 @@ export default class Migrate extends SfCommand<MigrateResult> {
     const relatedObjectMigrationResult = omnistudioRelatedObjectsMigration.migrateAll(objectsToProcess);
 
     // POST MIGRATION
+    // Note: Post migration executeTasks for Omniscript is commented out as per requirements
+    // Post migration tasks (enableDesignersToUseStandardDataModelIfNeeded, enableStandardRuntimeIfNeeded, etc.)
+    // are not executed for OmniScript migration
+    // However, deploy is still executed for related objects
 
     const postMigrate: PostMigrate = new PostMigrate(
       org,
@@ -263,9 +268,10 @@ export default class Migrate extends SfCommand<MigrateResult> {
       projectPath
     );
 
-    if (!migrateOnly) {
-      await postMigrate.executeTasks(namespace, actionItems);
-    }
+    // Commented out post migration tasks for OmniScript as per requirements
+    // if (!migrateOnly) {
+    //   await postMigrate.executeTasks(namespace, actionItems);
+    // }
 
     const migrationActionItems = this.collectActionItems(objectMigrationResults);
     actionItems = [...actionItems, ...migrationActionItems];
@@ -572,6 +578,8 @@ export default class Migrate extends SfCommand<MigrateResult> {
         new OmniScriptMigrationTool(OmniScriptExportType.IP, namespace, conn, logger, messages, ux, allVersions),
         // OmniScript
         new OmniScriptMigrationTool(OmniScriptExportType.OS, namespace, conn, logger, messages, ux, allVersions),
+        // Save for Later (must run after OmniScript migration to use NameMappingRegistry)
+        new OmniScriptInstanceMigrationTool(namespace, conn, logger, messages, ux),
         new CardMigrationTool(namespace, conn, logger, messages, ux, allVersions),
         new CustomLabelsMigrationTool(namespace, conn, logger, messages, ux),
       ];

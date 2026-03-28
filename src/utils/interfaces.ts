@@ -117,6 +117,27 @@ export interface FileProcessor {
   process(file: File, type: string, namespace: string): void;
 }
 
+export interface SaveForLaterAssessmentInfo {
+  id: string;
+  name: string;
+  oldName: string;
+  omniScriptId: string;
+  omniScriptName: string;
+  status: string;
+  lastSaved: string;
+  migrationStatus: 'Ready for migration' | 'Failed' | 'Skipped' | 'Needs manual intervention' | 'Warnings';
+  infos: string[];
+  warnings: string[];
+  errors: string[];
+  omniScriptMigrationStatus?:
+    | 'Ready for migration'
+    | 'Failed'
+    | 'Skipped'
+    | 'Complete'
+    | 'Needs manual intervention'
+    | 'Warnings';
+}
+
 export interface AssessmentInfo {
   apexAssessmentInfos: ApexAssessmentInfo[];
   lwcAssessmentInfos: LWCAssessmentInfo[];
@@ -128,6 +149,7 @@ export interface AssessmentInfo {
   globalAutoNumberAssessmentInfos: GlobalAutoNumberAssessmentInfo[];
   customLabelAssessmentInfos: CustomLabelAssessmentInfo[];
   customLabelStatistics: CustomLabelStatistics;
+  saveForLaterAssessmentInfos: SaveForLaterAssessmentInfo[];
 }
 
 export interface RelatedObjectAssesmentInfo {

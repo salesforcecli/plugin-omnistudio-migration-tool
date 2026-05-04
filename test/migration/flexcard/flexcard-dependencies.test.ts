@@ -680,4 +680,47 @@ describe('FlexCard Dependency Updates with NameMappingRegistry', () => {
       expect(definition.states[0].components.comp1.property.flyoutOmniScript).to.be.undefined;
     });
   });
+
+  describe('ApexRemote Datasource Namespace Qualification', () => {
+    it('should qualify remoteClass with namespace via updateDataSourceWithRegistry', async () => {
+      const { ApexNamespaceRegistry } = await import('../../../src/migration/ApexNamespaceRegistry');
+      const apexRegistry = ApexNamespaceRegistry.getInstance();
+      apexRegistry.clear();
+
+      const mockConn: any = {
+        tooling: {
+          query: () =>
+            Promise.resolve({
+              totalSize: 1,
+              records: [{ Name: 'AccountController', NamespacePrefix: 'vlocity_ins' }],
+            }),
+        },
+      };
+      await apexRegistry.resolve(mockConn, 'AccountController');
+
+      const dataSource = {
+        type: 'ApexRemote',
+        value: { remoteClass: 'AccountController', remoteMethod: 'getData' },
+      };
+
+      (cardTool as any).updateDataSourceWithRegistry(dataSource, new Map(), 'test');
+
+      expect(dataSource.value.remoteClass).to.equal('vlocity_ins.AccountController');
+    });
+
+    it('should not modify remoteClass if already namespace-qualified', async () => {
+      const { ApexNamespaceRegistry } = await import('../../../src/migration/ApexNamespaceRegistry');
+      const apexRegistry = ApexNamespaceRegistry.getInstance();
+      apexRegistry.clear();
+
+      const dataSource = {
+        type: 'ApexRemote',
+        value: { remoteClass: 'vlocity_ins.AccountController', remoteMethod: 'getData' },
+      };
+
+      (cardTool as any).updateDataSourceWithRegistry(dataSource, new Map(), 'test');
+
+      expect(dataSource.value.remoteClass).to.equal('vlocity_ins.AccountController');
+    });
+  });
 });

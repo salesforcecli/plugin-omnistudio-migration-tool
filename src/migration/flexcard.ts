@@ -315,6 +315,13 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 
     this.updateDependencies(flexCard, flexCardAssessmentInfo);
 
+    if (
+      flexCardAssessmentInfo.warnings.length > 0 &&
+      flexCardAssessmentInfo.migrationStatus === 'Ready for migration'
+    ) {
+      flexCardAssessmentInfo.migrationStatus = 'Warnings';
+    }
+
     // Deduplicate all dependency arrays to ensure no duplicates
     flexCardAssessmentInfo.dependenciesIP = [...new Set(flexCardAssessmentInfo.dependenciesIP)];
     flexCardAssessmentInfo.dependenciesDR = [...new Set(flexCardAssessmentInfo.dependenciesDR)];
@@ -357,6 +364,11 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           const qualifiedEntry = `${qualifiedClass}.${remoteMethod}`;
           if (!flexCardAssessmentInfo.dependenciesApexRemoteAction.includes(qualifiedEntry)) {
             flexCardAssessmentInfo.dependenciesApexRemoteAction.push(qualifiedEntry);
+          }
+          if (this.apexNamespaceRegistry.wasNamespaceAdded(remoteClass)) {
+            flexCardAssessmentInfo.warnings.push(
+              this.messages.getMessage('apexRemoteDatasourceNamespaceWarning', [remoteClass, qualifiedClass])
+            );
           }
         }
       }

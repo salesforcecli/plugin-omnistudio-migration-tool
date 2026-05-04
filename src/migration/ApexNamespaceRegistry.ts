@@ -22,10 +22,11 @@ export class ApexNamespaceRegistry {
 
   /**
    * Resolves and caches the namespace for a given class name.
+   * Skips if the className already contains a dot (already namespace-qualified).
    * Call this from any already-async method before using getQualifiedClassName().
    */
   public async resolve(connection: Connection, className: string): Promise<void> {
-    if (!className) return;
+    if (!className || className.includes('.')) return;
     const key = className.toLowerCase();
     if (this.namespaceMap.has(key) || this.notFoundClasses.has(key)) return;
 
@@ -48,13 +49,23 @@ export class ApexNamespaceRegistry {
 
   /**
    * Synchronous lookup. Returns "namespace.className" if namespace exists,
-   * or the original className otherwise. Requires resolve() to have been
-   * called for this className beforehand.
+   * or the original className otherwise. Skips if already namespace-qualified.
+   * Requires resolve() to have been called for this className beforehand.
    */
   public getQualifiedClassName(className: string): string {
-    if (!className) return className;
+    if (!className || className.includes('.')) return className;
     const ns = this.namespaceMap.get(className.toLowerCase());
     return ns ? `${ns}.${className}` : className;
+  }
+
+  /**
+   * Returns true if the className was modified (namespace was prepended).
+   * Useful for adding warnings in assessment reports.
+   */
+  public wasNamespaceAdded(className: string): boolean {
+    if (!className || className.includes('.')) return false;
+    const ns = this.namespaceMap.get(className.toLowerCase());
+    return !!ns;
   }
 
   public clear(): void {

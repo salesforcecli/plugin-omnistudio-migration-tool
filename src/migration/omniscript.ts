@@ -408,6 +408,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     const missingOS: string[] = [];
     const dependenciesRA: nameLocation[] = [];
     const dependenciesLWC: nameLocation[] = [];
+    const namespaceWarnings: string[] = [];
 
     //const missingRA: string[] = [];
 
@@ -504,6 +505,11 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
           await this.apexNamespaceRegistry.resolve(this.connection, className);
           const qualifiedClass = this.apexNamespaceRegistry.getQualifiedClassName(className);
           dependenciesRA.push({ name: qualifiedClass + '.' + methodName, location: nameVal });
+          if (this.apexNamespaceRegistry.wasNamespaceAdded(className)) {
+            namespaceWarnings.push(
+              this.messages.getMessage('remoteActionNamespaceWarning', [nameVal, className, qualifiedClass])
+            );
+          }
         }
       }
       // To handle radio , multiselect
@@ -543,7 +549,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     const existingOmniScriptNameVal = new StringVal(omniScriptName, 'name');
     let assessmentStatus: 'Ready for migration' | 'Warnings' | 'Needs manual intervention' = 'Ready for migration';
 
-    const warnings: string[] = [];
+    const warnings: string[] = [...namespaceWarnings];
     const errors: string[] = [];
 
     // Check for missing mandatory fields for Integration Procedures
@@ -696,6 +702,10 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
         warnings.unshift(this.messages.getMessage('angularOSWarning'));
         assessmentStatus = 'Needs manual intervention';
       }
+    }
+
+    if (namespaceWarnings.length > 0 && assessmentStatus === 'Ready for migration') {
+      assessmentStatus = 'Warnings';
     }
 
     // Deduplicate all dependency arrays to ensure no duplicates

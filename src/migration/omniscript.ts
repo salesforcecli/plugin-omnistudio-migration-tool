@@ -41,11 +41,13 @@ import { StorageUtil } from '../utils/storageUtil';
 import { isStandardDataModel, isStandardDataModelWithMetadataAPIEnabled } from '../utils/dataModelService';
 import { prioritizeCleanNamesFirst } from '../utils/recordPrioritization';
 import { Constants } from '../utils/constants/stringContants';
+import { ApexNamespaceRegistry } from './ApexNamespaceRegistry';
 
 export class OmniScriptMigrationTool extends BaseMigrationTool implements MigrationTool {
   private readonly exportType: OmniScriptExportType;
   private readonly allVersions: boolean;
   private IS_STANDARD_DATA_MODEL: boolean = isStandardDataModel();
+  private readonly apexNamespaceRegistry: ApexNamespaceRegistry = ApexNamespaceRegistry.getInstance();
 
   // Reserved keys that should not be used for storing output
   private readonly reservedKeys = new Set<string>(['Request', 'Response']);
@@ -498,12 +500,21 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
         const nameVal = `${elemName}`;
         const className = propertySet['remoteClass'];
         const methodName = propertySet['remoteMethod'];
-        if (className && methodName) dependenciesRA.push({ name: className + '.' + methodName, location: nameVal });
+        if (className && methodName) {
+          await this.apexNamespaceRegistry.resolve(this.connection, className);
+          const qualifiedClass = this.apexNamespaceRegistry.getQualifiedClassName(className);
+          dependenciesRA.push({ name: qualifiedClass + '.' + methodName, location: nameVal });
+        }
       }
       // To handle radio , multiselect
       if (propertySet['optionSource'] && propertySet['optionSource']['type'] === 'Custom') {
         const nameVal = `${elemName}`;
-        dependenciesRA.push({ name: propertySet['optionSource']['source'], location: nameVal });
+        const source = propertySet['optionSource']['source'];
+        if (source) {
+          await this.apexNamespaceRegistry.resolve(this.connection, source);
+          const qualifiedSource = this.apexNamespaceRegistry.getQualifiedClassName(source);
+          dependenciesRA.push({ name: qualifiedSource, location: nameVal });
+        }
       }
 
       if (type === Constants.CustomLightningWebComponent) {
@@ -933,6 +944,15 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
       // Get All elements for each OmniScript__c record(i.e IP/OS)
       const elements = await this.getAllElementsForOmniScript(recordId);
+
+      // Pre-resolve Apex class namespaces for Remote Action elements so sync lookups work later
+      for (const elem of elements) {
+        const elemType = elem[this.getFieldKey('Type__c')];
+        if (elemType === Constants.RemoteAction) {
+          const ps = JSON.parse(elem[this.getFieldKey('PropertySet__c')] || '{}');
+          if (ps.remoteClass) await this.apexNamespaceRegistry.resolve(this.connection, ps.remoteClass);
+        }
+      }
 
       // Check for duplicate element names within the same OmniScript
       const elementNames = new Set<string>();
@@ -2368,11 +2388,15 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
   }
 
   /**
-   * Processes Remote Action elements to update transform bundle references
+   * Processes Remote Action elements to update transform bundle references and qualify remoteClass with namespace
    * @param propSetMap Property set map from the element
    */
   private processRemoteAction(propSetMap: any): void {
     this.processTransformBundles(propSetMap);
+
+    if (propSetMap.remoteClass) {
+      propSetMap.remoteClass = this.apexNamespaceRegistry.getQualifiedClassName(propSetMap.remoteClass);
+    }
   }
 
   /**

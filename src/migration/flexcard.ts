@@ -23,8 +23,10 @@ import { StorageUtil } from '../utils/storageUtil';
 import { getUpdatedAssessmentStatus } from '../utils/stringUtils';
 import { isStandardDataModel, isStandardDataModelWithMetadataAPIEnabled } from '../utils/dataModelService';
 import { prioritizeCleanNamesFirst } from '../utils/recordPrioritization';
+import { ApexNamespaceRegistry } from './ApexNamespaceRegistry';
 
 export class CardMigrationTool extends BaseMigrationTool implements MigrationTool {
+  private readonly apexNamespaceRegistry: ApexNamespaceRegistry = ApexNamespaceRegistry.getInstance();
   static readonly VLOCITYCARD_NAME = 'VlocityCard__c';
   static readonly OMNIUICARD_NAME = 'OmniUiCard';
   static readonly VERSION_PROP = 'Version__c';
@@ -302,6 +304,15 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     };
 
     flexCardAssessmentInfo.migrationStatus = assessmentStatus;
+
+    // Pre-resolve Apex class namespaces for ApexRemote datasources so sync lookups work
+    const dsConfig = JSON.parse(flexCard[this.getFieldKey('Datasource__c')] || '{}');
+    for (const ds of Object.values(dsConfig) as any[]) {
+      if (ds && ds.type === Constants.ApexRemoteComponentName && ds.value?.remoteClass) {
+        await this.apexNamespaceRegistry.resolve(this.connection, ds.value.remoteClass);
+      }
+    }
+
     this.updateDependencies(flexCard, flexCardAssessmentInfo);
 
     // Deduplicate all dependency arrays to ensure no duplicates
@@ -341,12 +352,12 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       } else if (ds.type === Constants.ApexRemoteComponentName) {
         const remoteClass = ds.value?.remoteClass;
         const remoteMethod = ds.value?.remoteMethod;
-        if (
-          remoteClass &&
-          remoteMethod &&
-          !flexCardAssessmentInfo.dependenciesApexRemoteAction.includes(`${remoteClass}.${remoteMethod}`)
-        ) {
-          flexCardAssessmentInfo.dependenciesApexRemoteAction.push(`${remoteClass}.${remoteMethod}`);
+        if (remoteClass && remoteMethod) {
+          const qualifiedClass = this.apexNamespaceRegistry.getQualifiedClassName(remoteClass);
+          const qualifiedEntry = `${qualifiedClass}.${remoteMethod}`;
+          if (!flexCardAssessmentInfo.dependenciesApexRemoteAction.includes(qualifiedEntry)) {
+            flexCardAssessmentInfo.dependenciesApexRemoteAction.push(qualifiedEntry);
+          }
         }
       }
     }
@@ -929,6 +940,14 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         this.updateChildCards(card);
       }
 
+      // Pre-resolve Apex class namespaces for ApexRemote datasources so sync lookups work during migration
+      const migDsConfig = JSON.parse(card[this.getFieldKey('Datasource__c')] || '{}');
+      for (const ds of Object.values(migDsConfig) as any[]) {
+        if (ds && ds.type === Constants.ApexRemoteComponentName && ds.value?.remoteClass) {
+          await this.apexNamespaceRegistry.resolve(this.connection, ds.value.remoteClass);
+        }
+      }
+
       // Perform the transformation
       const invalidIpNames = new Map<string, string>();
       const transformedCard = this.mapVlocityCardRecord(card, cardsUploadInfo, invalidIpNames); // This only has the card structure, card definition is not there
@@ -1480,6 +1499,10 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         if (parts.length > 2) {
           invalidIpNames.set(context, ipMethod);
         }
+      }
+    } else if (type === Constants.ApexRemoteComponentName) {
+      if (dataSource.value?.remoteClass) {
+        dataSource.value.remoteClass = this.apexNamespaceRegistry.getQualifiedClassName(dataSource.value.remoteClass);
       }
     }
   }

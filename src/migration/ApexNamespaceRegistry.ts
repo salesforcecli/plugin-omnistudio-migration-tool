@@ -8,6 +8,7 @@ import { Logger } from '../utils/logger';
  */
 export class ApexNamespaceRegistry {
   private static instance: ApexNamespaceRegistry;
+  private static readonly VALID_APEX_CLASS_NAME = /^[a-zA-Z][a-zA-Z0-9_]*$/;
 
   // className (lowercase) -> namespacePrefix (empty string if local)
   private namespaceMap: Map<string, string> = new Map();
@@ -27,6 +28,7 @@ export class ApexNamespaceRegistry {
    */
   public async resolve(connection: Connection, className: string): Promise<void> {
     if (!className || className.includes('.')) return;
+    if (!ApexNamespaceRegistry.VALID_APEX_CLASS_NAME.test(className)) return;
     const key = className.toLowerCase();
     if (this.namespaceMap.has(key) || this.notFoundClasses.has(key)) return;
 

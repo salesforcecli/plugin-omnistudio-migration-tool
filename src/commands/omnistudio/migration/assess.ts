@@ -29,6 +29,7 @@ import {
 
 import { ValidatorService } from '../../../utils/validatorService';
 import { OmniStudioMetadataCleanupService } from '../../../utils/config/OmniStudioMetadataCleanupService';
+import { ApexNamespaceRegistry } from '../../../migration/ApexNamespaceRegistry';
 
 Messages.importMessagesDirectory(__dirname);
 const messages = Messages.loadMessages('@salesforce/plugin-omnistudio-migration-tool', 'assess');
@@ -193,6 +194,9 @@ export default class Assess extends SfCommand<AssessmentInfo> {
     Logger.logVerbose(messages.getMessage('allVersionsFlagInfo', [String(allVersions)]));
 
     try {
+      // Initialize ApexNamespaceRegistry with local and namespaced Apex classes
+      await ApexNamespaceRegistry.getInstance().initialize(conn, namespace);
+
       // Assess OmniStudio components
       await this.assessOmniStudioComponents(assesmentInfo, assessOnly, namespace, conn, allVersions, ux);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

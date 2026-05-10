@@ -758,17 +758,18 @@ describe('OmniScript Content Processing - Comprehensive Tests', () => {
       const apexRegistry = ApexNamespaceRegistry.getInstance();
       apexRegistry.clear();
 
-      // Simulate a resolved namespace
       const mockConn: any = {
         tooling: {
-          query: () =>
-            Promise.resolve({
-              totalSize: 1,
-              records: [{ Name: 'LookupController', NamespacePrefix: 'vlocity_ins' }],
-            }),
+          query: (q: string) => {
+            if (q.includes('NamespacePrefix = null')) {
+              return Promise.resolve({ done: true, records: [] });
+            }
+            return Promise.resolve({ done: true, records: [{ Name: 'LookupController' }] });
+          },
+          queryMore: () => Promise.resolve({ done: true, records: [] }),
         },
       };
-      await apexRegistry.resolve(mockConn, 'LookupController');
+      await apexRegistry.initialize(mockConn, 'vlocity_ins');
 
       const propSetMap = {
         remoteClass: 'LookupController',
@@ -787,6 +788,14 @@ describe('OmniScript Content Processing - Comprehensive Tests', () => {
       const apexRegistry = ApexNamespaceRegistry.getInstance();
       apexRegistry.clear();
 
+      const mockConn: any = {
+        tooling: {
+          query: () => Promise.resolve({ done: true, records: [] }),
+          queryMore: () => Promise.resolve({ done: true, records: [] }),
+        },
+      };
+      await apexRegistry.initialize(mockConn, 'vlocity_ins');
+
       const propSetMap = {
         remoteClass: 'vlocity_ins.LookupController',
         remoteMethod: 'getSearchResults',
@@ -797,21 +806,23 @@ describe('OmniScript Content Processing - Comprehensive Tests', () => {
       expect(propSetMap.remoteClass).to.equal('vlocity_ins.LookupController');
     });
 
-    it('should not modify remoteClass if class has no namespace (local)', async () => {
+    it('should not modify remoteClass if class is local', async () => {
       const { ApexNamespaceRegistry } = await import('../../src/migration/ApexNamespaceRegistry');
       const apexRegistry = ApexNamespaceRegistry.getInstance();
       apexRegistry.clear();
 
       const mockConn: any = {
         tooling: {
-          query: () =>
-            Promise.resolve({
-              totalSize: 1,
-              records: [{ Name: 'LocalHelper', NamespacePrefix: null }],
-            }),
+          query: (q: string) => {
+            if (q.includes('NamespacePrefix = null')) {
+              return Promise.resolve({ done: true, records: [{ Name: 'LocalHelper' }] });
+            }
+            return Promise.resolve({ done: true, records: [] });
+          },
+          queryMore: () => Promise.resolve({ done: true, records: [] }),
         },
       };
-      await apexRegistry.resolve(mockConn, 'LocalHelper');
+      await apexRegistry.initialize(mockConn, 'vlocity_ins');
 
       const propSetMap = {
         remoteClass: 'LocalHelper',

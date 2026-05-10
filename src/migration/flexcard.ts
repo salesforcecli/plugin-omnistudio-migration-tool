@@ -23,7 +23,7 @@ import { StorageUtil } from '../utils/storageUtil';
 import { getUpdatedAssessmentStatus } from '../utils/stringUtils';
 import { isStandardDataModel, isStandardDataModelWithMetadataAPIEnabled } from '../utils/dataModelService';
 import { prioritizeCleanNamesFirst } from '../utils/recordPrioritization';
-import { ApexNamespaceRegistry } from './ApexNamespaceRegistry';
+import { ApexNamespaceRegistry, ApexResolveStatus } from './ApexNamespaceRegistry';
 
 export class CardMigrationTool extends BaseMigrationTool implements MigrationTool {
   private readonly apexNamespaceRegistry: ApexNamespaceRegistry = ApexNamespaceRegistry.getInstance();
@@ -305,17 +305,11 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 
     flexCardAssessmentInfo.migrationStatus = assessmentStatus;
 
-    // Pre-resolve Apex class namespaces for ApexRemote datasources so sync lookups work
-    const dsConfig = JSON.parse(flexCard[this.getFieldKey('Datasource__c')] || '{}');
-    for (const ds of Object.values(dsConfig) as any[]) {
-      if (ds && ds.type === Constants.ApexRemoteComponentName && ds.value?.remoteClass) {
-        await this.apexNamespaceRegistry.resolve(this.connection, ds.value.remoteClass);
-      }
-    }
-
     this.updateDependencies(flexCard, flexCardAssessmentInfo);
 
-    if (
+    if (flexCardAssessmentInfo.errors.length > 0) {
+      flexCardAssessmentInfo.migrationStatus = 'Needs manual intervention';
+    } else if (
       flexCardAssessmentInfo.warnings.length > 0 &&
       flexCardAssessmentInfo.migrationStatus === 'Ready for migration'
     ) {
@@ -360,14 +354,19 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         const remoteClass = ds.value?.remoteClass;
         const remoteMethod = ds.value?.remoteMethod;
         if (remoteClass && remoteMethod) {
+          const status = this.apexNamespaceRegistry.resolveStatus(remoteClass);
           const qualifiedClass = this.apexNamespaceRegistry.getQualifiedClassName(remoteClass);
           const qualifiedEntry = `${qualifiedClass}.${remoteMethod}`;
           if (!flexCardAssessmentInfo.dependenciesApexRemoteAction.includes(qualifiedEntry)) {
             flexCardAssessmentInfo.dependenciesApexRemoteAction.push(qualifiedEntry);
           }
-          if (this.apexNamespaceRegistry.wasNamespaceAdded(remoteClass)) {
+          if (status === ApexResolveStatus.NAMESPACED) {
             flexCardAssessmentInfo.warnings.push(
               this.messages.getMessage('apexRemoteDatasourceNamespaceWarning', [remoteClass, qualifiedClass])
+            );
+          } else if (status === ApexResolveStatus.NOT_FOUND) {
+            flexCardAssessmentInfo.errors.push(
+              this.messages.getMessage('apexClassNotFound', [remoteClass, flexCardAssessmentInfo.name])
             );
           }
         }
@@ -950,14 +949,6 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         }
 
         this.updateChildCards(card);
-      }
-
-      // Pre-resolve Apex class namespaces for ApexRemote datasources so sync lookups work during migration
-      const migDsConfig = JSON.parse(card[this.getFieldKey('Datasource__c')] || '{}');
-      for (const ds of Object.values(migDsConfig) as any[]) {
-        if (ds && ds.type === Constants.ApexRemoteComponentName && ds.value?.remoteClass) {
-          await this.apexNamespaceRegistry.resolve(this.connection, ds.value.remoteClass);
-        }
       }
 
       // Perform the transformation

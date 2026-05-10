@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 import { expect } from 'chai';
 import * as sinon from 'sinon';
-import { ApexNamespaceRegistry } from '../../src/migration/ApexNamespaceRegistry';
+import { ApexNamespaceRegistry, ApexResolveStatus } from '../../src/migration/ApexNamespaceRegistry';
 
 describe('ApexNamespaceRegistry', () => {
   let registry: ApexNamespaceRegistry;
@@ -14,125 +14,148 @@ describe('ApexNamespaceRegistry', () => {
     mockConnection = {
       tooling: {
         query: sinon.stub(),
+        queryMore: sinon.stub(),
       },
     };
   });
 
-  describe('resolve', () => {
-    it('should query and cache namespace for a class name', async () => {
-      mockConnection.tooling.query.resolves({
-        totalSize: 1,
-        records: [{ Name: 'MyController', NamespacePrefix: 'vlocity_ins' }],
-      });
+  describe('initialize', () => {
+    it('should load local and namespaced classes', async () => {
+      mockConnection.tooling.query
+        .onFirstCall()
+        .resolves({ done: true, records: [{ Name: 'LocalHelper' }, { Name: 'MyUtil' }] });
+      mockConnection.tooling.query
+        .onSecondCall()
+        .resolves({ done: true, records: [{ Name: 'LookupController' }, { Name: 'DataService' }] });
 
-      await registry.resolve(mockConnection, 'MyController');
+      await registry.initialize(mockConnection, 'vlocity_ins');
 
-      expect(registry.getQualifiedClassName('MyController')).to.equal('vlocity_ins.MyController');
-      expect(mockConnection.tooling.query.calledOnce).to.be.true;
+      expect(registry.resolveStatus('LocalHelper')).to.equal(ApexResolveStatus.LOCAL);
+      expect(registry.resolveStatus('LookupController')).to.equal(ApexResolveStatus.NAMESPACED);
+      expect(registry.resolveStatus('UnknownClass')).to.equal(ApexResolveStatus.NOT_FOUND);
     });
 
-    it('should not query again for an already resolved class', async () => {
-      mockConnection.tooling.query.resolves({
-        totalSize: 1,
-        records: [{ Name: 'MyController', NamespacePrefix: 'vlocity_ins' }],
-      });
+    it('should not re-initialize if already initialized', async () => {
+      mockConnection.tooling.query.resolves({ done: true, records: [] });
 
-      await registry.resolve(mockConnection, 'MyController');
-      await registry.resolve(mockConnection, 'MyController');
+      await registry.initialize(mockConnection, 'vlocity_ins');
+      await registry.initialize(mockConnection, 'vlocity_ins');
 
-      expect(mockConnection.tooling.query.calledOnce).to.be.true;
-    });
-
-    it('should skip resolution if className already contains a dot', async () => {
-      await registry.resolve(mockConnection, 'ns.MyController');
-
-      expect(mockConnection.tooling.query.notCalled).to.be.true;
-    });
-
-    it('should skip resolution for empty className', async () => {
-      await registry.resolve(mockConnection, '');
-
-      expect(mockConnection.tooling.query.notCalled).to.be.true;
-    });
-
-    it('should handle class not found in org', async () => {
-      mockConnection.tooling.query.resolves({ totalSize: 0, records: [] });
-
-      await registry.resolve(mockConnection, 'UnknownClass');
-
-      expect(registry.getQualifiedClassName('UnknownClass')).to.equal('UnknownClass');
+      expect(mockConnection.tooling.query.calledTwice).to.be.true; // 2 calls for first init (local + namespaced)
     });
 
     it('should handle query errors gracefully', async () => {
       mockConnection.tooling.query.rejects(new Error('Connection timeout'));
 
-      await registry.resolve(mockConnection, 'MyController');
+      await registry.initialize(mockConnection, 'vlocity_ins');
 
-      expect(registry.getQualifiedClassName('MyController')).to.equal('MyController');
+      expect(registry.resolveStatus('AnyClass')).to.equal(ApexResolveStatus.NOT_FOUND);
+    });
+
+    it('should handle pagination via queryMore', async () => {
+      mockConnection.tooling.query
+        .onFirstCall()
+        .resolves({ done: false, records: [{ Name: 'ClassA' }], nextRecordsUrl: '/next' });
+      mockConnection.tooling.queryMore.resolves({ done: true, records: [{ Name: 'ClassB' }] });
+      mockConnection.tooling.query.onSecondCall().resolves({ done: true, records: [] });
+
+      await registry.initialize(mockConnection, 'vlocity_ins');
+
+      expect(registry.resolveStatus('ClassA')).to.equal(ApexResolveStatus.LOCAL);
+      expect(registry.resolveStatus('ClassB')).to.equal(ApexResolveStatus.LOCAL);
+    });
+  });
+
+  describe('resolveStatus', () => {
+    beforeEach(async () => {
+      mockConnection.tooling.query.onFirstCall().resolves({ done: true, records: [{ Name: 'LocalHelper' }] });
+      mockConnection.tooling.query.onSecondCall().resolves({ done: true, records: [{ Name: 'ManagedController' }] });
+
+      await registry.initialize(mockConnection, 'vlocity_ins');
+    });
+
+    it('should return LOCAL for a local class', () => {
+      expect(registry.resolveStatus('LocalHelper')).to.equal(ApexResolveStatus.LOCAL);
+    });
+
+    it('should return NAMESPACED for a managed package class', () => {
+      expect(registry.resolveStatus('ManagedController')).to.equal(ApexResolveStatus.NAMESPACED);
+    });
+
+    it('should return NOT_FOUND for unknown class', () => {
+      expect(registry.resolveStatus('DoesNotExist')).to.equal(ApexResolveStatus.NOT_FOUND);
+    });
+
+    it('should return SKIP for already namespace-qualified class', () => {
+      expect(registry.resolveStatus('ns.MyClass')).to.equal(ApexResolveStatus.SKIP);
+    });
+
+    it('should return SKIP for empty className', () => {
+      expect(registry.resolveStatus('')).to.equal(ApexResolveStatus.SKIP);
+    });
+
+    it('should return SKIP for invalid class name', () => {
+      expect(registry.resolveStatus('1InvalidClass')).to.equal(ApexResolveStatus.SKIP);
+      expect(registry.resolveStatus('My-Class')).to.equal(ApexResolveStatus.SKIP);
+    });
+
+    it('should be case-insensitive', () => {
+      expect(registry.resolveStatus('localhelper')).to.equal(ApexResolveStatus.LOCAL);
+      expect(registry.resolveStatus('MANAGEDCONTROLLER')).to.equal(ApexResolveStatus.NAMESPACED);
     });
   });
 
   describe('getQualifiedClassName', () => {
-    it('should return namespace.className when namespace exists', async () => {
-      mockConnection.tooling.query.resolves({
-        totalSize: 1,
-        records: [{ Name: 'LookupController', NamespacePrefix: 'devopsimpkg15' }],
-      });
+    beforeEach(async () => {
+      mockConnection.tooling.query.onFirstCall().resolves({ done: true, records: [{ Name: 'LocalHelper' }] });
+      mockConnection.tooling.query.onSecondCall().resolves({ done: true, records: [{ Name: 'LookupController' }] });
 
-      await registry.resolve(mockConnection, 'LookupController');
+      await registry.initialize(mockConnection, 'devopsimpkg15');
+    });
 
+    it('should return namespace.className for namespaced class', () => {
       expect(registry.getQualifiedClassName('LookupController')).to.equal('devopsimpkg15.LookupController');
     });
 
-    it('should return original className when namespace is empty (local class)', async () => {
-      mockConnection.tooling.query.resolves({
-        totalSize: 1,
-        records: [{ Name: 'LocalHelper', NamespacePrefix: null }],
-      });
-
-      await registry.resolve(mockConnection, 'LocalHelper');
-
+    it('should return original className for local class', () => {
       expect(registry.getQualifiedClassName('LocalHelper')).to.equal('LocalHelper');
     });
 
-    it('should return original className if already namespace-qualified', () => {
+    it('should return original if already namespace-qualified', () => {
       expect(registry.getQualifiedClassName('ns.MyClass')).to.equal('ns.MyClass');
     });
 
     it('should return empty string for empty input', () => {
       expect(registry.getQualifiedClassName('')).to.equal('');
     });
+
+    it('should return original for unknown class', () => {
+      expect(registry.getQualifiedClassName('UnknownClass')).to.equal('UnknownClass');
+    });
   });
 
   describe('wasNamespaceAdded', () => {
-    it('should return true when namespace was resolved and prepended', async () => {
-      mockConnection.tooling.query.resolves({
-        totalSize: 1,
-        records: [{ Name: 'MyController', NamespacePrefix: 'vlocity_ins' }],
-      });
+    beforeEach(async () => {
+      mockConnection.tooling.query.onFirstCall().resolves({ done: true, records: [{ Name: 'LocalHelper' }] });
+      mockConnection.tooling.query.onSecondCall().resolves({ done: true, records: [{ Name: 'ManagedController' }] });
 
-      await registry.resolve(mockConnection, 'MyController');
-
-      expect(registry.wasNamespaceAdded('MyController')).to.be.true;
+      await registry.initialize(mockConnection, 'vlocity_ins');
     });
 
-    it('should return false when class is local (no namespace)', async () => {
-      mockConnection.tooling.query.resolves({
-        totalSize: 1,
-        records: [{ Name: 'LocalHelper', NamespacePrefix: null }],
-      });
+    it('should return true for namespaced class', () => {
+      expect(registry.wasNamespaceAdded('ManagedController')).to.be.true;
+    });
 
-      await registry.resolve(mockConnection, 'LocalHelper');
-
+    it('should return false for local class', () => {
       expect(registry.wasNamespaceAdded('LocalHelper')).to.be.false;
     });
 
-    it('should return false when className already contains a dot', () => {
+    it('should return false for already qualified class', () => {
       expect(registry.wasNamespaceAdded('ns.MyClass')).to.be.false;
     });
 
-    it('should return false for unresolved class', () => {
-      expect(registry.wasNamespaceAdded('NeverResolved')).to.be.false;
+    it('should return false for unknown class', () => {
+      expect(registry.wasNamespaceAdded('UnknownClass')).to.be.false;
     });
   });
 });

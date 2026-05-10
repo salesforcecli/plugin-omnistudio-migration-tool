@@ -1,18 +1,28 @@
 import { Connection } from '@salesforce/core';
 import { Logger } from '../utils/logger';
 
+export const ApexResolveStatus = {
+  LOCAL: 'local',
+  NAMESPACED: 'namespaced',
+  NOT_FOUND: 'not_found',
+  SKIP: 'skip',
+} as const;
+
+export type ApexResolveStatusType = (typeof ApexResolveStatus)[keyof typeof ApexResolveStatus];
+
 /**
- * Singleton registry that lazily caches the NamespacePrefix for Apex classes.
- * Uses async `resolve()` to query + cache, then sync `getQualifiedClassName()`
- * for cached lookups.
+ * Singleton registry that pre-loads Apex class names at startup.
+ * Stores two sets: local classes (no namespace) and namespaced classes (matching the selected package namespace).
+ * All lookups after initialization are synchronous.
  */
 export class ApexNamespaceRegistry {
   private static instance: ApexNamespaceRegistry;
   private static readonly VALID_APEX_CLASS_NAME = /^[a-zA-Z][a-zA-Z0-9_]*$/;
 
-  // className (lowercase) -> namespacePrefix (empty string if local)
-  private namespaceMap: Map<string, string> = new Map();
-  private notFoundClasses: Set<string> = new Set();
+  private localClasses: Set<string> = new Set();
+  private namespacedClasses: Set<string> = new Set();
+  private namespace = '';
+  private initialized = false;
 
   public static getInstance(): ApexNamespaceRegistry {
     if (!ApexNamespaceRegistry.instance) {
@@ -22,56 +32,104 @@ export class ApexNamespaceRegistry {
   }
 
   /**
-   * Resolves and caches the namespace for a given class name.
-   * Skips if the className already contains a dot (already namespace-qualified).
-   * Call this from any already-async method before using getQualifiedClassName().
+   * Pre-loads all Apex classes from the org into two buckets:
+   * - localClasses: classes with no namespace (NamespacePrefix is null/empty)
+   * - namespacedClasses: classes matching the selected package namespace
+   *
+   * Call once before assessment/migration begins.
    */
-  public async resolve(connection: Connection, className: string): Promise<void> {
-    if (!className || className.includes('.')) return;
-    if (!ApexNamespaceRegistry.VALID_APEX_CLASS_NAME.test(className)) return;
-    const key = className.toLowerCase();
-    if (this.namespaceMap.has(key) || this.notFoundClasses.has(key)) return;
+  public async initialize(connection: Connection, namespace: string): Promise<void> {
+    if (this.initialized) return;
+    this.namespace = namespace;
 
     try {
-      const query = `SELECT Name, NamespacePrefix FROM ApexClass WHERE Name = '${className}'`;
-      const result = await connection.tooling.query<{ Name: string; NamespacePrefix: string | null }>(query);
-
-      if (result && result.totalSize > 0) {
-        const ns = result.records[0].NamespacePrefix || '';
-        this.namespaceMap.set(key, ns);
-        Logger.logVerbose(`ApexNamespaceRegistry: "${className}" -> namespace "${ns || '(local)'}"`);
-      } else {
-        this.notFoundClasses.add(key);
+      const localQuery = 'SELECT Name FROM ApexClass WHERE NamespacePrefix = null';
+      let result = await connection.tooling.query<{ Name: string }>(localQuery);
+      if (result && result.records) {
+        result.records.forEach((r) => this.localClasses.add(r.Name.toLowerCase()));
+        while (!result.done && result.nextRecordsUrl) {
+          result = await connection.tooling.queryMore<{ Name: string }>(result.nextRecordsUrl);
+          if (result && result.records) {
+            result.records.forEach((r) => this.localClasses.add(r.Name.toLowerCase()));
+          }
+        }
       }
+      Logger.logVerbose(`ApexNamespaceRegistry: Loaded ${this.localClasses.size} local Apex classes`);
     } catch (err) {
-      Logger.logVerbose(`ApexNamespaceRegistry: Error querying "${className}": ${(err as Error).message}`);
-      this.notFoundClasses.add(key);
+      Logger.logVerbose(`ApexNamespaceRegistry: Error loading local classes: ${(err as Error).message}`);
     }
+
+    if (namespace) {
+      try {
+        const nsQuery = `SELECT Name FROM ApexClass WHERE NamespacePrefix = '${namespace}'`;
+        let result = await connection.tooling.query<{ Name: string }>(nsQuery);
+        if (result && result.records) {
+          result.records.forEach((r) => this.namespacedClasses.add(r.Name.toLowerCase()));
+          while (!result.done && result.nextRecordsUrl) {
+            result = await connection.tooling.queryMore<{ Name: string }>(result.nextRecordsUrl);
+            if (result && result.records) {
+              result.records.forEach((r) => this.namespacedClasses.add(r.Name.toLowerCase()));
+            }
+          }
+        }
+        Logger.logVerbose(
+          `ApexNamespaceRegistry: Loaded ${this.namespacedClasses.size} Apex classes for namespace "${namespace}"`
+        );
+      } catch (err) {
+        Logger.logVerbose(`ApexNamespaceRegistry: Error loading namespaced classes: ${(err as Error).message}`);
+      }
+    }
+
+    this.initialized = true;
   }
 
   /**
-   * Synchronous lookup. Returns "namespace.className" if namespace exists,
-   * or the original className otherwise. Skips if already namespace-qualified.
-   * Requires resolve() to have been called for this className beforehand.
+   * Checks a className and returns its resolution status:
+   * - 'local': exists without namespace, no change needed
+   * - 'namespaced': exists under the package namespace, needs prefix
+   * - 'not_found': does not exist in either set
+   * - 'skip': invalid class name or already qualified
+   */
+  public resolveStatus(className: string): ApexResolveStatusType {
+    if (!className || className.includes('.')) return ApexResolveStatus.SKIP;
+    if (!ApexNamespaceRegistry.VALID_APEX_CLASS_NAME.test(className)) return ApexResolveStatus.SKIP;
+
+    const key = className.toLowerCase();
+    if (this.localClasses.has(key)) return ApexResolveStatus.LOCAL;
+    if (this.namespacedClasses.has(key)) return ApexResolveStatus.NAMESPACED;
+    return ApexResolveStatus.NOT_FOUND;
+  }
+
+  /**
+   * Returns "namespace.className" if the class belongs to the package namespace,
+   * or the original className otherwise.
    */
   public getQualifiedClassName(className: string): string {
     if (!className || className.includes('.')) return className;
-    const ns = this.namespaceMap.get(className.toLowerCase());
-    return ns ? `${ns}.${className}` : className;
+    if (!ApexNamespaceRegistry.VALID_APEX_CLASS_NAME.test(className)) return className;
+
+    const key = className.toLowerCase();
+    if (this.namespacedClasses.has(key) && !this.localClasses.has(key)) {
+      return `${this.namespace}.${className}`;
+    }
+    return className;
   }
 
   /**
-   * Returns true if the className was modified (namespace was prepended).
-   * Useful for adding warnings in assessment reports.
+   * Returns true if the className was resolved to a namespaced class (will be prefixed).
    */
   public wasNamespaceAdded(className: string): boolean {
-    if (!className || className.includes('.')) return false;
-    const ns = this.namespaceMap.get(className.toLowerCase());
-    return !!ns;
+    return this.resolveStatus(className) === ApexResolveStatus.NAMESPACED;
+  }
+
+  public getNamespace(): string {
+    return this.namespace;
   }
 
   public clear(): void {
-    this.namespaceMap.clear();
-    this.notFoundClasses.clear();
+    this.localClasses.clear();
+    this.namespacedClasses.clear();
+    this.namespace = '';
+    this.initialized = false;
   }
 }

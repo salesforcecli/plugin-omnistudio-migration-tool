@@ -234,5 +234,6 @@
   "loglevelFlagDeprecated": "loglevel is deprecated. Use --verbose instead",
   "cleanupMetadataTablesRequired": "Omnistudio configuration tables contain records. Manually clean up the tables.\n<a href='https://help.salesforce.com/s/articleView?id=xcloud.os_enable_omnistudio_metadata_api_support.htm&type=5' target='_blank'>Cleanup Metadata Tables</a>",
   "remoteActionNamespaceWarning": "Remote Action \"%s\": remoteClass will be updated from \"%s\" to \"%s\"",
-  "apexRemoteDatasourceNamespaceWarning": "ApexRemote datasource: remoteClass will be updated from \"%s\" to \"%s\""
+  "apexRemoteDatasourceNamespaceWarning": "ApexRemote datasource: remoteClass will be updated from \"%s\" to \"%s\"",
+  "apexClassNotFound": "Apex class \"%s\" referenced in \"%s\" does not exist in the org"
 }

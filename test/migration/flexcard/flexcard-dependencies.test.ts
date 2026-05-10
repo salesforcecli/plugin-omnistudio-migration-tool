@@ -689,14 +689,16 @@ describe('FlexCard Dependency Updates with NameMappingRegistry', () => {
 
       const mockConn: any = {
         tooling: {
-          query: () =>
-            Promise.resolve({
-              totalSize: 1,
-              records: [{ Name: 'AccountController', NamespacePrefix: 'vlocity_ins' }],
-            }),
+          query: (q: string) => {
+            if (q.includes('NamespacePrefix = null')) {
+              return Promise.resolve({ done: true, records: [] });
+            }
+            return Promise.resolve({ done: true, records: [{ Name: 'AccountController' }] });
+          },
+          queryMore: () => Promise.resolve({ done: true, records: [] }),
         },
       };
-      await apexRegistry.resolve(mockConn, 'AccountController');
+      await apexRegistry.initialize(mockConn, 'vlocity_ins');
 
       const dataSource = {
         type: 'ApexRemote',
@@ -712,6 +714,14 @@ describe('FlexCard Dependency Updates with NameMappingRegistry', () => {
       const { ApexNamespaceRegistry } = await import('../../../src/migration/ApexNamespaceRegistry');
       const apexRegistry = ApexNamespaceRegistry.getInstance();
       apexRegistry.clear();
+
+      const mockConn: any = {
+        tooling: {
+          query: () => Promise.resolve({ done: true, records: [] }),
+          queryMore: () => Promise.resolve({ done: true, records: [] }),
+        },
+      };
+      await apexRegistry.initialize(mockConn, 'vlocity_ins');
 
       const dataSource = {
         type: 'ApexRemote',

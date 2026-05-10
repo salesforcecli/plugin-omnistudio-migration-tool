@@ -41,7 +41,7 @@ import { StorageUtil } from '../utils/storageUtil';
 import { isStandardDataModel, isStandardDataModelWithMetadataAPIEnabled } from '../utils/dataModelService';
 import { prioritizeCleanNamesFirst } from '../utils/recordPrioritization';
 import { Constants } from '../utils/constants/stringContants';
-import { ApexNamespaceRegistry } from './ApexNamespaceRegistry';
+import { ApexNamespaceRegistry, ApexResolveStatus } from './ApexNamespaceRegistry';
 
 export class OmniScriptMigrationTool extends BaseMigrationTool implements MigrationTool {
   private readonly exportType: OmniScriptExportType;
@@ -409,6 +409,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     const dependenciesRA: nameLocation[] = [];
     const dependenciesLWC: nameLocation[] = [];
     const namespaceWarnings: string[] = [];
+    const namespaceErrors: string[] = [];
 
     //const missingRA: string[] = [];
 
@@ -502,13 +503,15 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
         const className = propertySet['remoteClass'];
         const methodName = propertySet['remoteMethod'];
         if (className && methodName) {
-          await this.apexNamespaceRegistry.resolve(this.connection, className);
+          const status = this.apexNamespaceRegistry.resolveStatus(className);
           const qualifiedClass = this.apexNamespaceRegistry.getQualifiedClassName(className);
           dependenciesRA.push({ name: qualifiedClass + '.' + methodName, location: nameVal });
-          if (this.apexNamespaceRegistry.wasNamespaceAdded(className)) {
+          if (status === ApexResolveStatus.NAMESPACED) {
             namespaceWarnings.push(
               this.messages.getMessage('remoteActionNamespaceWarning', [nameVal, className, qualifiedClass])
             );
+          } else if (status === ApexResolveStatus.NOT_FOUND) {
+            namespaceErrors.push(this.messages.getMessage('apexClassNotFound', [className, nameVal]));
           }
         }
       }
@@ -517,9 +520,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
         const nameVal = `${elemName}`;
         const source = propertySet['optionSource']['source'];
         if (source) {
-          await this.apexNamespaceRegistry.resolve(this.connection, source);
-          const qualifiedSource = this.apexNamespaceRegistry.getQualifiedClassName(source);
-          dependenciesRA.push({ name: qualifiedSource, location: nameVal });
+          dependenciesRA.push({ name: source, location: nameVal });
         }
       }
 
@@ -550,7 +551,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     let assessmentStatus: 'Ready for migration' | 'Warnings' | 'Needs manual intervention' = 'Ready for migration';
 
     const warnings: string[] = [...namespaceWarnings];
-    const errors: string[] = [];
+    const errors: string[] = [...namespaceErrors];
 
     // Check for missing mandatory fields for Integration Procedures
     if (omniProcessType === 'Integration Procedure') {
@@ -704,7 +705,9 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
       }
     }
 
-    if (namespaceWarnings.length > 0 && assessmentStatus === 'Ready for migration') {
+    if (namespaceErrors.length > 0) {
+      assessmentStatus = 'Needs manual intervention';
+    } else if (namespaceWarnings.length > 0 && assessmentStatus === 'Ready for migration') {
       assessmentStatus = 'Warnings';
     }
 
@@ -954,15 +957,6 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
       // Get All elements for each OmniScript__c record(i.e IP/OS)
       const elements = await this.getAllElementsForOmniScript(recordId);
-
-      // Pre-resolve Apex class namespaces for Remote Action elements so sync lookups work later
-      for (const elem of elements) {
-        const elemType = elem[this.getFieldKey('Type__c')];
-        if (elemType === Constants.RemoteAction) {
-          const ps = JSON.parse(elem[this.getFieldKey('PropertySet__c')] || '{}');
-          if (ps.remoteClass) await this.apexNamespaceRegistry.resolve(this.connection, ps.remoteClass);
-        }
-      }
 
       // Check for duplicate element names within the same OmniScript
       const elementNames = new Set<string>();

@@ -188,6 +188,7 @@
   "nameMappingUndefined": "Undefined name mapping found",
   "experienceSiteException": "We’ve encountered an exception while processing Experience Cloud sites.",
   "reservedKeysFoundInPropertySet": "The Integration Procedure output uses these reserved keys in the transformation property fields: %s",
+  "customCssStylesheetNamespaceWarning": "Custom CSS stylesheet '%s' has namespace references, styles may break after migration.",
   "dataMapperMigrationFailed": "DataMapper migration failed for: %s",
   "dataMapperNameStartsWithNumber": "DataMapper name '%s' starts with a number which causes migration issues. Proposed new name: %s",
   "integrationProcedureTypeEmptyAfterCleaning": "Integration Procedure Type '%s' becomes empty after name cleaning. Please provide a valid Type value.",

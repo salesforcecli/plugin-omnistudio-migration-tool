@@ -1,11 +1,17 @@
 {
-  "commandDescription": "print a greeting and your org IDs",
-  "nameFlagDescription": "name to print",
-  "forceFlagDescription": "example boolean flag",
+  "commandDescription": "Assess OmniStudio components for post-migration cross-namespace LWC risks",
+  "namespaceFlagDescription": "Namespace of the managed package (default: vlocity_ins)",
+  "onlyFlagDescription": "Assess a single component type: fc | os | ip | dr",
+  "allVersionsDescription": "Assess all versions of a component",
   "errorNoOrgResults": "No results found for the org '%s'.",
+  "alreadyStandardModel": "Assessment skipped for org %s: org already uses the standard data model.",
+  "invalidNamespace": "Invalid namespace value: %s. Try again with the correct namespace value.",
+  "invalidOnlyFlag": "Invalid flag, valid options are: os | ip | fc | dr",
+  "noIssuesFound": "No cross-namespace LWC issues detected.",
+  "assessSummary": "%s component(s) have potential cross-namespace LWC issues.",
   "examples": [
-    "sfdx omnistudio:migration:info --targetusername myOrg@example.com --targetdevhubusername devhub@org.com",
-    "sfdx omnistudio:migration:info --name myname --targetusername myOrg@example.com"
-  ],
-  "allVersionsDescription": "Migrate all versions of a component"
+    "omnistudio:migration:info -u orguser@domain.com --namespace=vlocity_ins",
+    "omnistudio:migration:info -u orguser@domain.com --namespace=vlocity_ins --only=fc",
+    "omnistudio:migration:info -u orguser@domain.com --namespace=vlocity_ins --only=os"
+  ]
 }

@@ -6,7 +6,7 @@ import ElementMappings from '../mappings/Element';
 import OmniScriptDefinitionMappings from '../mappings/OmniScriptDefinition';
 import { DebugTimer, QueryTools, SortDirection } from '../utils';
 import { BaseMigrationTool } from './base';
-import { MigrationResult, MigrationTool, TransformData, UploadRecordResult } from './interfaces';
+import { AssessResult, MigrationResult, MigrationTool, TransformData, UploadRecordResult } from './interfaces';
 import { ObjectMapping } from './interfaces';
 import { NetUtils, RequestMethod } from '../utils/net';
 import { Connection, Logger, Messages } from '@salesforce/core';
@@ -160,10 +160,90 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     };
   }
 
+  // Assess OmniScripts for cross-namespace LWC reference risks
+  async assess(): Promise<AssessResult[]> {
+    const lwcMap = await this.getLwcClassifications();
+    const omniscripts = await this.getAllOmniScripts();
+    const results: AssessResult[] = [];
+
+    for (const omniscript of omniscripts) {
+      const recordId = omniscript['Id'];
+      const elements = await this.getAllElementsForOmniScript(recordId);
+      const warnings: string[] = [];
+
+      for (const element of elements) {
+        const elementType: string = element[`${this.namespacePrefix}Type__c`] || '';
+        if (elementType !== 'Custom Lightning Web Component') continue;
+
+        let propertySet: any = {};
+        try {
+          propertySet = JSON.parse(element[`${this.namespacePrefix}PropertySet__c`] || '{}');
+        } catch {
+          /* skip unparseable */
+        }
+
+        const lwcName: string = propertySet['lwcName'] || '';
+        if (!lwcName) continue;
+
+        const kind = lwcMap.get(lwcName.toLowerCase());
+        if (kind !== undefined) {
+          warnings.push(
+            `Element '${element['Name']}' embeds LWC '${lwcName}' (${kind}). ` +
+              `After migration the auto-generated OmniScript LWC retains the vertical namespace while this LWC ` +
+              `moves to c/ — cross-reference error at runtime. Workaround: use omnistudio-standard-runtime-wrapper.`
+          );
+        }
+      }
+
+      if (warnings.length > 0) {
+        const osName =
+          omniscript[`${this.namespacePrefix}Type__c`] +
+          '_' +
+          omniscript[`${this.namespacePrefix}SubType__c`] +
+          (omniscript[`${this.namespacePrefix}Language__c`]
+            ? '_' + omniscript[`${this.namespacePrefix}Language__c`]
+            : '');
+        results.push({ name: osName, componentType: 'OmniScript', warnings });
+      }
+    }
+
+    return results;
+  }
+
+  // Query LightningComponentBundle via Tooling API and classify each unmanaged LWC
+  private async getLwcClassifications(): Promise<Map<string, string>> {
+    const lwcMap = new Map<string, string>();
+    try {
+      const result = await (this.connection as any).tooling.query(
+        'SELECT Id, DeveloperName, NamespacePrefix FROM LightningComponentBundle'
+      );
+      for (const record of result.records || []) {
+        const name: string = record['DeveloperName'] || '';
+        const ns: string = record['NamespacePrefix'] || '';
+        if (ns) continue;
+        let kind: string;
+        if (/^cf[a-z0-9]/i.test(name)) {
+          kind = 'generated-fc';
+        } else if (/^[a-z0-9]+_[a-z0-9]+_[a-z0-9]+$/i.test(name)) {
+          kind = 'generated-os';
+        } else {
+          kind = 'custom';
+        }
+        lwcMap.set(name.toLowerCase(), kind);
+      }
+    } catch (e) {
+      this.logger.warn('Could not query LightningComponentBundle: ' + e);
+    }
+    return lwcMap;
+  }
+
   async migrate(): Promise<MigrationResult[]> {
     // Get All Records from OmniScript__c (IP & OS Parent Records)
     const omniscripts = await this.getAllOmniScripts();
     const duplicatedNames = new Set<string>();
+
+    // Build LWC classification map once for the whole migration run
+    const lwcMap = await this.getLwcClassifications();
 
     // Variables to be returned After Migration
     let done = 0;
@@ -262,7 +342,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
         try {
           // Upload All elements for each OmniScript__c record(i.e IP/OS)
-          await this.uploadAllElements(osUploadResponse, elements);
+          await this.uploadAllElements(osUploadResponse, elements, lwcMap);
 
           // Get OmniScript Compiled Definitions for OmniScript Record
           const omniscriptsCompiledDefinitions = await this.getOmniScriptCompiledDefinition(recordId);
@@ -443,7 +523,8 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
   // Upload All the Elements tagged to a OmniScript__c record, after the parent record has been inserted
   private async uploadAllElements(
     omniScriptUploadResults: UploadRecordResult,
-    elements: AnyJson[]
+    elements: AnyJson[],
+    lwcMap: Map<string, string>
   ): Promise<Map<string, UploadRecordResult>> {
     let levelCount = 0; // To define and insert different levels(Parent-Child relationship) at a time
     let exit = false; // Counter variable to exit after all parent-child elements inserted
@@ -472,7 +553,8 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
         let elementsTransformedData = await this.prepareElementsData(
           omniScriptUploadResults,
           tempElements,
-          elementsUploadInfo
+          elementsUploadInfo,
+          lwcMap
         );
         // Upload the transformed Element__c
         let elementsUploadResponse = await this.uploadTransformedData(
@@ -505,7 +587,8 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
   private async prepareElementsData(
     osUploadResult: UploadRecordResult,
     elements: AnyJson[],
-    parentElementUploadResponse: Map<string, UploadRecordResult>
+    parentElementUploadResponse: Map<string, UploadRecordResult>,
+    lwcMap: Map<string, string>
   ): Promise<TransformData> {
     const mappedRecords = [],
       originalRecords = new Map<string, AnyJson>(),
@@ -521,6 +604,27 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
       // Create a map of the original records
       originalRecords.set(element['Id'], element);
+
+      // Check for cross-namespace LWC embeds and attach warnings
+      const elementType: string = element[`${this.namespacePrefix}Type__c`] || '';
+      if (elementType === 'Custom Lightning Web Component') {
+        let propertySet: any = {};
+        try {
+          propertySet = JSON.parse(element[`${this.namespacePrefix}PropertySet__c`] || '{}');
+        } catch {
+          /* skip unparseable */
+        }
+        const lwcName: string = propertySet['lwcName'] || '';
+        const kind = lwcName ? lwcMap.get(lwcName.toLowerCase()) : undefined;
+        if (kind !== undefined) {
+          osUploadResult.warnings = osUploadResult.warnings || [];
+          osUploadResult.warnings.push(
+            `Element '${element['Name']}' embeds LWC '${lwcName}' (${kind}). ` +
+              `After migration the auto-generated OmniScript LWC retains the vertical namespace while this LWC ` +
+              `moves to c/ — cross-reference error at runtime. Workaround: use omnistudio-standard-runtime-wrapper.`
+          );
+        }
+      }
     });
 
     if (osUploadResult.id && invalidIpNames.size > 0) {

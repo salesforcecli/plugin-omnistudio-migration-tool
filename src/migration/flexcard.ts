@@ -4,7 +4,7 @@ import CardMappings from '../mappings/VlocityCard';
 import { DebugTimer, QueryTools, SortDirection } from '../utils';
 import { NetUtils } from '../utils/net';
 import { BaseMigrationTool } from './base';
-import { MigrationResult, MigrationTool, ObjectMapping, UploadRecordResult } from './interfaces';
+import { AssessResult, MigrationResult, MigrationTool, ObjectMapping, UploadRecordResult } from './interfaces';
 import { Connection, Logger, Messages } from '@salesforce/core';
 import { UX } from '@salesforce/command';
 
@@ -72,8 +72,11 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     // Get All the Active VlocityCard__c records
     const cards = await this.getAllActiveCards();
 
+    // Build LWC classification map once for the whole migration run
+    const lwcMap = await this.getLwcClassifications();
+
     // Save the Vlocity Cards in OmniUiCard
-    const cardUploadResponse = await this.uploadAllCards(cards);
+    const cardUploadResponse = await this.uploadAllCards(cards, lwcMap);
 
     const records = new Map<string, any>();
     for (let i = 0; i < cards.length; i++) {
@@ -89,8 +92,94 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     ];
   }
 
+  // Assess cards for cross-namespace LWC reference risks
+  async assess(): Promise<AssessResult[]> {
+    const lwcMap = await this.getLwcClassifications();
+    const cards = await this.getAllActiveCards();
+    const results: AssessResult[] = [];
+
+    for (const card of cards) {
+      const warnings = this.detectCustomLwcEmbeds(card, lwcMap);
+      if (warnings.length > 0) {
+        results.push({
+          name: card['Name'],
+          componentType: 'FlexCard',
+          warnings,
+        });
+      }
+    }
+
+    return results;
+  }
+
+  // Query LightningComponentBundle via Tooling API and classify each unmanaged LWC
+  private async getLwcClassifications(): Promise<Map<string, string>> {
+    const lwcMap = new Map<string, string>();
+    try {
+      const result = await (this.connection as any).tooling.query(
+        'SELECT Id, DeveloperName, NamespacePrefix FROM LightningComponentBundle'
+      );
+      for (const record of result.records || []) {
+        const name: string = record['DeveloperName'] || '';
+        const ns: string = record['NamespacePrefix'] || '';
+        if (ns) continue; // managed package — skip
+        let kind: string;
+        if (/^cf[a-z0-9]/i.test(name)) {
+          kind = 'generated-fc';
+        } else if (/^[a-z0-9]+_[a-z0-9]+_[a-z0-9]+$/i.test(name)) {
+          kind = 'generated-os';
+        } else {
+          kind = 'custom';
+        }
+        lwcMap.set(name.toLowerCase(), kind);
+      }
+    } catch (e) {
+      this.logger.warn('Could not query LightningComponentBundle: ' + e);
+    }
+    return lwcMap;
+  }
+
+  // Walk a card's Definition__c JSON and collect cross-namespace LWC embed warnings
+  private detectCustomLwcEmbeds(card: AnyJson, lwcMap: Map<string, string>): string[] {
+    const warnings: string[] = [];
+    let definition: any;
+    try {
+      definition = JSON.parse(card[this.namespacePrefix + 'Definition__c'] || '{}');
+    } catch {
+      return warnings;
+    }
+
+    const walkChildren = (children: any[]) => {
+      for (const child of children || []) {
+        if (child.element === 'customLwc') {
+          const lwcName: string = (child.property?.customlwcname || '').toLowerCase();
+          if (lwcName && lwcMap.has(lwcName)) {
+            warnings.push(
+              `Embeds LWC '${child.property.customlwcname}' (${lwcMap.get(lwcName)}). ` +
+                `After migration the auto-generated FlexCard LWC retains the vertical namespace while this LWC ` +
+                `moves to c/ — cross-reference error at runtime. Workaround: use omnistudio-standard-runtime-wrapper.`
+            );
+          }
+        }
+        if (child.children && Array.isArray(child.children)) {
+          walkChildren(child.children);
+        }
+      }
+    };
+
+    for (const state of definition.states || []) {
+      for (const componentKey in state.components || {}) {
+        if (state.components.hasOwnProperty(componentKey)) {
+          walkChildren(state.components[componentKey].children || []);
+        }
+      }
+    }
+
+    return warnings;
+  }
+
   // Query all cards that are active
-  private async getAllActiveCards(): Promise<AnyJson[]> {
+  protected async getAllActiveCards(): Promise<AnyJson[]> {
     DebugTimer.getInstance().lap('Query Vlocity Cards');
     const filters = new Map<string, any>();
     filters.set(this.namespacePrefix + 'CardType__c', 'flex');
@@ -121,13 +210,13 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
   }
 
   // Upload All the VlocityCard__c records to OmniUiCard
-  private async uploadAllCards(cards: any[]): Promise<Map<string, UploadRecordResult>> {
+  private async uploadAllCards(cards: any[], lwcMap: Map<string, string>): Promise<Map<string, UploadRecordResult>> {
     const cardsUploadInfo = new Map<string, UploadRecordResult>();
     const originalRecords = new Map<string, any>();
     const uniqueNames = new Set<string>();
 
     for (let card of cards) {
-      await this.uploadCard(cards, card, cardsUploadInfo, originalRecords, uniqueNames);
+      await this.uploadCard(cards, card, cardsUploadInfo, originalRecords, uniqueNames, lwcMap);
     }
 
     return cardsUploadInfo;
@@ -138,7 +227,8 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     card: AnyJson,
     cardsUploadInfo: Map<string, UploadRecordResult>,
     originalRecords: Map<string, any>,
-    uniqueNames: Set<string>
+    uniqueNames: Set<string>,
+    lwcMap: Map<string, string>
   ) {
     const recordId = card['Id'];
 
@@ -155,7 +245,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           // Upload child cards
           const childCard = allCards.find((c) => c['Name'] === childCardName);
           if (childCard) {
-            await this.uploadCard(allCards, childCard, cardsUploadInfo, originalRecords, uniqueNames);
+            await this.uploadCard(allCards, childCard, cardsUploadInfo, originalRecords, uniqueNames, lwcMap);
           }
         }
 
@@ -224,6 +314,10 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
             .join(', ');
           uploadResult.errors.push('Integration Procedure Actions will need manual updates, please verify: ' + val);
         }
+
+        // Append cross-namespace LWC warnings
+        const lwcWarnings = this.detectCustomLwcEmbeds(card, lwcMap);
+        uploadResult.warnings.push(...lwcWarnings);
 
         cardsUploadInfo.set(recordId, uploadResult);
 

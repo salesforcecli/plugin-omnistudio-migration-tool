@@ -8,6 +8,11 @@ export interface MigrationTool {
   migrate(): Promise<MigrationResult[]>;
 
   /**
+   * Assesses components for cross-namespace LWC reference risks without migrating
+   */
+  assess(): Promise<AssessResult[]>;
+
+  /**
    * Gets the list of source-target objects that the tool will migrate
    */
   getMappings(): ObjectMapping[];
@@ -28,6 +33,12 @@ export interface MigrationTool {
    * Truncates the standard objects.
    */
   truncate(): Promise<void>;
+}
+
+export interface AssessResult {
+  name: string;
+  componentType: string;
+  warnings: string[];
 }
 
 export interface ObjectMapping {

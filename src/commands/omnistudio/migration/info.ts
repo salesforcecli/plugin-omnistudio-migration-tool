@@ -5,18 +5,24 @@
  * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 import * as os from 'os';
-import { flags, SfdxCommand } from '@salesforce/command';
-import { Messages, SfdxError } from '@salesforce/core';
-import { AnyJson } from '@salesforce/ts-types';
+import { flags } from '@salesforce/command';
+import { Messages } from '@salesforce/core';
+import '../../../utils/prototypes';
+import OmniStudioBaseCommand from '../../basecommand';
+import { CardMigrationTool } from '../../../migration/flexcard';
+import { OmniScriptExportType, OmniScriptMigrationTool } from '../../../migration/omniscript';
+import { DataRaptorMigrationTool } from '../../../migration/dataraptor';
+import { AssessResult, MigrationTool } from '../../../migration/interfaces';
+import { DebugTimer, OrgUtils } from '../../../utils';
+import { ResultsBuilder } from '../../../utils/resultsbuilder';
+import { Logger } from '../../../utils/logger';
 
 // Initialize Messages with the current plugin directory
 Messages.importMessagesDirectory(__dirname);
 
-// Load the specific messages for this file. Messages from @salesforce/command, @salesforce/core,
-// or any library that is using the messages framework can also be loaded this way.
 const messages = Messages.loadMessages('@salesforce/plugin-omnistudio-migration-tool', 'info');
 
-export default class Org extends SfdxCommand {
+export default class Info extends OmniStudioBaseCommand {
   public static description = messages.getMessage('commandDescription');
 
   public static examples = messages.getMessage('examples').split(os.EOL);
@@ -24,10 +30,13 @@ export default class Org extends SfdxCommand {
   public static args = [{ name: 'file' }];
 
   protected static flagsConfig = {
-    // flag with a value (-n, --name=VALUE)
-    name: flags.string({
+    namespace: flags.string({
       char: 'n',
-      description: messages.getMessage('nameFlagDescription'),
+      description: messages.getMessage('namespaceFlagDescription'),
+    }),
+    only: flags.string({
+      char: 'o',
+      description: messages.getMessage('onlyFlagDescription'),
     }),
     allversions: flags.boolean({
       char: 'a',
@@ -36,61 +45,129 @@ export default class Org extends SfdxCommand {
     }),
   };
 
-  // Comment this out if your command does not require an org username
-  protected static requiresUsername = true;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  public async run(): Promise<any> {
+    const namespace = (this.flags.namespace || 'vlocity_ins') as string;
+    const apiVersion = (this.flags.apiversion || '55.0') as string;
+    const assessOnly = (this.flags.only || '') as string;
+    const allVersions = (this.flags.allversions as boolean) || false;
 
-  // Comment this out if your command does not support a hub org username
-  protected static supportsDevhubUsername = true;
+    Logger.initialiseLogger(this.ux, this.logger);
+    this.logger = Logger.logger;
 
-  // Set this to true if your command requires a project workspace; 'requiresProject' is false by default
-  protected static requiresProject = false;
-
-  public async run(): Promise<AnyJson> {
-    const name = (this.flags.name || 'world') as string;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const allVersions = this.flags.allversions || false;
-
-    // this.org is guaranteed because requiresUsername=true, as opposed to supportsUsername
     const conn = this.org.getConnection();
-    const query = 'Select Name, TrialExpirationDate from Organization';
+    conn.setApiVersion(apiVersion);
 
-    // The type we are querying for
-    interface Organization {
-      Name: string;
-      TrialExpirationDate: string;
+    // Validate org before proceeding
+    const orgs = await OrgUtils.getOrgDetails(conn, namespace);
+
+    if (orgs.omniStudioOrgPermissionEnabled) {
+      Logger.error(messages.getMessage('alreadyStandardModel', [orgs.orgDetails.Id]));
+      return;
+    } else if (!orgs.hasValidNamespace) {
+      Logger.error(messages.getMessage('invalidNamespace', [namespace]));
+      return;
     }
 
-    // Query the org
-    const result = await conn.query<Organization>(query);
+    DebugTimer.getInstance().start();
 
-    // Organization will always return one result, but this is an example of throwing an error
-    // The output and --json will automatically be handled for you.
-    if (!result.records || result.records.length <= 0) {
-      throw new SfdxError(messages.getMessage('errorNoOrgResults', [this.org.getOrgId()]));
+    // Register tools to assess based on --only flag
+    const assessObjects: MigrationTool[] = [];
+    if (!assessOnly) {
+      assessObjects.push(
+        new DataRaptorMigrationTool(namespace, conn, this.logger, messages, this.ux),
+        new OmniScriptMigrationTool(
+          OmniScriptExportType.All,
+          namespace,
+          conn,
+          this.logger,
+          messages,
+          this.ux,
+          allVersions
+        ),
+        new CardMigrationTool(namespace, conn, this.logger, messages, this.ux, allVersions)
+      );
+    } else {
+      switch (assessOnly) {
+        case 'os':
+          assessObjects.push(
+            new OmniScriptMigrationTool(
+              OmniScriptExportType.OS,
+              namespace,
+              conn,
+              this.logger,
+              messages,
+              this.ux,
+              allVersions
+            )
+          );
+          break;
+        case 'ip':
+          assessObjects.push(
+            new OmniScriptMigrationTool(
+              OmniScriptExportType.IP,
+              namespace,
+              conn,
+              this.logger,
+              messages,
+              this.ux,
+              allVersions
+            )
+          );
+          break;
+        case 'fc':
+          assessObjects.push(new CardMigrationTool(namespace, conn, this.logger, messages, this.ux, allVersions));
+          break;
+        case 'dr':
+          assessObjects.push(new DataRaptorMigrationTool(namespace, conn, this.logger, messages, this.ux));
+          break;
+        default:
+          throw new Error(messages.getMessage('invalidOnlyFlag'));
+      }
     }
 
-    // Organization always only returns one result
-    const orgName = result.records[0].Name;
-    const trialExpirationDate = result.records[0].TrialExpirationDate;
-
-    let outputString = `Hello ${name}! This is org: ${orgName}`;
-    if (trialExpirationDate) {
-      const date = new Date(trialExpirationDate).toDateString();
-      outputString = `${outputString} and I will be around until ${date}!`;
-    }
-    this.ux.log(outputString);
-
-    // this.hubOrg is NOT guaranteed because supportsHubOrgUsername=true, as opposed to requiresHubOrgUsername.
-    if (this.hubOrg) {
-      const hubOrgId = this.hubOrg.getOrgId();
-      this.ux.log(`My hub org id is: ${hubOrgId}`);
+    // Run assessment on each tool
+    const allAssessResults: AssessResult[] = [];
+    for (const tool of assessObjects) {
+      Logger.ux.log('Assessing: ' + tool.getName());
+      const results = await tool.assess();
+      allAssessResults.push(...results);
     }
 
-    if (allVersions) {
-      outputString = `${outputString} and all versions will be migrated`;
+    // Log summary to console
+    if (allAssessResults.length === 0) {
+      Logger.ux.log(messages.getMessage('noIssuesFound'));
+    } else {
+      Logger.ux.log(messages.getMessage('assessSummary', [String(allAssessResults.length)]));
+      for (const result of allAssessResults) {
+        Logger.ux.log(`\n[${result.componentType}] ${result.name}`);
+        for (const warning of result.warnings) {
+          Logger.ux.log('  ' + warning);
+        }
+      }
     }
 
-    // Return an object to be displayed with --json
-    return { orgId: this.org.getOrgId(), outputString };
+    // Generate HTML report (same UX as migrate mode)
+    const migratedObjects = allAssessResults.map((r) => ({
+      name: `[${r.componentType}] ${r.name}`,
+      data: [
+        {
+          id: r.name,
+          name: r.name,
+          status: 'Warning',
+          errors: r.warnings,
+          migratedId: undefined,
+          migratedName: '',
+          warnings: [],
+        },
+      ],
+    }));
+
+    await ResultsBuilder.generate(migratedObjects, conn.instanceUrl);
+
+    const timer = DebugTimer.getInstance().stop();
+    this.logger.debug(timer);
+
+    return { assessResults: allAssessResults };
   }
 }

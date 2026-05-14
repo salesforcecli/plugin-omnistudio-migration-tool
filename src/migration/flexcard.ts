@@ -4,6 +4,7 @@ import CardMappings from '../mappings/VlocityCard';
 import { DebugTimer, QueryTools, SortDirection } from '../utils';
 import { NetUtils } from '../utils/net';
 import { BaseMigrationTool } from './base';
+import { CustomCssRegistry } from './CustomCssRegistry';
 import {
   InvalidEntityTypeError,
   MigrationResult,
@@ -42,6 +43,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
   ) {
     super(namespace, connection, logger, messages, ux);
     this.allVersions = allVersions;
+    CustomCssRegistry.getInstance().init(connection, namespace, messages);
   }
 
   getName(): string {
@@ -304,6 +306,11 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     flexCardAssessmentInfo.migrationStatus = assessmentStatus;
     this.updateDependencies(flexCard, flexCardAssessmentInfo);
 
+    // Scan custom CSS (both StaticResource-backed and inline) for managed-package
+    // namespace references. The helper updates `migrationStatus` itself via
+    // `getUpdatedAssessmentStatus`, so it never downgrades a stricter status.
+    await this.collectStylesheetNamespaceDependencies(flexCard, flexCardAssessmentInfo);
+
     // Deduplicate all dependency arrays to ensure no duplicates
     flexCardAssessmentInfo.dependenciesIP = [...new Set(flexCardAssessmentInfo.dependenciesIP)];
     flexCardAssessmentInfo.dependenciesDR = [...new Set(flexCardAssessmentInfo.dependenciesDR)];
@@ -315,6 +322,92 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     ];
 
     return flexCardAssessmentInfo;
+  }
+
+  /**
+   * Scan a FlexCard for two distinct kinds of namespace-bound custom CSS:
+   *
+   *  1. **StaticResource-backed stylesheet** — `Definition__c.customStyleSheet`
+   *     stores the *Name* of a Static Resource. We look it up, fetch its body,
+   *     and substring-check for the org's managed-package namespace. Same flow
+   *     and same warning message as the OmniScript implementation; resource
+   *     scans are cached by name in {@link CustomCssRegistry}, so a stylesheet
+   *     shared between OmniScripts and FlexCards is only fetched once per run.
+   *
+   *  2. **Inline CSS** — `Styles__c.customStyles` stores raw CSS text. We
+   *     substring-check the namespace directly against that string. No
+   *     SOQL/REST traffic and no caching (the CSS is per-FlexCard and not
+   *     shared across records).
+   *
+   * Both checks emit a warning into `flexCardAssessmentInfo.warnings` and bump
+   * `migrationStatus` to 'Warnings' (using `getUpdatedAssessmentStatus` so a
+   * stricter status set elsewhere is preserved).
+   */
+  private async collectStylesheetNamespaceDependencies(
+    flexCard: AnyJson,
+    flexCardAssessmentInfo: FlexCardAssessmentInfo
+  ): Promise<void> {
+    const registry = CustomCssRegistry.getInstance();
+    if (!registry.isEnabled()) {
+      return;
+    }
+
+    // ---- 1. Definition__c.customStyleSheet (StaticResource name) ----
+    const definitionRaw = flexCard[this.getFieldKey('Definition__c')];
+    if (definitionRaw) {
+      let definition: any;
+      try {
+        definition = JSON.parse(definitionRaw);
+      } catch (ex) {
+        Logger.error(`Failed to parse Definition__c for stylesheet scan: ${flexCard['Name']}`);
+        definition = null;
+      }
+      const resourceName = (definition?.customStyleSheet || '').toString().trim();
+      if (resourceName) {
+        const verdict = await registry.scanResource(resourceName);
+        if (verdict === 'dirty') {
+          const message = registry.buildNamespaceWarning(resourceName);
+          if (message) {
+            flexCardAssessmentInfo.warnings.push(message);
+            flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
+              flexCardAssessmentInfo.migrationStatus as
+                | 'Warnings'
+                | 'Needs manual intervention'
+                | 'Ready for migration'
+                | 'Failed',
+              'Warnings'
+            );
+          }
+        }
+      }
+    }
+
+    // ---- 2. Styles__c.customStyles (raw inline CSS) ----
+    const stylesRaw = flexCard[this.getFieldKey('Styles__c')];
+    if (stylesRaw) {
+      let styles: any;
+      try {
+        styles = JSON.parse(stylesRaw);
+      } catch (ex) {
+        Logger.error(`Failed to parse Styles__c for stylesheet scan: ${flexCard['Name']}`);
+        styles = null;
+      }
+      const inlineCss = styles?.customStyles;
+      if (registry.containsNamespaceInText(inlineCss)) {
+        const message = registry.buildInlineCssNamespaceWarning();
+        if (message) {
+          flexCardAssessmentInfo.warnings.push(message);
+          flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
+            flexCardAssessmentInfo.migrationStatus as
+              | 'Warnings'
+              | 'Needs manual intervention'
+              | 'Ready for migration'
+              | 'Failed',
+            'Warnings'
+          );
+        }
+      }
+    }
   }
 
   private updateDependencies(flexCard, flexCardAssessmentInfo): void {

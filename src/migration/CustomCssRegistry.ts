@@ -122,13 +122,36 @@ export class CustomCssRegistry {
   }
 
   /**
-   * Build the customer-facing warning message for a dirty stylesheet. Centralised
-   * here so both OmniScript and (future) FlexCard collectors phrase warnings
-   * identically. Returns `null` if the registry has no message bundle yet.
+   * Build the customer-facing warning message for a dirty StaticResource-based
+   * stylesheet. Centralised here so both OmniScript and FlexCard collectors
+   * phrase warnings identically. Returns `null` if the registry has no message
+   * bundle yet.
    */
   public buildNamespaceWarning(resourceName: string): string | null {
     if (!this.messages || !this.namespace) return null;
     return this.messages.getMessage('customCssStylesheetNamespaceWarning', [resourceName]);
+  }
+
+  /**
+   * Build the customer-facing warning message for inline CSS (e.g. FlexCard's
+   * `Styles__c.customStyles`) that contains namespace references. No
+   * StaticResource is involved, so no resource name is interpolated — the
+   * surrounding row in the assessment report already identifies the component.
+   */
+  public buildInlineCssNamespaceWarning(): string | null {
+    if (!this.messages || !this.namespace) return null;
+    return this.messages.getMessage('customCssInlineNamespaceWarning');
+  }
+
+  /**
+   * Substring-test the configured namespace against an arbitrary CSS string.
+   * Used for FlexCard `Styles__c.customStyles` (raw inline CSS) — no caching
+   * because the input is per-record and not shared.
+   */
+  public containsNamespaceInText(text: unknown): boolean {
+    if (!this.isEnabled()) return false;
+    if (typeof text !== 'string' || text.length === 0) return false;
+    return text.includes(this.namespace as string);
   }
 
   /**

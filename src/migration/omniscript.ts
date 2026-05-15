@@ -713,15 +713,29 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
         continue;
       }
 
+      // Check lwcName field
       const lwcName: string = propertySet['lwcName'] || '';
-      if (!lwcName) continue;
+      if (lwcName) {
+        const kind = lwcMap.get(lwcName.toLowerCase());
+        if (kind === 'custom') {
+          const warning = this.messages.getMessage('customLwcCrossNamespaceWarning', [lwcName, kind, 'OmniScript']);
+          warnings.push(warning);
+          if (assessmentStatus === 'Ready for migration') {
+            assessmentStatus = 'Warnings';
+          }
+        }
+      }
 
-      const kind = lwcMap.get(lwcName.toLowerCase());
-      if (kind !== undefined) {
-        const warning = this.messages.getMessage('customLwcCrossNamespaceWarning', [lwcName, kind, 'OmniScript']);
-        warnings.push(warning);
-        if (assessmentStatus === 'Ready for migration') {
-          assessmentStatus = 'Warnings';
+      // Check lwcComponentOverride field
+      const lwcOverride: string = propertySet['lwcComponentOverride'] || '';
+      if (lwcOverride) {
+        const kind = lwcMap.get(lwcOverride.toLowerCase());
+        if (kind === 'custom') {
+          const warning = this.messages.getMessage('customLwcCrossNamespaceWarning', [lwcOverride, kind, 'OmniScript']);
+          warnings.push(warning);
+          if (assessmentStatus === 'Ready for migration') {
+            assessmentStatus = 'Warnings';
+          }
         }
       }
     }
@@ -1773,13 +1787,28 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
           /* skip unparseable */
         }
 
+        // Check lwcName field
         const lwcName: string = propertySet['lwcName'] || '';
-        const kind = lwcName ? lwcMap.get(lwcName.toLowerCase()) : undefined;
-        if (kind !== undefined) {
-          osUploadResult.warnings = osUploadResult.warnings || [];
-          osUploadResult.warnings.push(
-            this.messages.getMessage('customLwcCrossNamespaceWarning', [lwcName, kind, 'OmniScript'])
-          );
+        if (lwcName) {
+          const kind = lwcMap.get(lwcName.toLowerCase());
+          if (kind === 'custom') {
+            osUploadResult.warnings = osUploadResult.warnings || [];
+            osUploadResult.warnings.push(
+              this.messages.getMessage('customLwcCrossNamespaceWarning', [lwcName, kind, 'OmniScript'])
+            );
+          }
+        }
+
+        // Check lwcComponentOverride field
+        const lwcOverride: string = propertySet['lwcComponentOverride'] || '';
+        if (lwcOverride) {
+          const kind = lwcMap.get(lwcOverride.toLowerCase());
+          if (kind === 'custom') {
+            osUploadResult.warnings = osUploadResult.warnings || [];
+            osUploadResult.warnings.push(
+              this.messages.getMessage('customLwcCrossNamespaceWarning', [lwcOverride, kind, 'OmniScript'])
+            );
+          }
         }
       }
     });

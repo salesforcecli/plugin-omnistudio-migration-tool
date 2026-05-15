@@ -209,6 +209,12 @@ export interface FlexcardStorage extends Storage {
   originalName: string;
 }
 
+export interface LwcBundleRecord {
+  Id?: string;
+  DeveloperName?: string;
+  NamespacePrefix?: string;
+}
+
 export class InvalidEntityTypeError extends Error {
   public constructor(message: string) {
     super(message);

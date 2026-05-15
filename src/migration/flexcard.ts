@@ -191,10 +191,13 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     const uniqueNames = new Set<string>();
     const dupFlexCardNames: Map<string, string> = new Map<string, string>();
 
+    // Build LWC classification map once for all FlexCards
+    const lwcMap = await this.getLwcClassifications();
+
     // Now process each OmniScript and its elements
     for (const flexCard of flexCards) {
       try {
-        const flexCardAssessmentInfo = await this.processFlexCard(flexCard, uniqueNames, dupFlexCardNames);
+        const flexCardAssessmentInfo = await this.processFlexCard(flexCard, uniqueNames, dupFlexCardNames, lwcMap);
         flexCardAssessmentInfos.push(flexCardAssessmentInfo);
       } catch (e) {
         flexCardAssessmentInfos.push({
@@ -224,7 +227,8 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
   private async processFlexCard(
     flexCard: AnyJson,
     uniqueNames: Set<string>,
-    dupFlexCardNames: Map<string, string>
+    dupFlexCardNames: Map<string, string>,
+    lwcMap: Map<string, string>
   ): Promise<FlexCardAssessmentInfo> {
     const flexCardName = flexCard['Name'];
     Logger.info(this.messages.getMessage('processingFlexCard', [flexCardName]));
@@ -315,7 +319,6 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     ];
 
     // Check for cross-namespace LWC embeds
-    const lwcMap = await this.getLwcClassifications();
     const lwcWarnings = this.detectCustomLwcEmbeds(flexCard, lwcMap);
     flexCardAssessmentInfo.warnings.push(...lwcWarnings);
     if (lwcWarnings.length > 0) {
@@ -597,9 +600,10 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 
     const walkChildren = (children: any[]) => {
       for (const child of children || []) {
+        // Check for customLwc element
         if (child.element === 'customLwc') {
           const lwcName: string = (child.property?.customlwcname || '').toLowerCase();
-          if (lwcName && lwcMap.has(lwcName)) {
+          if (lwcName && lwcMap.has(lwcName) && lwcMap.get(lwcName) === 'custom') {
             warnings.push(
               this.messages.getMessage('customLwcCrossNamespaceWarning', [
                 child.property.customlwcname,
@@ -609,16 +613,50 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
             );
           }
         }
+
+        // Check for flyoutLwc in stateAction
+        if (child.property?.stateAction?.flyoutType === 'customLwc') {
+          const flyoutLwcName: string = (child.property.stateAction.flyoutLwc || '').toLowerCase();
+          if (flyoutLwcName && lwcMap.has(flyoutLwcName) && lwcMap.get(flyoutLwcName) === 'custom') {
+            warnings.push(
+              this.messages.getMessage('customLwcCrossNamespaceWarning', [
+                child.property.stateAction.flyoutLwc,
+                lwcMap.get(flyoutLwcName),
+                'FlexCard',
+              ])
+            );
+          }
+        }
+
         if (child.children && Array.isArray(child.children)) {
           walkChildren(child.children);
         }
       }
     };
 
+    // Check components in states
     for (const state of definition.states || []) {
       for (const componentKey in state.components || {}) {
         if (state.components.hasOwnProperty(componentKey)) {
           walkChildren(state.components[componentKey].children || []);
+        }
+      }
+    }
+
+    // Check events for flyoutLwc in actionList
+    for (const event of definition.events || []) {
+      for (const action of event.actionList || []) {
+        if (action.stateAction?.flyoutType === 'customLwc') {
+          const flyoutLwcName: string = (action.stateAction.flyoutLwc || '').toLowerCase();
+          if (flyoutLwcName && lwcMap.has(flyoutLwcName) && lwcMap.get(flyoutLwcName) === 'custom') {
+            warnings.push(
+              this.messages.getMessage('customLwcCrossNamespaceWarning', [
+                action.stateAction.flyoutLwc,
+                lwcMap.get(flyoutLwcName),
+                'FlexCard',
+              ])
+            );
+          }
         }
       }
     }

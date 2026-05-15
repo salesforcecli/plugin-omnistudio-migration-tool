@@ -5,7 +5,7 @@ import { DebugTimer, QueryTools } from '../utils';
 import { NetUtils } from '../utils/net';
 import { Stringutil } from '../utils/StringValue/stringutil';
 import { Logger } from '../utils/logger';
-import { TransformData, UploadRecordResult } from './interfaces';
+import { LwcBundleRecord, TransformData, UploadRecordResult } from './interfaces';
 import { NameMappingRegistry } from './NameMappingRegistry';
 
 export type ComponentType =
@@ -131,19 +131,16 @@ export class BaseMigrationTool {
   protected async getLwcClassifications(): Promise<Map<string, string>> {
     const lwcMap = new Map<string, string>();
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
       const result = await (
         this.connection as unknown as {
           tooling: {
-            query: (q: string) => Promise<{ records?: Array<{ DeveloperName?: string; NamespacePrefix?: string }> }>;
+            query: (q: string) => Promise<{ records?: LwcBundleRecord[] }>;
           };
         }
       ).tooling.query('SELECT Id, DeveloperName, NamespacePrefix FROM LightningComponentBundle');
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
       for (const record of result.records || []) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
         const name: string = record.DeveloperName || '';
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
         const ns: string = record.NamespacePrefix || '';
         if (ns) continue; // Skip managed packages
 

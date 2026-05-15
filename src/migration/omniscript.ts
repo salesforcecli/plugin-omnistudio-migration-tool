@@ -786,7 +786,8 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
   }
 
   /**
-   * Helper method to check if an LWC reference is custom and add warning if needed
+   * Helper method to check if an LWC reference is unmanaged and add warning if needed.
+   * All unmanaged LWCs (regardless of naming pattern) can cause cross-namespace issues.
    * @param lwcName The LWC name to check
    * @param lwcMap The LWC classification map
    * @param warnings Array to push warnings to
@@ -796,7 +797,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     if (!lwcName) return false;
 
     const kind = lwcMap.get(lwcName.toLowerCase());
-    if (kind === 'custom') {
+    if (kind !== undefined) {
       const warning = this.messages.getMessage('customLwcCrossNamespaceWarning', [lwcName, kind, 'OmniScript']);
       warnings.push(warning);
       return true;

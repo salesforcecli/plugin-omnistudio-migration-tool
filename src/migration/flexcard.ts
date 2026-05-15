@@ -625,11 +625,12 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         // Check for customLwc element
         if (child.element === 'customLwc') {
           const lwcName: string = (child.property?.customlwcname || '').toLowerCase();
-          if (lwcName && lwcMap.has(lwcName) && lwcMap.get(lwcName) === 'custom') {
+          const kind = lwcName ? lwcMap.get(lwcName) : undefined;
+          if (kind !== undefined) {
             warnings.push(
               this.messages.getMessage('customLwcCrossNamespaceWarning', [
                 child.property.customlwcname,
-                lwcMap.get(lwcName),
+                kind,
                 'FlexCard',
               ])
             );
@@ -639,11 +640,12 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         // Check for flyoutLwc in stateAction
         if (child.property?.stateAction?.flyoutType === 'customLwc') {
           const flyoutLwcName: string = (child.property.stateAction.flyoutLwc || '').toLowerCase();
-          if (flyoutLwcName && lwcMap.has(flyoutLwcName) && lwcMap.get(flyoutLwcName) === 'custom') {
+          const kind = flyoutLwcName ? lwcMap.get(flyoutLwcName) : undefined;
+          if (kind !== undefined) {
             warnings.push(
               this.messages.getMessage('customLwcCrossNamespaceWarning', [
                 child.property.stateAction.flyoutLwc,
-                lwcMap.get(flyoutLwcName),
+                kind,
                 'FlexCard',
               ])
             );
@@ -670,11 +672,12 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       for (const action of event.actionList || []) {
         if (action.stateAction?.flyoutType === 'customLwc') {
           const flyoutLwcName: string = (action.stateAction.flyoutLwc || '').toLowerCase();
-          if (flyoutLwcName && lwcMap.has(flyoutLwcName) && lwcMap.get(flyoutLwcName) === 'custom') {
+          const kind = flyoutLwcName ? lwcMap.get(flyoutLwcName) : undefined;
+          if (kind !== undefined) {
             warnings.push(
               this.messages.getMessage('customLwcCrossNamespaceWarning', [
                 action.stateAction.flyoutLwc,
-                lwcMap.get(flyoutLwcName),
+                kind,
                 'FlexCard',
               ])
             );

@@ -700,6 +700,32 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     const uniqueMissingIP = [...new Set(missingIP)];
     const uniqueMissingOS = [...new Set(missingOS)];
 
+    // Check for cross-namespace custom LWC embeds
+    const lwcMap = await this.getLwcClassifications();
+    for (const element of elements) {
+      const elementType: string = element[`${this.namespacePrefix}Type__c`] || '';
+      if (elementType !== 'Custom Lightning Web Component') continue;
+
+      let propertySet: any = {};
+      try {
+        propertySet = JSON.parse(element[`${this.namespacePrefix}PropertySet__c`] || '{}');
+      } catch {
+        continue;
+      }
+
+      const lwcName: string = propertySet['lwcName'] || '';
+      if (!lwcName) continue;
+
+      const kind = lwcMap.get(lwcName.toLowerCase());
+      if (kind !== undefined) {
+        const warning = this.messages.getMessage('customLwcCrossNamespaceWarning', [lwcName, kind, 'OmniScript']);
+        warnings.push(warning);
+        if (assessmentStatus === 'Ready for migration') {
+          assessmentStatus = 'Warnings';
+        }
+      }
+    }
+
     const result: OSAssessmentInfo = {
       name: recordName,
       id: omniscript['Id'],
@@ -877,6 +903,9 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
     const functionDefinitionMetadata = await getAllFunctionMetadata(this.namespace, this.connection);
     populateRegexForFunctionMetadata(functionDefinitionMetadata);
+
+    // Build LWC classification map once for the whole migration run
+    const lwcMap = await this.getLwcClassifications();
 
     const duplicatedNames = new Set<string>();
     // Map to track cleanedName (without version) -> originalName (without version) for duplicate detection
@@ -1323,7 +1352,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
         try {
           // Upload All elements for each OmniScript__c record(i.e IP/OS)
-          await this.uploadAllElements(osUploadResponse, elements);
+          await this.uploadAllElements(osUploadResponse, elements, lwcMap);
 
           // Get OmniScript Compiled Definitions for OmniScript Record
           const omniscriptsCompiledDefinitions = await this.getOmniScriptCompiledDefinition(recordId);
@@ -1609,7 +1638,8 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
   // Upload All the Elements tagged to a OmniScript__c record, after the parent record has been inserted
   private async uploadAllElements(
     omniScriptUploadResults: UploadRecordResult,
-    elements: AnyJson[]
+    elements: AnyJson[],
+    lwcMap: Map<string, string>
   ): Promise<Map<string, UploadRecordResult>> {
     let levelCount = 0; // To define and insert different levels(Parent-Child relationship) at a time
     let exit = false; // Counter variable to exit after all parent-child elements inserted
@@ -1638,7 +1668,8 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
         let elementsTransformedData = await this.prepareElementsData(
           omniScriptUploadResults,
           tempElements,
-          elementsUploadInfo
+          elementsUploadInfo,
+          lwcMap
         );
         let elementsUploadResponse = new Map<string, UploadRecordResult>();
 
@@ -1714,7 +1745,8 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
   private async prepareElementsData(
     osUploadResult: UploadRecordResult,
     elements: AnyJson[],
-    parentElementUploadResponse: Map<string, UploadRecordResult>
+    parentElementUploadResponse: Map<string, UploadRecordResult>,
+    lwcMap: Map<string, string>
   ): Promise<TransformData> {
     const mappedRecords = [],
       originalRecords = new Map<string, AnyJson>(),
@@ -1730,6 +1762,26 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
       // Create a map of the original records
       originalRecords.set(element['Id'], element);
+
+      // Check for cross-namespace LWC embeds and attach warnings
+      const elementType: string = element[`${this.namespacePrefix}Type__c`] || '';
+      if (elementType === 'Custom Lightning Web Component') {
+        let propertySet: any = {};
+        try {
+          propertySet = JSON.parse(element[`${this.namespacePrefix}PropertySet__c`] || '{}');
+        } catch {
+          /* skip unparseable */
+        }
+
+        const lwcName: string = propertySet['lwcName'] || '';
+        const kind = lwcName ? lwcMap.get(lwcName.toLowerCase()) : undefined;
+        if (kind !== undefined) {
+          osUploadResult.warnings = osUploadResult.warnings || [];
+          osUploadResult.warnings.push(
+            this.messages.getMessage('customLwcCrossNamespaceWarning', [lwcName, kind, 'OmniScript'])
+          );
+        }
+      }
     });
 
     if (osUploadResult.id && invalidIpNames.size > 0) {

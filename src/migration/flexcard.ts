@@ -314,6 +314,15 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       ...new Set(flexCardAssessmentInfo.dependenciesApexRemoteAction),
     ];
 
+    // Check for cross-namespace LWC embeds
+    const lwcMap = await this.getLwcClassifications();
+    const lwcWarnings = this.detectCustomLwcEmbeds(flexCard, lwcMap);
+    flexCardAssessmentInfo.warnings.push(...lwcWarnings);
+    if (lwcWarnings.length > 0) {
+      assessmentStatus = getUpdatedAssessmentStatus(assessmentStatus, 'Warnings');
+      flexCardAssessmentInfo.migrationStatus = assessmentStatus;
+    }
+
     return flexCardAssessmentInfo;
   }
 
@@ -566,6 +575,55 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         // Note: Non-"cf" prefixed names are returned unchanged by the helper
       }
     }
+  }
+
+  /**
+   * Detects custom LWC embeds in FlexCard definition that will cause cross-namespace issues.
+   * After migration, auto-generated FlexCard LWCs retain the vertical namespace while
+   * embedded custom LWCs move to c/, causing cross-reference errors at runtime.
+   *
+   * @param card The FlexCard record
+   * @param lwcMap Classification map from getLwcClassifications()
+   * @returns Array of warning messages
+   */
+  private detectCustomLwcEmbeds(card: AnyJson, lwcMap: Map<string, string>): string[] {
+    const warnings: string[] = [];
+    let definition: any;
+    try {
+      definition = JSON.parse(card[this.namespacePrefix + 'Definition__c'] || '{}');
+    } catch {
+      return warnings;
+    }
+
+    const walkChildren = (children: any[]) => {
+      for (const child of children || []) {
+        if (child.element === 'customLwc') {
+          const lwcName: string = (child.property?.customlwcname || '').toLowerCase();
+          if (lwcName && lwcMap.has(lwcName)) {
+            warnings.push(
+              this.messages.getMessage('customLwcCrossNamespaceWarning', [
+                child.property.customlwcname,
+                lwcMap.get(lwcName),
+                'FlexCard',
+              ])
+            );
+          }
+        }
+        if (child.children && Array.isArray(child.children)) {
+          walkChildren(child.children);
+        }
+      }
+    };
+
+    for (const state of definition.states || []) {
+      for (const componentKey in state.components || {}) {
+        if (state.components.hasOwnProperty(componentKey)) {
+          walkChildren(state.components[componentKey].children || []);
+        }
+      }
+    }
+
+    return warnings;
   }
 
   /**
@@ -885,10 +943,13 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     // Map to track cleanedName -> originalName for duplicate detection
     const dupFlexCardNames: Map<string, string> = new Map<string, string>();
 
+    // Build LWC classification map once for the whole migration run
+    const lwcMap = await this.getLwcClassifications();
+
     let progressCounter = 0;
     progressBar.start(cards.length, progressCounter);
     for (let card of cards) {
-      await this.uploadCard(cards, card, cardsUploadInfo, originalRecords, uniqueNames, dupFlexCardNames);
+      await this.uploadCard(cards, card, cardsUploadInfo, originalRecords, uniqueNames, dupFlexCardNames, lwcMap);
       progressBar.update(++progressCounter);
     }
 
@@ -905,7 +966,8 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     cardsUploadInfo: Map<string, UploadRecordResult>,
     originalRecords: Map<string, any>,
     uniqueNames: Set<string>,
-    dupFlexCardNames: Map<string, string>
+    dupFlexCardNames: Map<string, string>,
+    lwcMap: Map<string, string>
   ) {
     const recordId = card['Id'];
 
@@ -922,7 +984,15 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           // Upload child cards
           const childCard = allCards.find((c) => c['Name'] === childCardName);
           if (childCard) {
-            await this.uploadCard(allCards, childCard, cardsUploadInfo, originalRecords, uniqueNames, dupFlexCardNames);
+            await this.uploadCard(
+              allCards,
+              childCard,
+              cardsUploadInfo,
+              originalRecords,
+              uniqueNames,
+              dupFlexCardNames,
+              lwcMap
+            );
           }
         }
 
@@ -1038,6 +1108,10 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
             .join(', ');
           uploadResult.errors.push(this.messages.getMessage('integrationProcedureManualUpdateMessage', [val]));
         }
+
+        // Detect cross-namespace LWC risks during migration
+        const lwcWarnings = this.detectCustomLwcEmbeds(card, lwcMap);
+        uploadResult.warnings.push(...lwcWarnings);
 
         cardsUploadInfo.set(recordId, uploadResult);
 

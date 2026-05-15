@@ -118,4 +118,49 @@ export class BaseMigrationTool {
   protected setRecordErrors(record: unknown, ...errors: string[]): void {
     record['errors'] = errors;
   }
+
+  /**
+   * Queries Tooling API to classify unmanaged LWCs by naming pattern.
+   * Used to detect cross-namespace LWC references that will break after migration.
+   *
+   * @returns Map of LWC name (lowercase) to classification
+   * - 'generated-fc': FlexCard-generated LWC (pattern: cf*)
+   * - 'generated-os': OmniScript-generated LWC (pattern: *_*_*)
+   * - 'custom': User-defined custom LWC
+   */
+  protected async getLwcClassifications(): Promise<Map<string, string>> {
+    const lwcMap = new Map<string, string>();
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      const result = await (
+        this.connection as unknown as {
+          tooling: {
+            query: (q: string) => Promise<{ records?: Array<{ DeveloperName?: string; NamespacePrefix?: string }> }>;
+          };
+        }
+      ).tooling.query('SELECT Id, DeveloperName, NamespacePrefix FROM LightningComponentBundle');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      for (const record of result.records || []) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+        const name: string = record.DeveloperName || '';
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+        const ns: string = record.NamespacePrefix || '';
+        if (ns) continue; // Skip managed packages
+
+        let kind: string;
+        if (/^cf[a-z0-9]/i.test(name)) {
+          kind = 'generated-fc';
+        } else if (/^[a-z0-9]+_[a-z0-9]+_[a-z0-9]+$/i.test(name)) {
+          kind = 'generated-os';
+        } else {
+          kind = 'custom';
+        }
+        lwcMap.set(name.toLowerCase(), kind);
+      }
+    } catch (e) {
+      const error = e instanceof Error ? e.message : String(e);
+      Logger.logVerbose(`Could not query LightningComponentBundle: ${error}`);
+    }
+    return lwcMap;
+  }
 }

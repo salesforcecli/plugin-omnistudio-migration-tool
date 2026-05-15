@@ -338,5 +338,6 @@
   "preparingStorageForMetadataEnabledOrg": "Preparing storage for %s org on standard data model with the Omnistudio Metadata setting turned on.",
   "processingNotRequired": "Migration is not required for orgs on standard data model with the Omnistudio Metadata setting turned on.",
   "skippingTruncation": "Skipping truncation as the org is on standard data model.",
-  "loglevelFlagDeprecated": "loglevel is deprecated. Use --verbose instead."
+  "loglevelFlagDeprecated": "loglevel is deprecated. Use --verbose instead.",
+  "customLwcCrossNamespaceWarning": "Embeds LWC '%s' (%s). After migration the auto-generated %s LWC retains the vertical namespace while this LWC moves to c/ — cross-reference error at runtime. Workaround: use omnistudio-standard-runtime-wrapper or enable Lightning Web Security."
 }

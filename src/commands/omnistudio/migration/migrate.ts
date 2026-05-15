@@ -39,6 +39,7 @@ import {
   isStandardDataModelWithMetadataAPIEnabled,
 } from '../../../utils/dataModelService';
 import { NameMappingRegistry } from '../../../migration/NameMappingRegistry';
+import { ApexNamespaceRegistry } from '../../../migration/ApexNamespaceRegistry';
 import { ValidatorService } from '../../../utils/validatorService';
 
 // Initialize Messages with the current plugin directory
@@ -209,6 +210,7 @@ export default class Migrate extends SfCommand<MigrateResult> {
     nameRegistry.clear(); // Clear any previous mappings
 
     Logger.log(messages.getMessage('startingComponentPreProcessing'));
+    await ApexNamespaceRegistry.getInstance().initialize(conn, namespace);
     await this.preProcessAllComponents(namespace, conn, migrateOnly);
 
     // Register the migration objects with CORRECTED ORDER

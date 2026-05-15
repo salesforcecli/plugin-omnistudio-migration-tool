@@ -105,29 +105,29 @@ describe('FlexCard — Custom CSS namespace scan', () => {
   describe('Definition__c.customStyleSheet (StaticResource path)', () => {
     it('emits a warning and bumps status when the static resource body contains the namespace', async () => {
       setupMockConnection({
-        staticResources: { dirtyCss: { Id: '081A1', ContentType: 'text/css', BodyLength: 20 } },
+        staticResources: { flaggedCss: { Id: '081A1', ContentType: 'text/css', BodyLength: 20 } },
         bodies: { '081A1': '.vlocity_cmt-card {}' },
       });
       cardTool = makeTool('vlocity_cmt');
 
       const fc = makeFlexCard({
-        definition: { states: [], customStyleSheet: 'dirtyCss' },
+        definition: { states: [], customStyleSheet: 'flaggedCss' },
       });
       const result = await (cardTool as any).processFlexCard(fc, new Set<string>(), new Map<string, string>());
 
-      expect(result.warnings.some((w: string) => w.includes("'dirtyCss'"))).to.equal(true);
+      expect(result.warnings.some((w: string) => w.includes("'flaggedCss'"))).to.equal(true);
       expect(result.migrationStatus).to.equal('Warnings');
     });
 
     it('does not warn when the static resource body has no namespace match', async () => {
       setupMockConnection({
-        staticResources: { cleanCss: { Id: '081A2', ContentType: 'text/css', BodyLength: 20 } },
+        staticResources: { safeCss: { Id: '081A2', ContentType: 'text/css', BodyLength: 20 } },
         bodies: { '081A2': '.foo { color: red; }' },
       });
       cardTool = makeTool('vlocity_cmt');
 
       const fc = makeFlexCard({
-        definition: { states: [], customStyleSheet: 'cleanCss' },
+        definition: { states: [], customStyleSheet: 'safeCss' },
       });
       const result = await (cardTool as any).processFlexCard(fc, new Set<string>(), new Map<string, string>());
 
@@ -224,19 +224,19 @@ describe('FlexCard — Custom CSS namespace scan', () => {
   describe('Combined: both paths can fire on the same FlexCard', () => {
     it('emits two warnings when both Definition stylesheet AND inline CSS match', async () => {
       setupMockConnection({
-        staticResources: { dirtyCss: { Id: '081A1', ContentType: 'text/css', BodyLength: 20 } },
+        staticResources: { flaggedCss: { Id: '081A1', ContentType: 'text/css', BodyLength: 20 } },
         bodies: { '081A1': '.vlocity_cmt-card {}' },
       });
       cardTool = makeTool('vlocity_cmt');
 
       const fc = makeFlexCard({
-        definition: { states: [], customStyleSheet: 'dirtyCss' },
+        definition: { states: [], customStyleSheet: 'flaggedCss' },
         styles: { customStyles: '.vlocity_cmt-foo {}' },
       });
       const result = await (cardTool as any).processFlexCard(fc, new Set<string>(), new Map<string, string>());
 
       expect(result.warnings.filter((w: string) => w.includes('namespace references')).length).to.equal(2);
-      expect(result.warnings.some((w: string) => w.includes("'dirtyCss'"))).to.equal(true);
+      expect(result.warnings.some((w: string) => w.includes("'flaggedCss'"))).to.equal(true);
       expect(result.warnings.some((w: string) => w.includes('Custom inline CSS'))).to.equal(true);
       expect(result.migrationStatus).to.equal('Warnings');
     });

@@ -142,7 +142,7 @@ describe('OmniScript — Custom CSS namespace scan', () => {
   it('does not warn when the stylesheet body has no namespace match', async () => {
     setupMockConnection({
       staticResources: {
-        cleanCss: { Id: '081SR2', ContentType: 'text/css', BodyLength: 30 },
+        safeCss: { Id: '081SR2', ContentType: 'text/css', BodyLength: 30 },
       },
       bodies: { '081SR2': '.something-else { color: red; }' },
     });
@@ -150,7 +150,7 @@ describe('OmniScript — Custom CSS namespace scan', () => {
     (omniScriptTool as any).getAllElementsForOmniScript = () => Promise.resolve([]);
 
     const os = makeOmniscript({
-      stylesheet: { lightning: 'cleanCss', newport: '', lightningRtl: '', newportRtl: '' },
+      stylesheet: { lightning: 'safeCss', newport: '', lightningRtl: '', newportRtl: '' },
     });
     const result = await (omniScriptTool as any).processOmniScript(
       os,

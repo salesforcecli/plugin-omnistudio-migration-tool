@@ -365,7 +365,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       const resourceName = (definition?.customStyleSheet || '').toString().trim();
       if (resourceName) {
         const verdict = await registry.scanResource(resourceName);
-        if (verdict === 'dirty') {
+        if (verdict === 'namespaceFound') {
           const message = registry.buildNamespaceWarning(resourceName);
           if (message) {
             flexCardAssessmentInfo.warnings.push(message);

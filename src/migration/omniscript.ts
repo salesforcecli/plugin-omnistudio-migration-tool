@@ -2700,8 +2700,8 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
       return;
     }
 
-    const { dirtyStylesheets } = await registry.scanOmniScriptStylesheets(propertySetConfig?.stylesheet);
-    for (const resourceName of dirtyStylesheets) {
+    const { stylesheetsWithNamespaceRefs } = await registry.scanOmniScriptStylesheets(propertySetConfig?.stylesheet);
+    for (const resourceName of stylesheetsWithNamespaceRefs) {
       const message = registry.buildNamespaceWarning(resourceName);
       if (message) {
         warnings.push(message);

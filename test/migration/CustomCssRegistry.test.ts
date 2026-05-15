@@ -96,24 +96,24 @@ describe('CustomCssRegistry', () => {
   });
 
   describe('scanResource() — text/css body', () => {
-    it('returns dirty when body contains the namespace', async () => {
+    it('returns namespaceFound when body contains the namespace', async () => {
       const conn = buildMockConnection({
         records: [{ Id: '081xx', Name: 'foo', ContentType: 'text/css', BodyLength: 30 }],
         body: '.vlocity_cmt-card-title { color: red; }',
       });
       registry.init(conn as any, 'vlocity_cmt', buildMockMessages());
       const verdict = await registry.scanResource('foo');
-      expect(verdict).to.equal('dirty');
+      expect(verdict).to.equal('namespaceFound');
     });
 
-    it('returns clean when body does not contain the namespace', async () => {
+    it('returns noNamespaceRef when body does not contain the namespace', async () => {
       const conn = buildMockConnection({
         records: [{ Id: '081xx', Name: 'foo', ContentType: 'text/css', BodyLength: 25 }],
         body: '.something-else { color: red; }',
       });
       registry.init(conn as any, 'vlocity_cmt', buildMockMessages());
       const verdict = await registry.scanResource('foo');
-      expect(verdict).to.equal('clean');
+      expect(verdict).to.equal('noNamespaceRef');
     });
 
     it('returns notFound when SOQL returns zero rows', async () => {
@@ -131,7 +131,7 @@ describe('CustomCssRegistry', () => {
       });
       registry.init(conn as any, 'vlocity_cmt', buildMockMessages());
       const verdict = await registry.scanResource('foo');
-      expect(verdict).to.equal('dirty');
+      expect(verdict).to.equal('namespaceFound');
     });
   });
 
@@ -150,8 +150,8 @@ describe('CustomCssRegistry', () => {
       const v1 = await registry.scanResource('foo');
       const v2 = await registry.scanResource('foo');
 
-      expect(v1).to.equal('clean');
-      expect(v2).to.equal('clean');
+      expect(v1).to.equal('noNamespaceRef');
+      expect(v2).to.equal('noNamespaceRef');
       expect(queryCount).to.equal(1);
       expect(requestCount).to.equal(1);
     });
@@ -171,7 +171,7 @@ describe('CustomCssRegistry', () => {
   });
 
   describe('scanResource() — application/zip body', () => {
-    it('returns dirty when any .css entry inside the zip contains the namespace', async () => {
+    it('returns namespaceFound when any .css entry inside the zip contains the namespace', async () => {
       const zip = new JSZip();
       zip.file('themes/lightning.css', '.vlocity_cmt-foo { display: none; }');
       const buf: Buffer = await zip.generateAsync({ type: 'nodebuffer' });
@@ -181,10 +181,10 @@ describe('CustomCssRegistry', () => {
       });
       registry.init(conn as any, 'vlocity_cmt', buildMockMessages());
       const verdict = await registry.scanResource('bundle');
-      expect(verdict).to.equal('dirty');
+      expect(verdict).to.equal('namespaceFound');
     });
 
-    it('returns clean when zip has only namespace-free .css entries', async () => {
+    it('returns noNamespaceRef when zip has only namespace-free .css entries', async () => {
       const zip = new JSZip();
       zip.file('themes/lightning.css', '.foo { color: red; }');
       zip.file('themes/notes.txt', 'this is not css');
@@ -195,7 +195,7 @@ describe('CustomCssRegistry', () => {
       });
       registry.init(conn as any, 'vlocity_cmt', buildMockMessages());
       const verdict = await registry.scanResource('bundle');
-      expect(verdict).to.equal('clean');
+      expect(verdict).to.equal('noNamespaceRef');
     });
   });
 
@@ -244,7 +244,7 @@ describe('CustomCssRegistry', () => {
   describe('scanOmniScriptStylesheets()', () => {
     it('returns empty result when registry is not enabled', async () => {
       const result = await registry.scanOmniScriptStylesheets({ lightning: 'foo', newport: 'bar' });
-      expect(result.dirtyStylesheets).to.deep.equal([]);
+      expect(result.stylesheetsWithNamespaceRefs).to.deep.equal([]);
     });
 
     it('returns empty result when stylesheet object is missing or non-object', async () => {
@@ -254,9 +254,9 @@ describe('CustomCssRegistry', () => {
       const r1 = await registry.scanOmniScriptStylesheets(undefined);
       const r2 = await registry.scanOmniScriptStylesheets(null);
       const r3 = await registry.scanOmniScriptStylesheets('a string');
-      expect(r1.dirtyStylesheets).to.deep.equal([]);
-      expect(r2.dirtyStylesheets).to.deep.equal([]);
-      expect(r3.dirtyStylesheets).to.deep.equal([]);
+      expect(r1.stylesheetsWithNamespaceRefs).to.deep.equal([]);
+      expect(r2.stylesheetsWithNamespaceRefs).to.deep.equal([]);
+      expect(r3.stylesheetsWithNamespaceRefs).to.deep.equal([]);
     });
 
     it('skips empty / falsy variant names', async () => {
@@ -276,14 +276,15 @@ describe('CustomCssRegistry', () => {
       expect(queryCount).to.equal(0);
     });
 
-    it('returns dirty stylesheet names in variant order, deduped via cache', async () => {
+    it('dedupes a stylesheet referenced from multiple variants and only queries once', async () => {
       const conn = buildMockConnection({
         records: [{ Id: '081xx', Name: 'sharedSheet', ContentType: 'text/css', BodyLength: 30 }],
         body: '.vlocity_cmt-foo {}',
       });
       registry.init(conn as any, 'vlocity_cmt', buildMockMessages());
 
-      // Both variants point at the same resource — cache prevents two SOQLs.
+      // Both variants point at the same resource — cache prevents two SOQLs and
+      // the result array collapses the duplicate.
       let queryCount = 0;
       (conn as any).query = () => {
         queryCount++;
@@ -300,7 +301,7 @@ describe('CustomCssRegistry', () => {
         newportRtl: '',
       });
 
-      expect(result.dirtyStylesheets).to.deep.equal(['sharedSheet', 'sharedSheet']);
+      expect(result.stylesheetsWithNamespaceRefs).to.deep.equal(['sharedSheet']);
       expect(queryCount).to.equal(1);
     });
   });

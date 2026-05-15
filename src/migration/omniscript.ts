@@ -737,29 +737,16 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
         continue;
       }
 
-      // Check lwcName field
+      // Check lwcName and lwcComponentOverride fields
       const lwcName: string = propertySet['lwcName'] || '';
-      if (lwcName) {
-        const kind = lwcMap.get(lwcName.toLowerCase());
-        if (kind === 'custom') {
-          const warning = this.messages.getMessage('customLwcCrossNamespaceWarning', [lwcName, kind, 'OmniScript']);
-          warnings.push(warning);
-          if (assessmentStatus === 'Ready for migration') {
-            assessmentStatus = 'Warnings';
-          }
-        }
-      }
-
-      // Check lwcComponentOverride field
       const lwcOverride: string = propertySet['lwcComponentOverride'] || '';
-      if (lwcOverride) {
-        const kind = lwcMap.get(lwcOverride.toLowerCase());
-        if (kind === 'custom') {
-          const warning = this.messages.getMessage('customLwcCrossNamespaceWarning', [lwcOverride, kind, 'OmniScript']);
-          warnings.push(warning);
-          if (assessmentStatus === 'Ready for migration') {
-            assessmentStatus = 'Warnings';
-          }
+
+      if (
+        this.checkAndWarnForCustomLwc(lwcName, lwcMap, warnings) ||
+        this.checkAndWarnForCustomLwc(lwcOverride, lwcMap, warnings)
+      ) {
+        if (assessmentStatus === 'Ready for migration') {
+          assessmentStatus = 'Warnings';
         }
       }
     }
@@ -796,6 +783,25 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     }
 
     return result;
+  }
+
+  /**
+   * Helper method to check if an LWC reference is custom and add warning if needed
+   * @param lwcName The LWC name to check
+   * @param lwcMap The LWC classification map
+   * @param warnings Array to push warnings to
+   * @returns true if warning was added, false otherwise
+   */
+  private checkAndWarnForCustomLwc(lwcName: string, lwcMap: Map<string, string>, warnings: string[]): boolean {
+    if (!lwcName) return false;
+
+    const kind = lwcMap.get(lwcName.toLowerCase());
+    if (kind === 'custom') {
+      const warning = this.messages.getMessage('customLwcCrossNamespaceWarning', [lwcName, kind, 'OmniScript']);
+      warnings.push(warning);
+      return true;
+    }
+    return false;
   }
 
   private prepareStorageForRelatedObjectsWhenMetadataAPIEnabled(
@@ -1811,29 +1817,13 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
           /* skip unparseable */
         }
 
-        // Check lwcName field
+        // Check lwcName and lwcComponentOverride fields
         const lwcName: string = propertySet['lwcName'] || '';
-        if (lwcName) {
-          const kind = lwcMap.get(lwcName.toLowerCase());
-          if (kind === 'custom') {
-            osUploadResult.warnings = osUploadResult.warnings || [];
-            osUploadResult.warnings.push(
-              this.messages.getMessage('customLwcCrossNamespaceWarning', [lwcName, kind, 'OmniScript'])
-            );
-          }
-        }
-
-        // Check lwcComponentOverride field
         const lwcOverride: string = propertySet['lwcComponentOverride'] || '';
-        if (lwcOverride) {
-          const kind = lwcMap.get(lwcOverride.toLowerCase());
-          if (kind === 'custom') {
-            osUploadResult.warnings = osUploadResult.warnings || [];
-            osUploadResult.warnings.push(
-              this.messages.getMessage('customLwcCrossNamespaceWarning', [lwcOverride, kind, 'OmniScript'])
-            );
-          }
-        }
+
+        osUploadResult.warnings = osUploadResult.warnings || [];
+        this.checkAndWarnForCustomLwc(lwcName, lwcMap, osUploadResult.warnings);
+        this.checkAndWarnForCustomLwc(lwcOverride, lwcMap, osUploadResult.warnings);
       }
     });
 

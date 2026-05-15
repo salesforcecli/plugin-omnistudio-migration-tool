@@ -751,4 +751,87 @@ describe('OmniScript Content Processing - Comprehensive Tests', () => {
       }).to.not.throw();
     });
   });
+
+  describe('Remote Action Namespace Qualification', () => {
+    it('should qualify remoteClass with namespace during migration', async () => {
+      const { ApexNamespaceRegistry } = await import('../../src/migration/ApexNamespaceRegistry');
+      const apexRegistry = ApexNamespaceRegistry.getInstance();
+      apexRegistry.clear();
+
+      const mockConn: any = {
+        tooling: {
+          query: (q: string) => {
+            if (q.includes('NamespacePrefix = null')) {
+              return Promise.resolve({ done: true, records: [] });
+            }
+            return Promise.resolve({ done: true, records: [{ Name: 'LookupController' }] });
+          },
+          queryMore: () => Promise.resolve({ done: true, records: [] }),
+        },
+      };
+      await apexRegistry.initialize(mockConn, 'vlocity_ins');
+
+      const propSetMap = {
+        remoteClass: 'LookupController',
+        remoteMethod: 'getSearchResults',
+        preTransformBundle: 'CustomerDataLoader',
+      };
+
+      (omniScriptTool as any).processRemoteAction(propSetMap);
+
+      expect(propSetMap.remoteClass).to.equal('vlocity_ins.LookupController');
+      expect(propSetMap.preTransformBundle).to.equal('CustomerDataLoaderCleaned');
+    });
+
+    it('should not modify remoteClass if already namespace-qualified', async () => {
+      const { ApexNamespaceRegistry } = await import('../../src/migration/ApexNamespaceRegistry');
+      const apexRegistry = ApexNamespaceRegistry.getInstance();
+      apexRegistry.clear();
+
+      const mockConn: any = {
+        tooling: {
+          query: () => Promise.resolve({ done: true, records: [] }),
+          queryMore: () => Promise.resolve({ done: true, records: [] }),
+        },
+      };
+      await apexRegistry.initialize(mockConn, 'vlocity_ins');
+
+      const propSetMap = {
+        remoteClass: 'vlocity_ins.LookupController',
+        remoteMethod: 'getSearchResults',
+      };
+
+      (omniScriptTool as any).processRemoteAction(propSetMap);
+
+      expect(propSetMap.remoteClass).to.equal('vlocity_ins.LookupController');
+    });
+
+    it('should not modify remoteClass if class is local', async () => {
+      const { ApexNamespaceRegistry } = await import('../../src/migration/ApexNamespaceRegistry');
+      const apexRegistry = ApexNamespaceRegistry.getInstance();
+      apexRegistry.clear();
+
+      const mockConn: any = {
+        tooling: {
+          query: (q: string) => {
+            if (q.includes('NamespacePrefix = null')) {
+              return Promise.resolve({ done: true, records: [{ Name: 'LocalHelper' }] });
+            }
+            return Promise.resolve({ done: true, records: [] });
+          },
+          queryMore: () => Promise.resolve({ done: true, records: [] }),
+        },
+      };
+      await apexRegistry.initialize(mockConn, 'vlocity_ins');
+
+      const propSetMap = {
+        remoteClass: 'LocalHelper',
+        remoteMethod: 'doWork',
+      };
+
+      (omniScriptTool as any).processRemoteAction(propSetMap);
+
+      expect(propSetMap.remoteClass).to.equal('LocalHelper');
+    });
+  });
 });

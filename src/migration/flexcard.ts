@@ -23,8 +23,10 @@ import { StorageUtil } from '../utils/storageUtil';
 import { getUpdatedAssessmentStatus } from '../utils/stringUtils';
 import { isStandardDataModel, isStandardDataModelWithMetadataAPIEnabled } from '../utils/dataModelService';
 import { prioritizeCleanNamesFirst } from '../utils/recordPrioritization';
+import { ApexNamespaceRegistry, ApexResolveStatus } from './ApexNamespaceRegistry';
 
 export class CardMigrationTool extends BaseMigrationTool implements MigrationTool {
+  private readonly apexNamespaceRegistry: ApexNamespaceRegistry = ApexNamespaceRegistry.getInstance();
   static readonly VLOCITYCARD_NAME = 'VlocityCard__c';
   static readonly OMNIUICARD_NAME = 'OmniUiCard';
   static readonly VERSION_PROP = 'Version__c';
@@ -306,7 +308,17 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     };
 
     flexCardAssessmentInfo.migrationStatus = assessmentStatus;
+
     this.updateDependencies(flexCard, flexCardAssessmentInfo);
+
+    if (flexCardAssessmentInfo.errors.length > 0) {
+      flexCardAssessmentInfo.migrationStatus = 'Needs manual intervention';
+    } else if (
+      flexCardAssessmentInfo.warnings.length > 0 &&
+      flexCardAssessmentInfo.migrationStatus === 'Ready for migration'
+    ) {
+      flexCardAssessmentInfo.migrationStatus = 'Warnings';
+    }
 
     // Deduplicate all dependency arrays to ensure no duplicates
     flexCardAssessmentInfo.dependenciesIP = [...new Set(flexCardAssessmentInfo.dependenciesIP)];
@@ -353,12 +365,22 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       } else if (ds.type === Constants.ApexRemoteComponentName) {
         const remoteClass = ds.value?.remoteClass;
         const remoteMethod = ds.value?.remoteMethod;
-        if (
-          remoteClass &&
-          remoteMethod &&
-          !flexCardAssessmentInfo.dependenciesApexRemoteAction.includes(`${remoteClass}.${remoteMethod}`)
-        ) {
-          flexCardAssessmentInfo.dependenciesApexRemoteAction.push(`${remoteClass}.${remoteMethod}`);
+        if (remoteClass && remoteMethod) {
+          const status = this.apexNamespaceRegistry.resolveStatus(remoteClass);
+          const qualifiedClass = this.apexNamespaceRegistry.getQualifiedClassName(remoteClass);
+          const qualifiedEntry = `${qualifiedClass}.${remoteMethod}`;
+          if (!flexCardAssessmentInfo.dependenciesApexRemoteAction.includes(qualifiedEntry)) {
+            flexCardAssessmentInfo.dependenciesApexRemoteAction.push(qualifiedEntry);
+          }
+          if (status === ApexResolveStatus.NAMESPACED) {
+            flexCardAssessmentInfo.warnings.push(
+              this.messages.getMessage('apexRemoteDatasourceNamespaceWarning', [remoteClass, qualifiedClass])
+            );
+          } else if (status === ApexResolveStatus.NOT_FOUND) {
+            flexCardAssessmentInfo.errors.push(
+              this.messages.getMessage('apexClassNotFound', [remoteClass, flexCardAssessmentInfo.name])
+            );
+          }
         }
       }
     }
@@ -1592,6 +1614,10 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         if (parts.length > 2) {
           invalidIpNames.set(context, ipMethod);
         }
+      }
+    } else if (type === Constants.ApexRemoteComponentName) {
+      if (dataSource.value?.remoteClass) {
+        dataSource.value.remoteClass = this.apexNamespaceRegistry.getQualifiedClassName(dataSource.value.remoteClass);
       }
     }
   }

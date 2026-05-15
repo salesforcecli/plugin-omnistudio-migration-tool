@@ -41,11 +41,13 @@ import { StorageUtil } from '../utils/storageUtil';
 import { isStandardDataModel, isStandardDataModelWithMetadataAPIEnabled } from '../utils/dataModelService';
 import { prioritizeCleanNamesFirst } from '../utils/recordPrioritization';
 import { Constants } from '../utils/constants/stringContants';
+import { ApexNamespaceRegistry, ApexResolveStatus } from './ApexNamespaceRegistry';
 
 export class OmniScriptMigrationTool extends BaseMigrationTool implements MigrationTool {
   private readonly exportType: OmniScriptExportType;
   private readonly allVersions: boolean;
   private IS_STANDARD_DATA_MODEL: boolean = isStandardDataModel();
+  private readonly apexNamespaceRegistry: ApexNamespaceRegistry = ApexNamespaceRegistry.getInstance();
 
   // Reserved keys that should not be used for storing output
   private readonly reservedKeys = new Set<string>(['Request', 'Response']);
@@ -406,6 +408,8 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     const missingOS: string[] = [];
     const dependenciesRA: nameLocation[] = [];
     const dependenciesLWC: nameLocation[] = [];
+    const namespaceWarnings: string[] = [];
+    const namespaceErrors: string[] = [];
 
     //const missingRA: string[] = [];
 
@@ -498,12 +502,26 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
         const nameVal = `${elemName}`;
         const className = propertySet['remoteClass'];
         const methodName = propertySet['remoteMethod'];
-        if (className && methodName) dependenciesRA.push({ name: className + '.' + methodName, location: nameVal });
+        if (className && methodName) {
+          const status = this.apexNamespaceRegistry.resolveStatus(className);
+          const qualifiedClass = this.apexNamespaceRegistry.getQualifiedClassName(className);
+          dependenciesRA.push({ name: qualifiedClass + '.' + methodName, location: nameVal });
+          if (status === ApexResolveStatus.NAMESPACED) {
+            namespaceWarnings.push(
+              this.messages.getMessage('remoteActionNamespaceWarning', [nameVal, className, qualifiedClass])
+            );
+          } else if (status === ApexResolveStatus.NOT_FOUND) {
+            namespaceErrors.push(this.messages.getMessage('apexClassNotFound', [className, nameVal]));
+          }
+        }
       }
       // To handle radio , multiselect
       if (propertySet['optionSource'] && propertySet['optionSource']['type'] === 'Custom') {
         const nameVal = `${elemName}`;
-        dependenciesRA.push({ name: propertySet['optionSource']['source'], location: nameVal });
+        const source = propertySet['optionSource']['source'];
+        if (source) {
+          dependenciesRA.push({ name: source, location: nameVal });
+        }
       }
 
       if (type === Constants.CustomLightningWebComponent) {
@@ -532,8 +550,8 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     const existingOmniScriptNameVal = new StringVal(omniScriptName, 'name');
     let assessmentStatus: 'Ready for migration' | 'Warnings' | 'Needs manual intervention' = 'Ready for migration';
 
-    const warnings: string[] = [];
-    const errors: string[] = [];
+    const warnings: string[] = [...namespaceWarnings];
+    const errors: string[] = [...namespaceErrors];
 
     // Check for missing mandatory fields for Integration Procedures
     if (omniProcessType === 'Integration Procedure') {
@@ -685,6 +703,12 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
         warnings.unshift(this.messages.getMessage('angularOSWarning'));
         assessmentStatus = 'Needs manual intervention';
       }
+    }
+
+    if (namespaceErrors.length > 0) {
+      assessmentStatus = 'Needs manual intervention';
+    } else if (namespaceWarnings.length > 0 && assessmentStatus === 'Ready for migration') {
+      assessmentStatus = 'Warnings';
     }
 
     // Deduplicate all dependency arrays to ensure no duplicates
@@ -2449,11 +2473,15 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
   }
 
   /**
-   * Processes Remote Action elements to update transform bundle references
+   * Processes Remote Action elements to update transform bundle references and qualify remoteClass with namespace
    * @param propSetMap Property set map from the element
    */
   private processRemoteAction(propSetMap: any): void {
     this.processTransformBundles(propSetMap);
+
+    if (propSetMap.remoteClass) {
+      propSetMap.remoteClass = this.apexNamespaceRegistry.getQualifiedClassName(propSetMap.remoteClass);
+    }
   }
 
   /**

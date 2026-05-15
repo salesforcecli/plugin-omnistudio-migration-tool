@@ -53,8 +53,8 @@ export class PreMigrate extends BaseMigrationTool {
     }
 
     // Handle config tables cleanup for standard data model migration
-    const isMetadataCleanupSuccess = await this.handleOmniStudioMetadataCleanup();
-    if (!isMetadataCleanupSuccess) {
+    const isMetadataTablesValid = await this.validateOmniStudioMetadataTables();
+    if (!isMetadataTablesValid) {
       process.exit(1);
     }
   }
@@ -186,11 +186,11 @@ export class PreMigrate extends BaseMigrationTool {
   }
 
   /**
-   * Handles OmniStudio metadata tables cleanup with user consent
+   * Validates that OmniStudio metadata tables are clean before migration can proceed.
    *
-   * @returns Promise<boolean> - true if cleanup was successful, false otherwise
+   * @returns Promise<boolean> - true if tables are clean and migration can proceed, false otherwise
    */
-  public async handleOmniStudioMetadataCleanup(): Promise<boolean> {
+  public async validateOmniStudioMetadataTables(): Promise<boolean> {
     if (isStandardDataModelWithMetadataAPIEnabled()) {
       return true;
     }
@@ -200,14 +200,11 @@ export class PreMigrate extends BaseMigrationTool {
       Logger.logVerbose(this.messages.getMessage('metadataTablesAlreadyClean'));
       return true;
     }
-
-    const consent = await this.getMetadataCleanupConsent();
-
-    if (!consent) {
-      Logger.error(this.messages.getMessage('metadataCleanupConsentNotGiven'));
-      return false;
-    }
-    return await omniStudioMetadataCleanupService.cleanupOmniStudioMetadataTables();
+    const helpUrl = this.messages.getMessage('cleanupMetadataTablesHelpUrl');
+    const helpLinkText = this.messages.getMessage('cleanupMetadataTablesHelpLinkText');
+    const clickableLink = `\x1b]8;;${helpUrl}\x1b\\${helpLinkText}\x1b]8;;\x1b\\`;
+    Logger.error(`${this.messages.getMessage('cleanupMetadataTablesRequired')} ${clickableLink}`);
+    return false;
   }
 
   private async checkLwcDeployPrerequisites(
@@ -319,6 +316,8 @@ export class PreMigrate extends BaseMigrationTool {
    *
    * @returns Promise<boolean> - true if user consents, false otherwise
    */
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore TS6133: kept intentionally for future metadata cleanup flow.
   private async getMetadataCleanupConsent(): Promise<boolean> {
     const askWithTimeOut = PromptUtil.askWithTimeOut(this.messages);
     let validResponse = false;

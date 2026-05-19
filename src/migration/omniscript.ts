@@ -805,6 +805,38 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     return false;
   }
 
+  /**
+   * Scans all elements upfront to detect custom LWC embeds before migration starts.
+   * Used to block migration if cross-namespace LWC issues would occur.
+   * @param elements Array of OmniScript elements to check
+   * @param lwcMap Classification map from getLwcClassifications()
+   * @returns Array of error messages (empty if no issues)
+   */
+  private detectCustomLwcEmbedsInElements(elements: AnyJson[], lwcMap: Map<string, string>): string[] {
+    const errors: string[] = [];
+
+    for (const element of elements) {
+      const elementType: string = element[`${this.namespacePrefix}Type__c`] || '';
+      if (elementType !== 'Custom Lightning Web Component') continue;
+
+      let propertySet: any = {};
+      try {
+        propertySet = JSON.parse(element[`${this.namespacePrefix}PropertySet__c`] || '{}');
+      } catch {
+        continue;
+      }
+
+      // Check lwcName and lwcComponentOverride fields
+      const lwcName: string = propertySet['lwcName'] || '';
+      const lwcOverride: string = propertySet['lwcComponentOverride'] || '';
+
+      this.checkAndWarnForCustomLwc(lwcName, lwcMap, errors);
+      this.checkAndWarnForCustomLwc(lwcOverride, lwcMap, errors);
+    }
+
+    return errors;
+  }
+
   private prepareStorageForRelatedObjectsWhenMetadataAPIEnabled(
     storage: MigrationStorage,
     omniscripts: AnyJson[]
@@ -1319,6 +1351,21 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
       // Save the mapped record
       mappedRecords.push(mappedOmniScript);
 
+      // Block migration if custom LWC embeds detected (check BEFORE upload)
+      const lwcErrors = this.detectCustomLwcEmbedsInElements(elements, lwcMap);
+      if (lwcErrors.length > 0) {
+        const osUploadResponse = {
+          referenceId: recordId,
+          hasErrors: true,
+          success: false,
+          errors: lwcErrors,
+          warnings: [],
+        };
+        osUploadInfo.set(recordId, osUploadResponse);
+        originalOsRecords.set(recordId, omniscript);
+        continue;
+      }
+
       // Save the OmniScript__c records to Standard BPO i.e OmniProcess
       let osUploadResponse;
       if (!this.IS_STANDARD_DATA_MODEL) {
@@ -1807,25 +1854,6 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
       // Create a map of the original records
       originalRecords.set(element['Id'], element);
-
-      // Check for cross-namespace LWC embeds and attach warnings
-      const elementType: string = element[`${this.namespacePrefix}Type__c`] || '';
-      if (elementType === 'Custom Lightning Web Component') {
-        let propertySet: any = {};
-        try {
-          propertySet = JSON.parse(element[`${this.namespacePrefix}PropertySet__c`] || '{}');
-        } catch {
-          /* skip unparseable */
-        }
-
-        // Check lwcName and lwcComponentOverride fields
-        const lwcName: string = propertySet['lwcName'] || '';
-        const lwcOverride: string = propertySet['lwcComponentOverride'] || '';
-
-        osUploadResult.warnings = osUploadResult.warnings || [];
-        this.checkAndWarnForCustomLwc(lwcName, lwcMap, osUploadResult.warnings);
-        this.checkAndWarnForCustomLwc(lwcOverride, lwcMap, osUploadResult.warnings);
-      }
     });
 
     if (osUploadResult.id && invalidIpNames.size > 0) {

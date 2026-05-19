@@ -1109,6 +1109,20 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       // Create a map of the original records
       originalRecords.set(recordId, card);
 
+      // Block migration if cross-namespace LWC embeds detected (check BEFORE upload)
+      const lwcErrors = this.detectCustomLwcEmbeds(card, lwcMap);
+      if (lwcErrors.length > 0) {
+        const uploadResult: UploadRecordResult = {
+          referenceId: recordId,
+          hasErrors: true,
+          success: false,
+          errors: lwcErrors,
+          warnings: [],
+        };
+        cardsUploadInfo.set(recordId, uploadResult);
+        return;
+      }
+
       // Create card
 
       let uploadResult: UploadRecordResult;
@@ -1171,10 +1185,6 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
             .join(', ');
           uploadResult.errors.push(this.messages.getMessage('integrationProcedureManualUpdateMessage', [val]));
         }
-
-        // Detect cross-namespace LWC risks during migration
-        const lwcWarnings = this.detectCustomLwcEmbeds(card, lwcMap);
-        uploadResult.warnings.push(...lwcWarnings);
 
         cardsUploadInfo.set(recordId, uploadResult);
 

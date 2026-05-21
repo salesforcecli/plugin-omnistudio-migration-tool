@@ -234,6 +234,11 @@
   "loglevelFlagDeprecated": "loglevel is deprecated. Use --verbose instead",
   "remoteActionNamespaceWarning": "Remote Action \"%s\": remoteClass will be updated from \"%s\" to \"%s\"",
   "apexRemoteDatasourceNamespaceWarning": "ApexRemote datasource: remoteClass will be updated from \"%s\" to \"%s\"",
-  "apexClassNotFound": "Apex class \"%s\" referenced in \"%s\" does not exist in the org"
-  "cleanupMetadataTablesRequired": "Omnistudio configuration tables contain records. Back up your Omnistudio component table data, and manually clean up the Omnistudio configuration tables. <a href='https://help.salesforce.com/s/articleView?id=xcloud.os_enable_omnistudio_metadata_api_support.htm&type=5' target='_blank'>Learn more about cleaning up tables in Salesforce Help</a>"
+  "apexClassNotFound": "Apex class \"%s\" referenced in \"%s\" does not exist in the org",
+  "cleanupMetadataTablesRequired": "Omnistudio configuration tables contain records. Back up your Omnistudio component table data, and manually clean up the Omnistudio configuration tables. <a href='https://help.salesforce.com/s/articleView?id=xcloud.os_enable_omnistudio_metadata_api_support.htm&type=5' target='_blank'>Learn more about cleaning up tables in Salesforce Help</a>",
+  "flexipageCrossNamespaceWarning": "FlexiPage '%s' contains embedded components that will have cross-namespace issues after migration: %s. These components generate LWCs that retain the vertical namespace. The page references will be updated during migration.",
+  "flexipageCrossNamespaceManualIntervention": "FlexiPage '%s' contains embedded components using direct generated LWC references: %s. These components require manual intervention. Replace with standard runtime wrappers (runtime_omnistudio:flexcard or runtime_omnistudio:omniscript) to avoid cross-namespace errors.",
+  "experienceSiteCrossNamespaceWarning": "Experience Site '%s' page '%s' contains embedded components that will have cross-namespace issues after migration: %s. The page references will be updated during migration.",
+  "experienceSiteCrossNamespaceManualIntervention": "Experience Site '%s' page '%s' contains embedded components using direct generated LWC references: %s. These components require manual intervention. Replace with standard runtime wrappers (runtime_omnistudio:flexcard or runtime_omnistudio:omniscript) to avoid cross-namespace errors.",
+  "lwcCrossNamespaceWarning": "Custom LWC '%s' embeds: %s. After migration, cross-namespace errors will occur. Manual code changes required."
 }

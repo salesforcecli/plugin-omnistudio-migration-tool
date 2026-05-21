@@ -43,6 +43,24 @@ export class sfProject {
     Logger.log(messages.getMessage('metadataRetrieved', [metadataName, username]));
   }
 
+  /**
+   * Retrieve metadata using manifest approach (bypasses source tracking)
+   * Works on any org type: scratch, sandbox, production
+   *
+   * @param manifestPath - Path to package.xml manifest file
+   * @param username - Target org username
+   * @param outputDir - Optional output directory (defaults to current project structure)
+   */
+  public static retrieveWithManifest(manifestPath: string, username: string, outputDir?: string): void {
+    Logger.log(messages.getMessage('retrievingMetadata', ['manifest', username]));
+    let cmd = `sf project retrieve start --manifest "${manifestPath}" --target-org ${username}`;
+    if (outputDir) {
+      cmd += ` --output-dir "${outputDir}"`;
+    }
+    sfProject.executeCommand(cmd);
+    Logger.log(messages.getMessage('metadataRetrieved', ['manifest', username]));
+  }
+
   public static deploy(metadataName: string, username: string): void {
     Logger.log(messages.getMessage('deployingMetadata', [metadataName, username]));
     const cmd = `sf project deploy start --metadata ${metadataName} --target-org ${username}`;

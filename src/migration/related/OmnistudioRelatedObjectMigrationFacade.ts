@@ -2,6 +2,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import * as fs from 'fs';
+import * as path from 'path';
 import { Org, Messages } from '@salesforce/core';
 import * as shell from 'shelljs';
 import {
@@ -67,7 +69,7 @@ export default class OmnistudioRelatedObjectMigrationFacade {
       this.projectPath,
       this.namespace,
       this.org,
-      migrateMessages
+      assessMessages
     );
   }
 
@@ -79,23 +81,65 @@ export default class OmnistudioRelatedObjectMigrationFacade {
   private retrieveMetadata(relatedObjects: string[]): void {
     const pwd = shell.pwd();
     shell.cd(this.projectPath);
-    if (relatedObjects.includes(Constants.LWC)) {
-      sfProject.retrieve(LWCTYPE, this.org.getUsername());
-    }
-    if (relatedObjects.includes(Constants.Apex)) {
-      sfProject.retrieve(APEXCLASS, this.org.getUsername());
-    }
 
-    if (relatedObjects.includes(Constants.FlexiPage)) {
-      sfProject.retrieve(Constants.FlexiPage, this.org.getUsername());
-    }
+    // Create temporary manifest for metadata retrieval
+    // This bypasses source tracking and works on any org type
+    const manifestPath = this.createTemporaryManifest(relatedObjects);
 
-    if (relatedObjects.includes(Constants.ExpSites)) {
-      Logger.logVerbose(EXPERIENCEBUNDLE);
-      sfProject.retrieve(EXPERIENCEBUNDLE, this.org.getUsername());
+    try {
+      sfProject.retrieveWithManifest(manifestPath, this.org.getUsername());
+      Logger.logVerbose('Successfully retrieved metadata using manifest approach');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      Logger.warn(
+        `Failed to retrieve metadata from org. Will proceed with local files if available. Error: ${errorMessage}`
+      );
+    } finally {
+      // Clean up temporary manifest
+      if (fs.existsSync(manifestPath)) {
+        fs.unlinkSync(manifestPath);
+      }
     }
 
     shell.cd(pwd);
+  }
+
+  /**
+   * Creates a temporary package.xml manifest for the specified metadata types
+   */
+  private createTemporaryManifest(relatedObjects: string[]): string {
+    const metadataTypes: string[] = [];
+
+    if (relatedObjects.includes(Constants.LWC)) {
+      metadataTypes.push(LWCTYPE);
+    }
+    if (relatedObjects.includes(Constants.Apex)) {
+      metadataTypes.push(APEXCLASS);
+    }
+    if (relatedObjects.includes(Constants.FlexiPage)) {
+      metadataTypes.push(Constants.FlexiPage);
+    }
+    if (relatedObjects.includes(Constants.ExpSites)) {
+      metadataTypes.push(EXPERIENCEBUNDLE);
+    }
+
+    const manifestContent = `<?xml version="1.0" encoding="UTF-8"?>
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+${metadataTypes
+  .map(
+    (type) => `    <types>
+        <members>*</members>
+        <name>${type}</name>
+    </types>`
+  )
+  .join('\n')}
+    <version>62.0</version>
+</Package>`;
+
+    const manifestPath = path.join(this.projectPath, 'temp-retrieve-manifest.xml');
+    fs.writeFileSync(manifestPath, manifestContent);
+
+    return manifestPath;
   }
 
   private processRelatedObjects(relatedObjects: string[], isMigration: boolean): RelatedObjectAssesmentInfo {
@@ -109,7 +153,7 @@ export default class OmnistudioRelatedObjectMigrationFacade {
     try {
       this.retrieveMetadata(relatedObjects);
     } catch (error) {
-      Logger.error('Error retrieving metadata', error);
+      Logger.error('Critical error retrieving metadata - cannot proceed', error);
       return {
         apexAssessmentInfos: [],
         lwcAssessmentInfos: [],

@@ -25,6 +25,15 @@ import {
 import { BaseRelatedObjectMigration } from './BaseRealtedObjectMigration';
 
 /**
+ * Represents an embedded FlexCard or OmniScript component in a FlexiPage
+ */
+interface EmbeddedComponent {
+  type: 'FlexCard' | 'OmniScript';
+  name: string;
+  isAutoMigratable: boolean;
+}
+
+/**
  * FlexipageMigration handles the migration and assessment of FlexiPage components
  * in Salesforce OmniStudio migration operations.
  *
@@ -68,6 +77,232 @@ export class FlexipageMigration extends BaseRelatedObjectMigration {
    */
   public processObjectType(): string {
     return Constants.FlexiPage;
+  }
+
+  /**
+   * Detects ALL FlexCards/OmniScripts embedded in this FlexiPage.
+   * Returns list of embedded components with auto-migration capability.
+   *
+   * @param json - The parsed FlexiPage JSON structure
+   * @returns Array of embedded components found in the FlexiPage
+   */
+  // eslint-disable-next-line complexity
+  private detectEmbeddedComponents(json: Flexipage): EmbeddedComponent[] {
+    const embeddedComponents: EmbeddedComponent[] = [];
+
+    Logger.logVerbose(`[DEBUG] detectEmbeddedComponents - json keys: ${Object.keys(json).join(', ')}`);
+    Logger.logVerbose(
+      `[DEBUG] detectEmbeddedComponents - flexiPageRegions type: ${typeof json.flexiPageRegions}, isArray: ${Array.isArray(
+        json.flexiPageRegions
+      )}, length: ${Array.isArray(json.flexiPageRegions) ? json.flexiPageRegions.length : 'N/A'}`
+    );
+
+    if (!json.flexiPageRegions) {
+      Logger.logVerbose('[DEBUG] detectEmbeddedComponents - No flexiPageRegions found');
+      return embeddedComponents;
+    }
+
+    for (const region of json.flexiPageRegions) {
+      if (!region.itemInstances) continue;
+
+      for (const item of region.itemInstances) {
+        const componentName = item?.componentInstance?.componentName;
+        Logger.logVerbose(`[DEBUG] detectEmbeddedComponents - Found componentName: ${componentName}`);
+
+        // Case 1: Legacy wrapper (namespace:vlocityLWCOmniWrapper)
+        // This is AUTO-MIGRATABLE via standard wrapper transformation
+        if (componentName?.includes('vlocityLWCOmniWrapper')) {
+          const target = item.componentInstance?.componentInstanceProperties?.find(
+            (prop) => prop.name === 'target'
+          )?.value;
+
+          if (target) {
+            const parts = target.split(':');
+            if (parts[0] === 'OmniScript' && parts.length === 4) {
+              embeddedComponents.push({
+                type: 'OmniScript',
+                name: `${parts[1]}_${parts[2]}_${parts[3]}`,
+                isAutoMigratable: true, // Legacy wrapper can be transformed
+              });
+            } else if (parts[0] === 'FlexCard') {
+              embeddedComponents.push({
+                type: 'FlexCard',
+                name: parts[1],
+                isAutoMigratable: true,
+              });
+            } else if (parts.length === 1) {
+              // No prefix - assume FlexCard
+              embeddedComponents.push({
+                type: 'FlexCard',
+                name: target,
+                isAutoMigratable: true,
+              });
+            }
+          }
+        }
+
+        // Case 2: Standard runtime_omnistudio:omniscript
+        // Already using standard wrapper - AUTO-MIGRATABLE
+        else if (componentName === 'runtime_omnistudio:omniscript') {
+          const type = item.componentInstance?.componentInstanceProperties?.find((prop) => prop.name === 'type')?.value;
+          const subType = item.componentInstance?.componentInstanceProperties?.find(
+            (prop) => prop.name === 'subType'
+          )?.value;
+          const language = item.componentInstance?.componentInstanceProperties?.find(
+            (prop) => prop.name === 'language'
+          )?.value;
+
+          if (type && subType && language) {
+            embeddedComponents.push({
+              type: 'OmniScript',
+              name: `${type}_${subType}_${language}`,
+              isAutoMigratable: true,
+            });
+          }
+        }
+
+        // Case 3: Standard runtime_omnistudio:flexcard
+        // Already using standard wrapper - AUTO-MIGRATABLE
+        else if (componentName === 'runtime_omnistudio:flexcard') {
+          const fcName = item.componentInstance?.componentInstanceProperties?.find(
+            (prop) => prop.name === 'flexcardName'
+          )?.value;
+
+          if (fcName) {
+            embeddedComponents.push({
+              type: 'FlexCard',
+              name: fcName,
+              isAutoMigratable: true,
+            });
+          }
+        }
+
+        // Case 4: Direct generated FlexCard LWC (e.g., cfFlexCardName, cfFlex_vlocityaction)
+        // NOT auto-migratable - requires manual update to use standard wrapper
+        else if (componentName && componentName.startsWith('cf')) {
+          embeddedComponents.push({
+            type: 'FlexCard',
+            name: componentName,
+            isAutoMigratable: false, // Direct LWC reference - needs manual wrapper update
+          });
+          Logger.logVerbose(`[DEBUG] Detected direct FlexCard LWC: ${componentName}`);
+        }
+
+        // Case 5: Direct generated OmniScript LWC (e.g., insEnrollmentStdNewDatamodelEnglish)
+        // Pattern: lowercase start, ends with common language names
+        // NOT auto-migratable - requires manual update to use standard wrapper
+        else if (componentName && this.isGeneratedOmniScriptLWC(componentName)) {
+          embeddedComponents.push({
+            type: 'OmniScript',
+            name: componentName,
+            isAutoMigratable: false, // Direct LWC reference - needs manual wrapper update
+          });
+          Logger.logVerbose(`[DEBUG] Detected direct OmniScript LWC: ${componentName}`);
+        }
+      }
+    }
+
+    return embeddedComponents;
+  }
+
+  /**
+   * Checks if a component name matches the pattern of a generated OmniScript LWC
+   * Generated OmniScripts follow pattern: {type}{subType}{language} in camelCase
+   * Common languages: English, Spanish, French, German, Italian, Portuguese, Japanese, Chinese, Korean, etc.
+   *
+   * @param componentName - The component name to check
+   * @returns True if it matches generated OmniScript LWC pattern
+   */
+  private isGeneratedOmniScriptLWC(componentName: string): boolean {
+    if (!componentName) return false;
+
+    // Common language suffixes in generated OmniScript LWCs
+    const languageSuffixes = [
+      'English',
+      'Spanish',
+      'French',
+      'German',
+      'Italian',
+      'Portuguese',
+      'Japanese',
+      'Chinese',
+      'Korean',
+      'Dutch',
+      'Russian',
+      'Arabic',
+      'Hindi',
+      'MultiLanguage',
+      'Multi-Language',
+    ];
+
+    // Check if component name ends with any language suffix
+    const endsWithLanguage = languageSuffixes.some((lang) => componentName.endsWith(lang.replace('-', '')));
+
+    // Additional heuristics:
+    // - Starts with lowercase letter (OmniScript convention)
+    // - Contains no special characters except underscore
+    // - Longer than typical component names (type+subtype+language)
+    const startsWithLowercase = /^[a-z]/.test(componentName);
+    const noSpecialChars = /^[a-zA-Z0-9_]+$/.test(componentName);
+    const reasonableLength = componentName.length > 10 && componentName.length < 100;
+
+    return endsWithLanguage && startsWithLowercase && noSpecialChars && reasonableLength;
+  }
+
+  /**
+   * Generates page-level warning for embedded components.
+   *
+   * @param pageName - The name of the FlexiPage
+   * @param embeddedComponents - Array of embedded components found
+   * @param mode - Processing mode ('assess' or 'migrate')
+   * @returns Object containing warnings array and status string
+   */
+  private generatePageLevelWarning(
+    pageName: string,
+    embeddedComponents: EmbeddedComponent[],
+    mode: 'assess' | 'migrate'
+  ): {
+    warnings: string[];
+    status: 'Ready for migration' | 'Failed' | 'Successfully migrated' | 'Needs manual intervention' | 'Skipped' | '';
+  } {
+    if (embeddedComponents.length === 0) {
+      return { warnings: [], status: '' };
+    }
+
+    const flexCards = embeddedComponents.filter((c) => c.type === 'FlexCard');
+    const omniScripts = embeddedComponents.filter((c) => c.type === 'OmniScript');
+    const allAutoMigratable = embeddedComponents.every((c) => c.isAutoMigratable);
+
+    const componentList: string[] = [];
+    if (flexCards.length > 0) {
+      componentList.push(`FlexCards: ${flexCards.map((c) => c.name).join(', ')}`);
+    }
+    if (omniScripts.length > 0) {
+      componentList.push(`OmniScripts: ${omniScripts.map((c) => c.name).join(', ')}`);
+    }
+
+    let messageKey: string;
+    if (mode === 'assess') {
+      messageKey = allAutoMigratable ? 'flexipageCrossNamespaceWarning' : 'flexipageCrossNamespaceManualIntervention';
+    } else {
+      messageKey = allAutoMigratable ? 'flexipageCrossNamespaceMigrated' : 'flexipageCrossNamespaceSkipped';
+    }
+
+    const warningMessage = this.messages.getMessage(messageKey, [pageName, componentList.join('; ')]);
+
+    const status: 'Ready for migration' | 'Failed' | 'Successfully migrated' | 'Needs manual intervention' | 'Skipped' =
+      mode === 'assess'
+        ? allAutoMigratable
+          ? 'Ready for migration'
+          : 'Needs manual intervention'
+        : allAutoMigratable
+        ? 'Successfully migrated'
+        : 'Skipped';
+
+    return {
+      warnings: [warningMessage],
+      status,
+    };
   }
 
   /**
@@ -187,9 +422,43 @@ export class FlexipageMigration extends BaseRelatedObjectMigration {
     Logger.logVerbose(this.messages.getMessage('readFlexiPageContent', [fileContent.length]));
 
     const json = this.xmlUtil.parse(fileContent) as Flexipage;
+
+    // NEW: Detect embedded components
+    const embeddedComponents = this.detectEmbeddedComponents(json);
+    Logger.logVerbose(`[DEBUG] ${fileName} - Detected ${embeddedComponents.length} embedded components`);
+
+    // Generate page-level warnings for embedded components
+    const { warnings, status: componentWarningStatus } = this.generatePageLevelWarning(
+      fileName,
+      embeddedComponents,
+      mode
+    );
+    Logger.logVerbose(`[DEBUG] ${fileName} - Generated ${warnings.length} warnings, status: ${componentWarningStatus}`);
+
+    // Proceed with existing transformation logic
     const transformedFlexiPage = transformFlexipageBundle(json, this.namespace, mode);
+
+    // If no transformation needed, check if we have warnings to report
     if (transformedFlexiPage === false) {
-      Logger.logVerbose(`No transformation needed on ${fileName}`);
+      Logger.logVerbose(`[DEBUG] ${fileName} - No transformation needed. Warnings: ${warnings.length}`);
+      // If there are embedded component warnings, still return them
+      if (warnings.length > 0) {
+        Logger.logVerbose(`[DEBUG] ${fileName} - Returning with warnings only`);
+        return {
+          path: filePath,
+          name: fileName,
+          diff: '',
+          errors: warnings,
+          status: componentWarningStatus as
+            | 'Ready for migration'
+            | 'Failed'
+            | 'Warnings'
+            | 'Successfully migrated'
+            | 'Needs manual intervention'
+            | 'Skipped',
+        };
+      }
+      // No warnings and no transformation - nothing to report
       return null;
     }
     const modifiedContent = this.xmlUtil.build(transformedFlexiPage, 'FlexiPage');
@@ -206,13 +475,20 @@ export class FlexipageMigration extends BaseRelatedObjectMigration {
     const diff = new FileDiffUtil().getXMLDiff(normalizedOriginal, normalizedModified);
     Logger.logVerbose(this.messages.getMessage('generatedDiffForFile', [fileName]));
 
-    const status = mode === 'assess' ? 'Ready for migration' : 'Successfully migrated';
+    const transformationStatus = mode === 'assess' ? 'Ready for migration' : 'Successfully migrated';
 
     // Check if there are any actual changes (where old !== new)
     const hasActualChanges = diff.some((d) => d.old !== d.new);
 
-    // Only exclude if there are no changes AND status indicates success (no warnings/errors)
-    if (!hasActualChanges && (status === 'Ready for migration' || status === 'Successfully migrated')) {
+    // Combine transformation status with component warning status
+    // Priority: component warnings > transformation changes
+    let finalStatus: typeof transformationStatus = transformationStatus;
+    if (warnings.length > 0 && componentWarningStatus !== '') {
+      finalStatus = componentWarningStatus as typeof transformationStatus;
+    }
+
+    // Include results if there are warnings OR actual changes
+    if (warnings.length === 0 && !hasActualChanges) {
       return null;
     }
 
@@ -220,8 +496,8 @@ export class FlexipageMigration extends BaseRelatedObjectMigration {
       path: filePath,
       name: fileName,
       diff: JSON.stringify(diff),
-      errors: [],
-      status,
+      errors: warnings,
+      status: finalStatus,
     };
   }
 }

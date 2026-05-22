@@ -2129,6 +2129,9 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
       case Constants.RemoteAction:
         this.processRemoteAction(propSet);
         break;
+      case Constants.NavigateAction:
+        this.processNavigateAction(propSet);
+        break;
       default:
         // Handle other element types if needed
         break;
@@ -2362,6 +2365,46 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
       );
       propSetMap['Type'] = this.cleanName(osType);
       propSetMap['Sub Type'] = this.cleanName(osSubType);
+    }
+  }
+
+  /**
+   * Processes Navigate Action elements so the migrated parent OmniScript can launch its child
+   * under the standard runtime: resolves Type/Sub Type/Language from the legacy `LWC OmniScript`
+   * reference and rewrites `OmniScript Prefill` keys from the managed-package `c__` namespace
+   * to the standard runtime's `omniscript__` namespace.
+   * @param propSetMap Property set map from the element
+   */
+  private processNavigateAction(propSetMap: any): void {
+    const lwcRef: string = typeof propSetMap['LWC OmniScript'] === 'string' ? propSetMap['LWC OmniScript'] : '';
+    if (lwcRef) {
+      const stripped = lwcRef.replace(/^c:/, '').replace(/^c__/, '').toLowerCase();
+      const match = this.nameRegistry.getOmniScriptMappingKeys().find((key) => {
+        const parts = key.split('_');
+        if (parts.length < 2) return false;
+        const type = parts[0];
+        const subType = parts[1];
+        const language = parts[2] || 'English';
+        const candidate = `${this.cleanName(type)}${this.cleanName(subType)}${language}`.toLowerCase();
+        return candidate === stripped;
+      });
+
+      if (match) {
+        const cleanedFullName = this.nameRegistry.getCleanedName(match, 'OmniScript');
+        const cleanedParts = cleanedFullName.split('_');
+        if (cleanedParts.length >= 2) {
+          propSetMap['Type'] = cleanedParts[0];
+          propSetMap['Sub Type'] = cleanedParts[1];
+          propSetMap['Language'] = cleanedParts[2] || match.split('_')[2] || 'English';
+        }
+        propSetMap['LWC OmniScript'] = '';
+      } else {
+        Logger.logVerbose(`\n${this.messages.getMessage('componentMappingNotFound', ['OmniScript', lwcRef])}`);
+      }
+    }
+
+    if (typeof propSetMap['OmniScript Prefill'] === 'string' && propSetMap['OmniScript Prefill']) {
+      propSetMap['OmniScript Prefill'] = propSetMap['OmniScript Prefill'].replace(/(^|&)c__/g, '$1omniscript__');
     }
   }
 

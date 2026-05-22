@@ -352,8 +352,8 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
    *     shared across records).
    *
    * Both checks emit a warning into `flexCardAssessmentInfo.warnings` and bump
-   * `migrationStatus` to 'Warnings' (using `getUpdatedAssessmentStatus` so a
-   * stricter status set elsewhere is preserved).
+   * `migrationStatus` to 'Needs manual intervention' (via
+   * `getUpdatedAssessmentStatus`, which never downgrades a stricter status).
    */
   private async collectStylesheetNamespaceDependencies(
     flexCard: AnyJson,
@@ -378,7 +378,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       if (resourceName) {
         const verdict = await registry.scanResource(resourceName);
         if (verdict === 'namespaceFound') {
-          const message = registry.buildNamespaceWarning(resourceName);
+          const message = registry.buildFlexCardNamespaceWarning(resourceName);
           if (message) {
             flexCardAssessmentInfo.warnings.push(message);
             flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
@@ -387,7 +387,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
                 | 'Needs manual intervention'
                 | 'Ready for migration'
                 | 'Failed',
-              'Warnings'
+              'Needs manual intervention'
             );
           }
         }
@@ -415,7 +415,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
               | 'Needs manual intervention'
               | 'Ready for migration'
               | 'Failed',
-            'Warnings'
+            'Needs manual intervention'
           );
         }
       }

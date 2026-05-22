@@ -31,4 +31,10 @@ export const documentRegistry = {
     'https://help.salesforce.com/s/articleView?id=xcloud.os_standard_set_up_your_environment_for_customizing_omniscript_elements.htm&type=5',
   customLabelMigrationErrorMessage:
     'https://help.salesforce.com/s/articleView?id=xcloud.os_migrate_oma_prereq.htm&type=5',
+  customCssStylesheetNamespaceWarningOmniScript:
+    'https://help.salesforce.com/s/articleView?id=xcloud.os_style_omniscripts_18959.htm&type=5',
+  customCssStylesheetNamespaceWarningFlexCard:
+    'https://help.salesforce.com/s/articleView?id=xcloud.os_apply_custom_lightning_styles_to_a_specific_flexcard.htm&type=5',
+  customCssInlineNamespaceWarning:
+    'https://help.salesforce.com/s/articleView?id=xcloud.os_apply_custom_css_to_a_flexcard_element.htm&type=5',
 };

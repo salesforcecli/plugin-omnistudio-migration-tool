@@ -34,8 +34,11 @@ function buildMockConnection(opts: {
 function buildMockMessages(): any {
   return {
     getMessage: (key: string, args?: string[]) => {
-      if (key === 'customCssStylesheetNamespaceWarning') {
-        return `Custom CSS stylesheet '${args?.[0]}' has namespace references, styles may break after migration.`;
+      if (key === 'customCssStylesheetNamespaceWarningOmniScript') {
+        return `Custom CSS stylesheet '${args?.[0]}' has namespace references, OmniScript styles may break after migration.`;
+      }
+      if (key === 'customCssStylesheetNamespaceWarningFlexCard') {
+        return `Custom CSS stylesheet '${args?.[0]}' has namespace references, FlexCard styles may break after migration.`;
       }
       if (key === 'customCssInlineNamespaceWarning') {
         return 'Custom inline CSS has namespace references, styles may break after migration.';
@@ -306,17 +309,34 @@ describe('CustomCssRegistry', () => {
     });
   });
 
-  describe('buildNamespaceWarning() / buildInlineCssNamespaceWarning()', () => {
+  describe('buildOmniScriptNamespaceWarning() / buildFlexCardNamespaceWarning() / buildInlineCssNamespaceWarning()', () => {
     it('returns null when not configured', () => {
-      expect(registry.buildNamespaceWarning('foo')).to.equal(null);
+      expect(registry.buildOmniScriptNamespaceWarning('foo')).to.equal(null);
+      expect(registry.buildFlexCardNamespaceWarning('foo')).to.equal(null);
       expect(registry.buildInlineCssNamespaceWarning()).to.equal(null);
     });
 
-    it('returns the formatted stylesheet warning with the resource name interpolated', () => {
+    it('returns the OmniScript-specific stylesheet warning with the resource name interpolated', () => {
       registry.init(buildMockConnection({}) as any, 'vlocity_cmt', buildMockMessages());
-      const msg = registry.buildNamespaceWarning('foo');
+      const msg = registry.buildOmniScriptNamespaceWarning('foo');
       expect(msg).to.include("'foo'");
+      expect(msg).to.include('OmniScript styles');
       expect(msg).to.include('namespace references');
+    });
+
+    it('returns the FlexCard-specific stylesheet warning with the resource name interpolated', () => {
+      registry.init(buildMockConnection({}) as any, 'vlocity_cmt', buildMockMessages());
+      const msg = registry.buildFlexCardNamespaceWarning('foo');
+      expect(msg).to.include("'foo'");
+      expect(msg).to.include('FlexCard styles');
+      expect(msg).to.include('namespace references');
+    });
+
+    it('keeps the OmniScript and FlexCard messages distinct so reportingHelper can resolve different CTAs', () => {
+      registry.init(buildMockConnection({}) as any, 'vlocity_cmt', buildMockMessages());
+      const os = registry.buildOmniScriptNamespaceWarning('shared');
+      const fc = registry.buildFlexCardNamespaceWarning('shared');
+      expect(os).to.not.equal(fc);
     });
 
     it('returns the inline-CSS warning without interpolating a name', () => {

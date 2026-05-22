@@ -136,14 +136,25 @@ export class CustomCssRegistry {
   }
 
   /**
-   * Build the customer-facing warning message for a StaticResource-backed
-   * stylesheet that contains namespace references. Centralised here so both
-   * OmniScript and FlexCard collectors phrase warnings identically. Returns
-   * `null` if the registry has no message bundle yet.
+   * Build the customer-facing warning message for an OmniScript StaticResource-
+   * backed stylesheet that contains namespace references. The OmniScript and
+   * FlexCard variants are split so each can map to its own help-doc URL in
+   * `documentRegistry`. Returns `null` if the registry has no message bundle yet.
    */
-  public buildNamespaceWarning(resourceName: string): string | null {
+  public buildOmniScriptNamespaceWarning(resourceName: string): string | null {
     if (!this.messages || !this.namespace) return null;
-    return this.messages.getMessage('customCssStylesheetNamespaceWarning', [resourceName]);
+    return this.messages.getMessage('customCssStylesheetNamespaceWarningOmniScript', [resourceName]);
+  }
+
+  /**
+   * Build the customer-facing warning message for a FlexCard StaticResource-
+   * backed stylesheet that contains namespace references. Mirrors
+   * `buildOmniScriptNamespaceWarning` but uses the FlexCard-specific message key
+   * so the call-to-action helper resolves the FlexCard help-doc link.
+   */
+  public buildFlexCardNamespaceWarning(resourceName: string): string | null {
+    if (!this.messages || !this.namespace) return null;
+    return this.messages.getMessage('customCssStylesheetNamespaceWarningFlexCard', [resourceName]);
   }
 
   /**

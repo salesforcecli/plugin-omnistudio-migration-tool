@@ -42,6 +42,9 @@ const titles = {
   reservedKeysFoundInPropertySet: 'Omnistudio Naming Conventions',
   manualDeploymentSteps: 'Set Up Your Environment to Customize Omniscript Elements',
   customLabelMigrationErrorMessage: 'Omnistudio Migration Prerequisites',
+  customCssStylesheetNamespaceWarningOmniScript: 'Custom Styles for Omniscripts',
+  customCssStylesheetNamespaceWarningFlexCard: 'Apply Custom Lightning Styles to a Specific Flexcard (Managed Package)',
+  customCssInlineNamespaceWarning: 'Apply Custom CSS to a Flexcard Element (Managed Package)',
 };
 
 describe('DocumentRegistry', () => {
@@ -128,6 +131,9 @@ describe('DocumentRegistry', () => {
         'reservedKeysFoundInPropertySet',
         'manualDeploymentSteps',
         'customLabelMigrationErrorMessage',
+        'customCssStylesheetNamespaceWarningOmniScript',
+        'customCssStylesheetNamespaceWarningFlexCard',
+        'customCssInlineNamespaceWarning',
       ];
 
       expectedKeys.forEach((key) => {

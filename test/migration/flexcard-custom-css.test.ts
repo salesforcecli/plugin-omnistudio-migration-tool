@@ -70,8 +70,11 @@ describe('FlexCard — Custom CSS namespace scan', () => {
 
     mockMessages = {
       getMessage: (key: string, args?: string[]) => {
-        if (key === 'customCssStylesheetNamespaceWarning') {
-          return `Custom CSS stylesheet '${args?.[0]}' has namespace references, styles may break after migration.`;
+        if (key === 'customCssStylesheetNamespaceWarningOmniScript') {
+          return `Custom CSS stylesheet '${args?.[0]}' has namespace references, OmniScript styles may break after migration.`;
+        }
+        if (key === 'customCssStylesheetNamespaceWarningFlexCard') {
+          return `Custom CSS stylesheet '${args?.[0]}' has namespace references, FlexCard styles may break after migration.`;
         }
         if (key === 'customCssInlineNamespaceWarning') {
           return 'Custom inline CSS has namespace references, styles may break after migration.';
@@ -103,7 +106,7 @@ describe('FlexCard — Custom CSS namespace scan', () => {
   }
 
   describe('Definition__c.customStyleSheet (StaticResource path)', () => {
-    it('emits a warning and bumps status when the static resource body contains the namespace', async () => {
+    it('emits a warning and escalates status to NMI when the static resource body contains the namespace', async () => {
       setupMockConnection({
         staticResources: { flaggedCss: { Id: '081A1', ContentType: 'text/css', BodyLength: 20 } },
         bodies: { '081A1': '.vlocity_cmt-card {}' },
@@ -116,7 +119,9 @@ describe('FlexCard — Custom CSS namespace scan', () => {
       const result = await (cardTool as any).processFlexCard(fc, new Set<string>(), new Map<string, string>());
 
       expect(result.warnings.some((w: string) => w.includes("'flaggedCss'"))).to.equal(true);
-      expect(result.migrationStatus).to.equal('Warnings');
+      // FlexCard-specific phrasing so reportingHelper resolves the FlexCard CTA URL.
+      expect(result.warnings.some((w: string) => w.includes('FlexCard styles'))).to.equal(true);
+      expect(result.migrationStatus).to.equal('Needs manual intervention');
     });
 
     it('does not warn when the static resource body has no namespace match', async () => {
@@ -164,7 +169,7 @@ describe('FlexCard — Custom CSS namespace scan', () => {
   });
 
   describe('Styles__c.customStyles (inline CSS path)', () => {
-    it('emits the inline-CSS warning when customStyles contains the namespace', async () => {
+    it('emits the inline-CSS warning and escalates status to NMI when customStyles contains the namespace', async () => {
       setupMockConnection({});
       cardTool = makeTool('vlocity_cmt');
 
@@ -175,7 +180,7 @@ describe('FlexCard — Custom CSS namespace scan', () => {
       const result = await (cardTool as any).processFlexCard(fc, new Set<string>(), new Map<string, string>());
 
       expect(result.warnings.some((w: string) => w.includes('Custom inline CSS'))).to.equal(true);
-      expect(result.migrationStatus).to.equal('Warnings');
+      expect(result.migrationStatus).to.equal('Needs manual intervention');
       // Pure substring match — no SOQL, no REST.
       expect(requestCount).to.equal(0);
     });
@@ -222,7 +227,7 @@ describe('FlexCard — Custom CSS namespace scan', () => {
   });
 
   describe('Combined: both paths can fire on the same FlexCard', () => {
-    it('emits two warnings when both Definition stylesheet AND inline CSS match', async () => {
+    it('emits two warnings and escalates status to NMI when both Definition stylesheet AND inline CSS match', async () => {
       setupMockConnection({
         staticResources: { flaggedCss: { Id: '081A1', ContentType: 'text/css', BodyLength: 20 } },
         bodies: { '081A1': '.vlocity_cmt-card {}' },
@@ -238,7 +243,7 @@ describe('FlexCard — Custom CSS namespace scan', () => {
       expect(result.warnings.filter((w: string) => w.includes('namespace references')).length).to.equal(2);
       expect(result.warnings.some((w: string) => w.includes("'flaggedCss'"))).to.equal(true);
       expect(result.warnings.some((w: string) => w.includes('Custom inline CSS'))).to.equal(true);
-      expect(result.migrationStatus).to.equal('Warnings');
+      expect(result.migrationStatus).to.equal('Needs manual intervention');
     });
   });
 

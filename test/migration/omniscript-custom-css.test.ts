@@ -74,8 +74,11 @@ describe('OmniScript — Custom CSS namespace scan', () => {
 
     mockMessages = {
       getMessage: (key: string, args?: string[]) => {
-        if (key === 'customCssStylesheetNamespaceWarning') {
-          return `Custom CSS stylesheet '${args?.[0]}' has namespace references, styles may break after migration.`;
+        if (key === 'customCssStylesheetNamespaceWarningOmniScript') {
+          return `Custom CSS stylesheet '${args?.[0]}' has namespace references, OmniScript styles may break after migration.`;
+        }
+        if (key === 'customCssStylesheetNamespaceWarningFlexCard') {
+          return `Custom CSS stylesheet '${args?.[0]}' has namespace references, FlexCard styles may break after migration.`;
         }
         if (key === 'customCssInlineNamespaceWarning') {
           return 'Custom inline CSS has namespace references, styles may break after migration.';
@@ -112,7 +115,7 @@ describe('OmniScript — Custom CSS namespace scan', () => {
     };
   }
 
-  it('emits a warning and bumps status when the stylesheet body contains the namespace', async () => {
+  it('emits a warning and escalates status to NMI when the stylesheet body contains the namespace', async () => {
     setupMockConnection({
       staticResources: {
         myCustomCss: { Id: '081SR1', ContentType: 'text/css', BodyLength: 30 },
@@ -136,7 +139,9 @@ describe('OmniScript — Custom CSS namespace scan', () => {
     );
 
     expect(result.warnings.some((w: string) => w.includes("'myCustomCss'"))).to.equal(true);
-    expect(result.migrationStatus).to.equal('Warnings');
+    // OmniScript-specific phrasing so reportingHelper resolves the OmniScript CTA URL.
+    expect(result.warnings.some((w: string) => w.includes('OmniScript styles'))).to.equal(true);
+    expect(result.migrationStatus).to.equal('Needs manual intervention');
   });
 
   it('does not warn when the stylesheet body has no namespace match', async () => {

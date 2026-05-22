@@ -5,6 +5,7 @@ import { SfCommand, Ux, Flags as flags } from '@salesforce/sf-plugins-core';
 import { AssessmentInfo } from '../../../utils/interfaces';
 import { AssessmentReporter } from '../../../utils/resultsbuilder/assessmentReporter';
 import { OmniScriptExportType, OmniScriptMigrationTool } from '../../../migration/omniscript';
+import { OmniScriptInstanceMigrationTool } from '../../../migration/omniscriptInstance';
 import { InvalidEntityTypeError } from '../../../migration/interfaces';
 import { CardMigrationTool } from '../../../migration/flexcard';
 import { DataRaptorMigrationTool } from '../../../migration/dataraptor';
@@ -185,6 +186,7 @@ export default class Assess extends SfCommand<AssessmentInfo> {
         warnings: 0,
         failed: 0,
       },
+      saveForLaterAssessmentInfos: [],
     };
 
     Logger.log(messages.getMessage('assessmentInitialization', [String(namespace)]));
@@ -285,7 +287,10 @@ export default class Assess extends SfCommand<AssessmentInfo> {
       await this.assessFlexCards(assesmentInfo, namespace, conn, allVersions, ux);
       await this.assessOmniScripts(assesmentInfo, namespace, conn, allVersions, OmniScriptExportType.OS, ux);
       await this.assessOmniScripts(assesmentInfo, namespace, conn, allVersions, OmniScriptExportType.IP, ux);
+
       if (!isFoundationPackage()) {
+        // Omniscript's Save For Later
+        await this.assessSaveForLater(assesmentInfo, namespace, conn, ux);
         await this.assessGlobalAutoNumbers(assesmentInfo, namespace, conn, ux);
       }
       await this.assessCustomLabels(assesmentInfo, namespace, conn);
@@ -398,6 +403,23 @@ export default class Assess extends SfCommand<AssessmentInfo> {
         [exportComponentType]
       );
     }
+  }
+
+  private async assessSaveForLater(
+    assesmentInfo: AssessmentInfo,
+    namespace: string,
+    conn: Connection,
+    ux: Ux
+  ): Promise<void> {
+    const saveForLaterMigrator = new OmniScriptInstanceMigrationTool(namespace, conn, Logger, messages, ux);
+    // Pass OmniScript assessment info to check dependencies
+    assesmentInfo.saveForLaterAssessmentInfos = await saveForLaterMigrator.assess(assesmentInfo.omniAssessmentInfo);
+    this.logAssessmentCompletionIfNeeded(
+      'assessedOmniScriptsCount',
+      'omniScriptAssessmentCompleted',
+      assesmentInfo.saveForLaterAssessmentInfos.length,
+      ['OmniScript Saved Sessions']
+    );
   }
 
   private async assessGlobalAutoNumbers(

@@ -38,6 +38,21 @@ export const Constants = {
   DataAction: 'DataAction',
   CardAction: 'cardAction',
 
+  // FlexCard "Custom Web Page" navigation action targeting an OmniScript Universal Page
+  CustomActionType: 'Custom',
+  WebPageTargetType: 'Web Page',
+  OmniScriptUniversalPagePath: '/apex',
+  OmniScriptUniversalPageToken: 'OmniScriptUniversalPage',
+  OmniScriptTypeParam: 'OmniScriptType',
+  OmniScriptSubTypeParam: 'OmniScriptSubType',
+  OmniScriptLangParam: 'OmniScriptLang',
+  OmniScriptLayoutParam: 'layout',
+  OmniScriptStandardTypeParam: 'omniscript__type',
+  OmniScriptStandardSubTypeParam: 'omniscript__subType',
+  OmniScriptStandardLanguageParam: 'omniscript__language',
+  OmniScriptStandardThemeParam: 'omniscript__theme',
+  OmniScriptStandardPagePath: '/lightning/page/omnistudio/omniscript',
+
   // OmniScript element/action type constants
   IntegrationProcedureAction: 'Integration Procedure Action',
   DataRaptorTurboAction: 'DataRaptor Turbo Action',
@@ -75,12 +90,17 @@ export const Constants = {
   OmniProcessObjectName: 'OmniProcess',
   OmniUiCardObjectName: 'OmniUiCard',
   OmniDataTransformObjectName: 'OmniDataTransform',
+  OmniScriptInstanceObjectName: 'OmniScriptInstance__c',
+  OmniScriptSavedSessionObjectName: 'OmniScriptSavedSession',
 
   // Config table names
   OmniScriptConfigTable: 'OmniScriptConfig',
   OmniIntegrationProcConfigTable: 'OmniIntegrationProcConfig',
   OmniDataTransformConfigTable: 'OmniDataTransformConfig',
   OmniUiCardConfigTable: 'OmniUiCardConfig',
+
+  // Display names
+  OmniScriptSavedSessionsDisplayName: 'OmniScript Saved Sessions',
 };
 
 export const Status = {
@@ -90,6 +110,7 @@ export const Status = {
   Complete: 'Complete',
   ReadyForMigration: 'Ready for migration',
   NeedsManualIntervention: 'Needs manual intervention',
+  Warnings: 'Warnings',
   ManualDeploymentNeeded: 'Manual deployment needed',
   SuccessfullyCompleted: 'Successfully Completed',
 };

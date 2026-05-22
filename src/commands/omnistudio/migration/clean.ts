@@ -133,9 +133,11 @@ export default class Clean extends SfCommand<CleanResult> {
       const entityTotal = specialCharRecords.length + nullUniqueNameRecords.length;
       totalRecords += entityTotal;
 
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const strip = (records: Array<Record<string, unknown>>): Array<Record<string, unknown>> =>
-        records.map(({ attributes: _attrs, ...rest }) => rest);
+        records.map(({ attributes, ...rest }) => {
+          void attributes; // Explicitly mark as intentionally unused
+          return rest;
+        });
 
       const assessment = {
         component: entityName,

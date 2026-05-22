@@ -982,7 +982,9 @@ describe('Standard Data Model with Metadata API Enabled - Storage Preparation On
         // OmniScript should be in storage
         const osKey = 'customerprofileenglish';
         expect(storage.osStorage.has(osKey)).to.be.true;
-        expect(storage.osStorage.get(osKey)!.migrationSuccess).to.be.true;
+        const osEntry = storage.osStorage.get(osKey);
+        expect(osEntry).to.exist;
+        expect(osEntry?.migrationSuccess).to.be.true;
 
         // Only 1 entry should be in storage (IP was skipped)
         expect(storage.osStorage.size).to.equal(1);
@@ -1019,7 +1021,9 @@ describe('Standard Data Model with Metadata API Enabled - Storage Preparation On
 
         const assessKey = 'testwrapperomniq3english';
         expect(assessmentStorage.osStorage.has(assessKey)).to.be.true;
-        expect(assessmentStorage.osStorage.get(assessKey)!.migrationSuccess).to.be.true;
+        const assessEntry = assessmentStorage.osStorage.get(assessKey);
+        expect(assessEntry).to.exist;
+        expect(assessEntry?.migrationSuccess).to.be.true;
 
         // Test with migration storage
         const migrationStorage = StorageUtil.getOmnistudioMigrationStorage();
@@ -1029,7 +1033,9 @@ describe('Standard Data Model with Metadata API Enabled - Storage Preparation On
         );
 
         expect(migrationStorage.osStorage.has(assessKey)).to.be.true;
-        expect(migrationStorage.osStorage.get(assessKey)!.migrationSuccess).to.be.true;
+        const migrationEntry = migrationStorage.osStorage.get(assessKey);
+        expect(migrationEntry).to.exist;
+        expect(migrationEntry?.migrationSuccess).to.be.true;
       });
     });
 
@@ -1107,14 +1113,18 @@ describe('Standard Data Model with Metadata API Enabled - Storage Preparation On
 
         const key = 'testflexcard';
         expect(assessmentStorage.fcStorage.has(key)).to.be.true;
-        expect(assessmentStorage.fcStorage.get(key)!.migrationSuccess).to.be.true;
+        const assessEntry = assessmentStorage.fcStorage.get(key);
+        expect(assessEntry).to.exist;
+        expect(assessEntry?.migrationSuccess).to.be.true;
 
         // Test with migration storage
         const migrationStorage = StorageUtil.getOmnistudioMigrationStorage();
         (cardTool as any).prepareStorageForRelatedObjectsWhenMetadataAPIEnabled(migrationStorage, mockFlexCards);
 
         expect(migrationStorage.fcStorage.has(key)).to.be.true;
-        expect(migrationStorage.fcStorage.get(key)!.migrationSuccess).to.be.true;
+        const migrationEntry = migrationStorage.fcStorage.get(key);
+        expect(migrationEntry).to.exist;
+        expect(migrationEntry?.migrationSuccess).to.be.true;
       });
     });
 

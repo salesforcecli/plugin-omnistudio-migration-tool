@@ -14,6 +14,7 @@ import {
   SortDirection,
 } from '../utils';
 import { BaseMigrationTool, ComponentType } from './base';
+import { CustomCssRegistry } from './CustomCssRegistry';
 import {
   InvalidEntityTypeError,
   MigrationResult,
@@ -81,6 +82,9 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     super(namespace, connection, logger, messages, ux);
     this.exportType = exportType;
     this.allVersions = allVersions;
+    // Configure the shared Custom CSS registry. Idempotent — safe to call from
+    // both the OS and IP tool instances within a single assess run.
+    CustomCssRegistry.getInstance().init(connection, namespace, messages);
   }
 
   getName(
@@ -705,6 +709,14 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
       }
     }
 
+    // Scan custom Lightning/Newport stylesheets for managed-package namespace references.
+    // Runs after all other warnings/status logic so the precedence guard correctly preserves
+    // any prior 'Needs manual intervention' status set above.
+    await this.collectStylesheetNamespaceDependencies(omniscript, warnings, () => {
+      if (assessmentStatus === 'Ready for migration') {
+        assessmentStatus = 'Warnings';
+      }
+    });
     if (namespaceErrors.length > 0) {
       assessmentStatus = 'Needs manual intervention';
     } else if (namespaceWarnings.length > 0 && assessmentStatus === 'Ready for migration') {
@@ -2675,6 +2687,54 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
         }
       });
     });
+  }
+
+  /**
+   * Reads the OmniScript's custom Lightning/Newport stylesheet references from
+   * PropertySetConfig and warns if the referenced StaticResource's CSS body
+   * still contains the org's managed-package namespace string. Such references
+   * won't resolve after migration and would silently break styling.
+   *
+   * Heavy lifting (StaticResource lookup, body fetch, zip extraction, scan,
+   * cache) lives in {@link CustomCssRegistry} so the same cache can later be
+   * shared with FlexCard assessment without re-querying the same resources.
+   *
+   * @param omniscript     The OmniScript/IP record being assessed.
+   * @param warnings       Warnings array on the in-progress OSAssessmentInfo (mutated).
+   * @param escalateStatus Callback that promotes assessmentStatus to 'Warnings'
+   *                       (without downgrading 'Needs manual intervention').
+   */
+  private async collectStylesheetNamespaceDependencies(
+    omniscript: AnyJson,
+    warnings: string[],
+    escalateStatus: () => void
+  ): Promise<void> {
+    const registry = CustomCssRegistry.getInstance();
+    if (!registry.isEnabled()) {
+      return;
+    }
+
+    const propertySetConfigStr = omniscript[this.getFieldKey('PropertySet__c')];
+    if (!propertySetConfigStr) {
+      return;
+    }
+
+    let propertySetConfig: any;
+    try {
+      propertySetConfig = JSON.parse(propertySetConfigStr);
+    } catch (ex) {
+      Logger.error(`Failed to parse PropertySetConfig for stylesheet scan: ${omniscript['Name']}`);
+      return;
+    }
+
+    const { stylesheetsWithNamespaceRefs } = await registry.scanOmniScriptStylesheets(propertySetConfig?.stylesheet);
+    for (const resourceName of stylesheetsWithNamespaceRefs) {
+      const message = registry.buildNamespaceWarning(resourceName);
+      if (message) {
+        warnings.push(message);
+        escalateStatus();
+      }
+    }
   }
 
   private getElementFieldKey(fieldName: string): string {

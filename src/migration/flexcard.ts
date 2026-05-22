@@ -4,6 +4,7 @@ import CardMappings from '../mappings/VlocityCard';
 import { DebugTimer, QueryTools, SortDirection } from '../utils';
 import { NetUtils } from '../utils/net';
 import { BaseMigrationTool } from './base';
+import { CustomCssRegistry } from './CustomCssRegistry';
 import {
   InvalidEntityTypeError,
   MigrationResult,
@@ -30,6 +31,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
   static readonly VLOCITYCARD_NAME = 'VlocityCard__c';
   static readonly OMNIUICARD_NAME = 'OmniUiCard';
   static readonly VERSION_PROP = 'Version__c';
+  private static readonly URL_PARSE_BASE = 'https://placeholder.local';
   private IS_STANDARD_DATA_MODEL: boolean = isStandardDataModel();
 
   private readonly allVersions: boolean;
@@ -44,6 +46,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
   ) {
     super(namespace, connection, logger, messages, ux);
     this.allVersions = allVersions;
+    CustomCssRegistry.getInstance().init(connection, namespace, messages);
   }
 
   getName(): string {
@@ -307,6 +310,10 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 
     this.updateDependencies(flexCard, flexCardAssessmentInfo);
 
+    // Scan custom CSS (both StaticResource-backed and inline) for managed-package
+    // namespace references. The helper updates `migrationStatus` itself via
+    // `getUpdatedAssessmentStatus`, so it never downgrades a stricter status.
+    await this.collectStylesheetNamespaceDependencies(flexCard, flexCardAssessmentInfo);
     if (flexCardAssessmentInfo.errors.length > 0) {
       flexCardAssessmentInfo.migrationStatus = 'Needs manual intervention';
     } else if (
@@ -327,6 +334,92 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     ];
 
     return flexCardAssessmentInfo;
+  }
+
+  /**
+   * Scan a FlexCard for two distinct kinds of namespace-bound custom CSS:
+   *
+   *  1. **StaticResource-backed stylesheet** — `Definition__c.customStyleSheet`
+   *     stores the *Name* of a Static Resource. We look it up, fetch its body,
+   *     and substring-check for the org's managed-package namespace. Same flow
+   *     and same warning message as the OmniScript implementation; resource
+   *     scans are cached by name in {@link CustomCssRegistry}, so a stylesheet
+   *     shared between OmniScripts and FlexCards is only fetched once per run.
+   *
+   *  2. **Inline CSS** — `Styles__c.customStyles` stores raw CSS text. We
+   *     substring-check the namespace directly against that string. No
+   *     SOQL/REST traffic and no caching (the CSS is per-FlexCard and not
+   *     shared across records).
+   *
+   * Both checks emit a warning into `flexCardAssessmentInfo.warnings` and bump
+   * `migrationStatus` to 'Warnings' (using `getUpdatedAssessmentStatus` so a
+   * stricter status set elsewhere is preserved).
+   */
+  private async collectStylesheetNamespaceDependencies(
+    flexCard: AnyJson,
+    flexCardAssessmentInfo: FlexCardAssessmentInfo
+  ): Promise<void> {
+    const registry = CustomCssRegistry.getInstance();
+    if (!registry.isEnabled()) {
+      return;
+    }
+
+    // ---- 1. Definition__c.customStyleSheet (StaticResource name) ----
+    const definitionRaw = flexCard[this.getFieldKey('Definition__c')];
+    if (definitionRaw) {
+      let definition: any;
+      try {
+        definition = JSON.parse(definitionRaw);
+      } catch (ex) {
+        Logger.error(`Failed to parse Definition__c for stylesheet scan: ${flexCard['Name']}`);
+        definition = null;
+      }
+      const resourceName = (definition?.customStyleSheet || '').toString().trim();
+      if (resourceName) {
+        const verdict = await registry.scanResource(resourceName);
+        if (verdict === 'namespaceFound') {
+          const message = registry.buildNamespaceWarning(resourceName);
+          if (message) {
+            flexCardAssessmentInfo.warnings.push(message);
+            flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
+              flexCardAssessmentInfo.migrationStatus as
+                | 'Warnings'
+                | 'Needs manual intervention'
+                | 'Ready for migration'
+                | 'Failed',
+              'Warnings'
+            );
+          }
+        }
+      }
+    }
+
+    // ---- 2. Styles__c.customStyles (raw inline CSS) ----
+    const stylesRaw = flexCard[this.getFieldKey('Styles__c')];
+    if (stylesRaw) {
+      let styles: any;
+      try {
+        styles = JSON.parse(stylesRaw);
+      } catch (ex) {
+        Logger.error(`Failed to parse Styles__c for stylesheet scan: ${flexCard['Name']}`);
+        styles = null;
+      }
+      const inlineCss = styles?.customStyles;
+      if (registry.containsNamespaceInText(inlineCss)) {
+        const message = registry.buildInlineCssNamespaceWarning();
+        if (message) {
+          flexCardAssessmentInfo.warnings.push(message);
+          flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
+            flexCardAssessmentInfo.migrationStatus as
+              | 'Warnings'
+              | 'Needs manual intervention'
+              | 'Ready for migration'
+              | 'Failed',
+            'Warnings'
+          );
+        }
+      }
+    }
   }
 
   private updateDependencies(flexCard, flexCardAssessmentInfo): void {
@@ -722,7 +815,11 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     return childs;
   }
 
-  private checkComponentForDependencies(component: any, flexCardAssessmentInfo: FlexCardAssessmentInfo): void {
+  private checkComponentForDependencies(
+    component: any,
+    flexCardAssessmentInfo: FlexCardAssessmentInfo,
+    omniScriptNavigateURLWarningKeys: Set<string> = new Set<string>()
+  ): void {
     // Check if this component is an action element
     if (component.element === 'action' && component.property && component.property.actionList) {
       // Process each action in the actionList
@@ -770,6 +867,12 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           // Case 4: Flyout CustomLwc reference - check for FlexCard reference with "cf" prefix
           else if (this.hasCustomLwcFlyoutDependency(action.stateAction)) {
             this.addCfPrefixedFlexCardDependency(action.stateAction.flyoutLwc, flexCardAssessmentInfo);
+          } else if (this.isCustomWebPageAction(action.stateAction)) {
+            this.addOmniScriptNavigateURLAssessmentWarning(
+              action.stateAction,
+              flexCardAssessmentInfo,
+              omniScriptNavigateURLWarningKeys
+            );
           }
         }
       }
@@ -816,6 +919,12 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       // Case 4: Flyout CustomLwc reference on component property - check for FlexCard reference with "cf" prefix
       if (this.hasCustomLwcFlyoutDependency(component.property.stateAction)) {
         this.addCfPrefixedFlexCardDependency(component.property.stateAction.flyoutLwc, flexCardAssessmentInfo);
+      } else if (this.isCustomWebPageAction(component.property.stateAction)) {
+        this.addOmniScriptNavigateURLAssessmentWarning(
+          component.property.stateAction,
+          flexCardAssessmentInfo,
+          omniScriptNavigateURLWarningKeys
+        );
       }
     }
 
@@ -836,10 +945,99 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 
     // Check child components recursively
     if (component.children && Array.isArray(component.children)) {
-      for (const child of component.children) {
-        this.checkComponentForDependencies(child, flexCardAssessmentInfo);
+      for (let childIndex = 0; childIndex < component.children.length; childIndex++) {
+        const child = component.children[childIndex];
+        this.checkComponentForDependencies(child, flexCardAssessmentInfo, omniScriptNavigateURLWarningKeys);
       }
     }
+  }
+
+  private addOmniScriptNavigateURLAssessmentWarning(
+    stateAction: any,
+    flexCardAssessmentInfo: FlexCardAssessmentInfo,
+    warningKeys: Set<string>
+  ): void {
+    if (this.IS_STANDARD_DATA_MODEL) {
+      return;
+    }
+    const rewrite = this.getOmniScriptURLRewrite(stateAction);
+    if (!rewrite) {
+      return;
+    }
+    const { targetName, updatedURL, malformedTokens } = rewrite;
+
+    const summary = this.formatURLRewriteSummary(targetName, updatedURL);
+    if (warningKeys.has(summary)) {
+      return;
+    }
+    warningKeys.add(summary);
+
+    // Emit a single warning per URL: when fragment tokens are malformed, the
+    // dedicated malformed-token warning is the authoritative one (it already
+    // contains both the original URL and the "will get replaced with" line,
+    // PLUS the malformed-token list and the verify instruction). For clean
+    // URLs we fall back to the plain rewrite warning. Defense-in-depth: if
+    // the malformed formatter unexpectedly returns empty, fall back to the
+    // plain rewrite warning so the customer still sees something.
+    const hasMalformedTokens = Array.isArray(malformedTokens) && malformedTokens.length > 0;
+    let warningText = '';
+    if (hasMalformedTokens) {
+      warningText = this.formatMalformedFragmentTokenWarning(targetName, updatedURL, malformedTokens);
+    }
+    if (!warningText) {
+      warningText = this.messages.getMessage('webPageOmniScriptNavigationDetected', [
+        this.toReadableURL(targetName),
+        this.toReadableURL(updatedURL),
+      ]);
+    }
+    flexCardAssessmentInfo.warnings.push(warningText);
+
+    flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
+      flexCardAssessmentInfo.migrationStatus as
+        | 'Warnings'
+        | 'Needs manual intervention'
+        | 'Ready for migration'
+        | 'Failed',
+      'Warnings'
+    );
+  }
+
+  /**
+   * Build the customer-facing warning shown when a Web Page action URL contains
+   * fragment tokens that decodeURIComponent couldn't parse. Centralised here so
+   * the assessment and migration paths emit byte-identical text.
+   *
+   * Returns an empty string when the helper is called with no malformed tokens
+   * (defense in depth: callers already guard, but a future caller that forgets
+   * shouldn't be able to produce a degenerate warning with an empty bracket).
+   * Non-string entries are coerced via String() so a misbehaving caller can't
+   * surface "undefined" / "[object Object]" to customers; duplicates are
+   * suppressed so a fragment like `#/Foo%/Bar/Foo%/Baz` doesn't render as
+   * `["Foo%", "Foo%"]`.
+   */
+  private formatMalformedFragmentTokenWarning(
+    targetName: string,
+    updatedURL: string,
+    malformedTokens: string[]
+  ): string {
+    if (!Array.isArray(malformedTokens) || malformedTokens.length === 0) {
+      return '';
+    }
+    const seen = new Set<string>();
+    const uniqueTokens: string[] = [];
+    for (const raw of malformedTokens) {
+      const t = typeof raw === 'string' ? raw : String(raw);
+      if (!seen.has(t)) {
+        seen.add(t);
+        uniqueTokens.push(t);
+      }
+    }
+    const tokenList = uniqueTokens.map((t) => `"${t}"`).join(', ');
+    return this.messages.getMessage('webPageOmniScriptUrlMalformedToken', [
+      tokenList,
+      this.toReadableURL(targetName),
+      this.toReadableURL(updatedURL),
+    ]);
   }
 
   private async getAllCards(): Promise<AnyJson[]> {
@@ -953,7 +1151,18 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
 
       // Perform the transformation
       const invalidIpNames = new Map<string, string>();
-      const transformedCard = this.mapVlocityCardRecord(card, cardsUploadInfo, invalidIpNames); // This only has the card structure, card definition is not there
+      const urlUpdateSummaries = new Set<string>();
+      // Map keyed by rewrite summary so the emission step below can subtract
+      // malformed URLs from the aggregate "Updated URLs:" locations message.
+      // Same key for two actions on the same card => one entry (deduped).
+      const malformedFragmentWarnings = new Map<string, string>();
+      const transformedCard = this.mapVlocityCardRecord(
+        card,
+        cardsUploadInfo,
+        invalidIpNames,
+        urlUpdateSummaries,
+        malformedFragmentWarnings
+      ); // This only has the card structure, card definition is not there
 
       // Verify duplicated names
       let transformedCardName: string;
@@ -1052,6 +1261,31 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         uploadResult.actualName = transformedCard['Name']; // This is required as storage needs name without version, for replacement in other references
         if (transformedCard['Name'] !== card['Name']) {
           uploadResult.warnings.unshift(this.messages.getMessage('cardNameChangeMessage', [transformedCardName]));
+        }
+
+        // The count summary describes ONLY URLs that were converted cleanly
+        // to the standard URL format. Malformed URLs were rewritten with
+        // their bad tokens kept as-is -- claiming they were "updated to
+        // standard URL format" alongside their own malformed warning would
+        // contradict that warning and confuse the customer. Each malformed
+        // URL is surfaced via its own dedicated bullet below which already
+        // names the original URL, the rewritten URL, and the verify
+        // instruction.
+        const cleanRewriteSummaries = Array.from(urlUpdateSummaries).filter(
+          (summary) => !malformedFragmentWarnings.has(summary)
+        );
+        if (cleanRewriteSummaries.length > 0) {
+          uploadResult.warnings.unshift(
+            this.messages.getMessage('flexCardOmniScriptNavigateURLUpdated', [String(cleanRewriteSummaries.length)])
+          );
+        }
+
+        // Surface malformed-fragment-token warnings (one per affected URL).
+        // These are intentionally emitted *instead of* the count bullet
+        // above so the customer sees a single, actionable bullet per
+        // malformed URL: original URL, rewrite, verify instruction.
+        for (const malformedWarning of malformedFragmentWarnings.values()) {
+          uploadResult.warnings.push(malformedWarning);
         }
 
         if (uploadResult.id && invalidIpNames.size > 0) {
@@ -1266,7 +1500,9 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
   private mapVlocityCardRecord(
     cardRecord: AnyJson,
     cardsUploadInfo: Map<string, UploadRecordResult>,
-    invalidIpNames: Map<string, string>
+    invalidIpNames: Map<string, string>,
+    urlUpdateSummaries: Set<string>,
+    malformedFragmentWarnings?: Map<string, string>
   ): AnyJson {
     // Transformed object
     let mappedObject = {};
@@ -1355,7 +1591,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     this.ensureCommunityTargets(mappedObject, isCardActive);
 
     // Update all dependencies comprehensively
-    this.updateAllDependenciesWithRegistry(mappedObject, invalidIpNames);
+    this.updateAllDependenciesWithRegistry(mappedObject, invalidIpNames, urlUpdateSummaries, malformedFragmentWarnings);
 
     mappedObject['attributes'] = {
       type: CardMigrationTool.OMNIUICARD_NAME,
@@ -1368,7 +1604,12 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
   /**
    * Comprehensive dependency update using NameMappingRegistry - mirrors assessment logic
    */
-  private updateAllDependenciesWithRegistry(mappedObject: any, invalidIpNames: Map<string, string>): void {
+  private updateAllDependenciesWithRegistry(
+    mappedObject: any,
+    invalidIpNames: Map<string, string>,
+    urlUpdateSummaries: Set<string>,
+    malformedFragmentWarnings?: Map<string, string>
+  ): void {
     // Handle propertySet (Definition) - update all dependency references
     const propertySet = JSON.parse(mappedObject[CardMappings.Definition__c] || '{}');
     if (propertySet) {
@@ -1406,7 +1647,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
             for (const componentKey in state.components) {
               if (state.components.hasOwnProperty(componentKey)) {
                 const component = state.components[componentKey];
-                this.updateComponentDependenciesWithRegistry(component);
+                this.updateComponentDependenciesWithRegistry(component, urlUpdateSummaries, malformedFragmentWarnings);
               }
             }
           }
@@ -1547,7 +1788,11 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
   /**
    * Update component dependencies comprehensively
    */
-  private updateComponentDependenciesWithRegistry(component: any): void {
+  private updateComponentDependenciesWithRegistry(
+    component: any,
+    urlUpdateSummaries: Set<string>,
+    malformedFragmentWarnings?: Map<string, string>
+  ): void {
     // Handle action elements with actionList (like assessment)
     if (component.element === 'action' && component.property && component.property.actionList) {
       for (const action of component.property.actionList) {
@@ -1566,6 +1811,10 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           // Case 3: Flyout with flyoutLwc (ChildCard or CustomLwc)
           else if (this.hasFlyoutLwc(action.stateAction)) {
             this.updateFlyoutLwcValue(action.stateAction);
+          }
+          // Case A: Custom Web Page action referencing OmniScript Universal Page
+          else if (this.isCustomWebPageAction(action.stateAction)) {
+            this.applyOmniScriptURLRewrite(action.stateAction, urlUpdateSummaries, malformedFragmentWarnings);
           }
         }
       }
@@ -1594,6 +1843,9 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       // Handle Flyout with flyoutLwc (ChildCard or CustomLwc)
       if (this.hasFlyoutLwc(component.property.stateAction)) {
         this.updateFlyoutLwcValue(component.property.stateAction);
+      }
+      if (this.isCustomWebPageAction(component.property.stateAction)) {
+        this.applyOmniScriptURLRewrite(component.property.stateAction, urlUpdateSummaries, malformedFragmentWarnings);
       }
     }
 
@@ -1649,9 +1901,225 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     // Check child components recursively
     if (component.children && Array.isArray(component.children)) {
       for (const child of component.children) {
-        this.updateComponentDependenciesWithRegistry(child);
+        this.updateComponentDependenciesWithRegistry(child, urlUpdateSummaries, malformedFragmentWarnings);
       }
     }
+  }
+
+  private applyOmniScriptURLRewrite(
+    stateAction: any,
+    urlUpdateSummaries: Set<string>,
+    malformedFragmentWarnings?: Map<string, string>
+  ): void {
+    if (this.IS_STANDARD_DATA_MODEL) {
+      return;
+    }
+    const rewrite = this.getOmniScriptURLRewrite(stateAction);
+    if (!rewrite) {
+      return;
+    }
+    const { targetName, updatedURL, malformedTokens } = rewrite;
+
+    stateAction[Constants.WebPageTargetType].targetName = updatedURL;
+    const summary = this.formatURLRewriteSummary(targetName, updatedURL);
+    urlUpdateSummaries.add(summary);
+
+    // Per-card collector is optional so internal/test callers can omit it
+    // without forcing a signature update. The Map is keyed by the rewrite
+    // summary so the emission step can later subtract malformed URLs from
+    // the aggregate "Updated URLs: ..." locations message -- each malformed
+    // entry already carries the original URL, the rewritten URL, and the
+    // verify instruction inside its own warning, so listing it twice would
+    // be redundant. Same key for two actions on the same card => one entry.
+    // Defense-in-depth: skip if the formatter returns an empty string so we
+    // never store a blank warning under a real summary key.
+    if (malformedFragmentWarnings && Array.isArray(malformedTokens) && malformedTokens.length > 0) {
+      const malformedWarning = this.formatMalformedFragmentTokenWarning(targetName, updatedURL, malformedTokens);
+      if (malformedWarning) {
+        malformedFragmentWarnings.set(summary, malformedWarning);
+      }
+    }
+  }
+
+  /** Build a human-readable "before -> after" string for warning messages only. */
+  private formatURLRewriteSummary(originalURL: string, updatedURL: string): string {
+    return `${this.toReadableURL(originalURL)} -> ${this.toReadableURL(updatedURL)}`;
+  }
+
+  /**
+   * Decode a URL for DISPLAY purposes only (warning/log messages). The output
+   * is lossy with respect to URL parsing semantics (e.g. an encoded `%26`
+   * becomes a literal `&`) and must NOT be re-fed into a URL parser. Falls
+   * back to the raw input on malformed percent sequences.
+   */
+  private toReadableURL(url: string): string {
+    try {
+      return decodeURIComponent(url);
+    } catch {
+      return url;
+    }
+  }
+
+  private getOmniScriptURLRewrite(
+    stateAction: any
+  ): { targetName: string; updatedURL: string; malformedTokens: string[] } | undefined {
+    const targetName = stateAction[Constants.WebPageTargetType]?.targetName;
+    if (typeof targetName !== 'string') {
+      return undefined;
+    }
+
+    // Fast reject: if the raw text doesn't even mention the universal-page
+    // path or token, skip URL parsing entirely. This is a substring screen,
+    // not a security check; the strict structural validation happens after
+    // parsing in isValidOmniScriptNavigationURL.
+    if (
+      !targetName.includes(Constants.OmniScriptUniversalPagePath) ||
+      !targetName.includes(Constants.OmniScriptUniversalPageToken)
+    ) {
+      return undefined;
+    }
+
+    const parsedURL = this.tryParseURL(targetName);
+    if (!parsedURL || !this.isValidOmniScriptNavigationURL(parsedURL)) {
+      return undefined;
+    }
+
+    const updatedURL = this.convertToStandardOmniScriptURL(parsedURL);
+    // Re-parse the fragment once more here purely to capture malformed-token
+    // diagnostics for the caller. Cheap (single split + map over a short
+    // string) and keeps `convertToStandardOmniScriptURL` focused on rewriting.
+    const { malformedTokens } = this.parseSlashFragmentParams(parsedURL.hash);
+    return { targetName, updatedURL, malformedTokens };
+  }
+
+  private isCustomWebPageAction(stateAction: any): boolean {
+    return stateAction?.type === Constants.CustomActionType && stateAction?.targetType === Constants.WebPageTargetType;
+  }
+
+  /**
+   * Parse a URL string without throwing. Returns the parsed URL on success or
+   * undefined for:
+   *   - syntactically invalid input (e.g. `https://[bad`, raw spaces in host,
+   *     `http:///` with no host), or
+   *   - URLs whose scheme is not `http:` or `https:` (e.g. `javascript:`,
+   *     `data:`, `file:`, `mailto:`).
+   *
+   * See URL_PARSE_BASE for why a synthetic base is supplied.
+   */
+  private tryParseURL(input: string): URL | undefined {
+    let parsed: URL;
+    try {
+      parsed = new URL(input, CardMigrationTool.URL_PARSE_BASE);
+    } catch {
+      return undefined;
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return undefined;
+    }
+    return parsed;
+  }
+
+  /**
+   * Verify a parsed URL has the OmniScript Navigate shape. We validate against
+   * the parsed components (pathname / searchParams / hash) rather than doing
+   * substring matches on the raw input so callers cannot smuggle the required
+   * tokens in unrelated positions (e.g. inside another query value).
+   *
+   * The pathname must START WITH `/apex/` and contain the universal-page
+   * token. Anchoring to the prefix rejects non-http(s) schemes such as
+   * `javascript:alert(1)//apex/...` whose parsed pathname does not begin
+   * with `/` (it begins with the opaque body of the scheme).
+   *
+   * Two legitimate shapes are accepted:
+   *   1. Path + query:    /apex/<ns>__OmniScriptUniversalPage?OmniScriptType=...&OmniScriptSubType=...&OmniScriptLang=...
+   *   2. Path + fragment: /apex/<ns>__OmniScriptUniversalPage?...#/OmniScriptType/.../OmniScriptSubType/.../OmniScriptLang/...
+   */
+  private isValidOmniScriptNavigationURL(parsedURL: URL): boolean {
+    if (!parsedURL.pathname.startsWith(`${Constants.OmniScriptUniversalPagePath}/`)) {
+      return false;
+    }
+    if (!parsedURL.pathname.includes(Constants.OmniScriptUniversalPageToken)) {
+      return false;
+    }
+
+    const fragmentKeys = new Set<string>(this.parseSlashFragmentParams(parsedURL.hash).pairs.map(([key]) => key));
+    const hasParam = (key: string): boolean => parsedURL.searchParams.has(key) || fragmentKeys.has(key);
+
+    return (
+      hasParam(Constants.OmniScriptTypeParam) &&
+      hasParam(Constants.OmniScriptSubTypeParam) &&
+      hasParam(Constants.OmniScriptLangParam)
+    );
+  }
+
+  private convertToStandardOmniScriptURL(parsedURL: URL): string {
+    const paramRenames: Record<string, string> = {
+      [Constants.OmniScriptTypeParam]: Constants.OmniScriptStandardTypeParam,
+      [Constants.OmniScriptSubTypeParam]: Constants.OmniScriptStandardSubTypeParam,
+      [Constants.OmniScriptLangParam]: Constants.OmniScriptStandardLanguageParam,
+      [Constants.OmniScriptLayoutParam]: Constants.OmniScriptStandardThemeParam,
+    };
+    const paramsToClean = new Set<string>([Constants.OmniScriptTypeParam, Constants.OmniScriptSubTypeParam]);
+
+    // Merge query-string params with fragment params. Query-string entries win on conflict.
+    const mergedEntries: Array<[string, string]> = [];
+    const seenKeys = new Set<string>();
+    parsedURL.searchParams.forEach((value, key) => {
+      mergedEntries.push([key, value]);
+      seenKeys.add(key);
+    });
+    for (const [key, value] of this.parseSlashFragmentParams(parsedURL.hash).pairs) {
+      if (!seenKeys.has(key)) {
+        mergedEntries.push([key, value]);
+        seenKeys.add(key);
+      }
+    }
+
+    const newSearchParams = new URLSearchParams();
+    for (const [key, value] of mergedEntries) {
+      const newKey = paramRenames[key] ?? key;
+      const newValue = paramsToClean.has(key) ? this.cleanName(value) : value;
+      newSearchParams.append(newKey, newValue);
+    }
+
+    return `${Constants.OmniScriptStandardPagePath}?${newSearchParams.toString()}`;
+  }
+
+  /**
+   * Parse a slash-separated OmniScript fragment of the form
+   *   #/Key1/Value1/Key2/Value2/...
+   * into [key, value] pairs. Tolerates leading `#`, leading `/`, empty values
+   * (consecutive slashes), and a trailing orphan token (which is dropped).
+   *
+   * Tokens with malformed percent sequences (e.g. `Foo%`, `Bar%E2`) are kept
+   * as-is rather than throwing; decodeURIComponent raises URIError on invalid
+   * escape sequences and we don't want one bad token to crash the whole
+   * FlexCard's URL rewrite. The raw (still-encoded) tokens are also returned
+   * via `malformedTokens` so callers can surface them to customers as a
+   * "please verify" warning rather than silently shipping a best-effort guess.
+   */
+  private parseSlashFragmentParams(hash: string): { pairs: Array<[string, string]>; malformedTokens: string[] } {
+    if (!hash) {
+      return { pairs: [], malformedTokens: [] };
+    }
+    const trimmed = hash.replace(/^#\/?/, '');
+    if (!trimmed) {
+      return { pairs: [], malformedTokens: [] };
+    }
+    const malformedTokens: string[] = [];
+    const tokens = trimmed.split('/').map((t) => {
+      try {
+        return decodeURIComponent(t);
+      } catch {
+        malformedTokens.push(t);
+        return t;
+      }
+    });
+    const pairs: Array<[string, string]> = [];
+    for (let i = 0; i + 1 < tokens.length; i += 2) {
+      pairs.push([tokens[i], tokens[i + 1]]);
+    }
+    return { pairs, malformedTokens };
   }
 
   /**

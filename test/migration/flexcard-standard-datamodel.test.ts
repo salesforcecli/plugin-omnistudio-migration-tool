@@ -1001,6 +1001,107 @@ describe('FlexCard Standard Data Model (Metadata API Disabled) - Assessment and 
 
       expect(propertySetConfig.events[0].actionList[0].stateAction.cardName).to.equal('EventChildCardClean');
     });
+
+    it('should NOT rewrite OmniScript Universal Page URL on Standard Data Model', () => {
+      const originalUrl =
+        'https://migration01--devopsimpkg15.test1.vf.pc-rnd.force.com/apex/devopsimpkg15__OmniScriptUniversalPage?id={0}&OmniScriptType=OS&OmniScriptSubType=Navigate&OmniScriptLang=English&PrefillDataRaptorBundle=&scriptMode=vertical&layout=lightning&ContextId={0}';
+      const mockCardRecord = {
+        Id: 'fc_mig_events_os_url_abs',
+        Name: 'MigEventsOmniUrlAbsolute',
+        DataSourceConfig: JSON.stringify({ type: 'None' }),
+        PropertySetConfig: JSON.stringify({
+          layout: 'Card',
+          states: [
+            {
+              components: {
+                'layer-0': {
+                  children: [
+                    {
+                      element: 'action',
+                      property: {
+                        actionList: [
+                          {
+                            stateAction: {
+                              type: 'Custom',
+                              targetType: 'Web Page',
+                              'Web Page': {
+                                targetName: originalUrl,
+                              },
+                            },
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+          events: [],
+        }),
+        IsActive: true,
+        OmniUiCardType: 'Parent',
+        VersionNumber: 1,
+      };
+
+      const updates = new Set<string>();
+      const result = (cardTool as any).mapVlocityCardRecord(mockCardRecord, new Map(), new Map(), updates);
+      const propertySetConfig = JSON.parse(result.PropertySetConfig);
+      const targetName =
+        propertySetConfig.states[0].components['layer-0'].children[0].property.actionList[0].stateAction['Web Page']
+          .targetName;
+
+      expect(targetName).to.equal(originalUrl);
+      expect(updates.size).to.equal(0);
+    });
+  });
+
+  describe('OmniScript Navigate URL - Assessment', () => {
+    it('should NOT add warning for Custom Web Page OmniScript URL on Standard Data Model', async () => {
+      const mockFlexCard = {
+        Id: 'fc_assess_os_url_custom',
+        Name: 'AssessOmniScriptUrlCustom',
+        DataSourceConfig: JSON.stringify({ type: 'None' }),
+        PropertySetConfig: JSON.stringify({
+          states: [
+            {
+              components: {
+                comp1: {
+                  element: 'action',
+                  property: {
+                    actionList: [
+                      {
+                        stateAction: {
+                          type: 'Custom',
+                          targetType: 'Web Page',
+                          'Web Page': {
+                            targetName:
+                              '/apex/devopsimpkg15__OmniScriptUniversalPage?id={0}&OmniScriptType=OS&OmniScriptSubType=Navigate&OmniScriptLang=English&layout=lightning&ContextId={0}',
+                          },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+        }),
+        IsActive: true,
+        OmniUiCardType: 'Parent',
+        VersionNumber: 1,
+      };
+
+      const result = await (cardTool as any).processFlexCard(
+        mockFlexCard,
+        new Set<string>(),
+        new Map<string, string>()
+      );
+
+      const omniScriptWarnings = (result.warnings as string[]).filter((w) => w.includes('OmniScriptUniversalPage'));
+      expect(omniScriptWarnings.length).to.equal(0);
+      expect(result.migrationStatus).to.not.equal('Warnings');
+    });
   });
 
   describe('Events Array - Angular OmniScript Dependency Detection', () => {

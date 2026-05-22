@@ -80,6 +80,26 @@ export class FlexipageMigration extends BaseRelatedObjectMigration {
   }
 
   /**
+   * Performs assessment of FlexiPage components without making changes.
+   *
+   * @returns Array of FlexiPage assessment information
+   */
+  public assess(): FlexiPageAssessmentInfo[] {
+    Logger.log(this.messages.getMessage('assessingFlexiPages'));
+    return this.process('assess');
+  }
+
+  /**
+   * Performs migration of FlexiPage components to the target format.
+   *
+   * @returns Array of FlexiPage assessment information after migration
+   */
+  public migrate(): FlexiPageAssessmentInfo[] {
+    Logger.log(this.messages.getMessage('migratingFlexiPages'));
+    return this.process('migrate');
+  }
+
+  /**
    * Detects ALL FlexCards/OmniScripts embedded in this FlexiPage.
    * Returns list of embedded components with auto-migration capability.
    *
@@ -303,26 +323,6 @@ export class FlexipageMigration extends BaseRelatedObjectMigration {
       warnings: [warningMessage],
       status,
     };
-  }
-
-  /**
-   * Performs assessment of FlexiPage components to determine migration readiness.
-   *
-   * @returns Array of FlexiPage assessment information
-   */
-  public assess(): FlexiPageAssessmentInfo[] {
-    Logger.log(this.messages.getMessage('assessingFlexiPages'));
-    return this.process('assess');
-  }
-
-  /**
-   * Performs migration of FlexiPage components to the target format.
-   *
-   * @returns Array of FlexiPage assessment information after migration
-   */
-  public migrate(): FlexiPageAssessmentInfo[] {
-    Logger.log(this.messages.getMessage('migratingFlexiPages'));
-    return this.process('migrate');
   }
 
   /**

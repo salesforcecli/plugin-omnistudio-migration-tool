@@ -17,10 +17,16 @@ import {
   FlexcardStorage,
 } from '../interfaces';
 import { FileDiffUtil } from '../../utils/lwcparser/fileutils/FileDiffUtil';
-import { ExperienceSiteAssessmentInfo, ExperienceSiteAssessmentPageInfo } from '../../utils';
+import {
+  ExperienceSiteAssessmentInfo,
+  ExperienceSiteAssessmentPageInfo,
+  FlexCardAssessmentInfo,
+  OSAssessmentInfo,
+} from '../../utils';
 import { StorageUtil } from '../../utils/storageUtil';
 import { createProgressBar } from '../base';
 import { isStandardDataModel } from '../../utils/dataModelService';
+import { CrossReferenceDetector, ComponentWithLWC } from '../../utils/crossReferenceDetector';
 import { BaseRelatedObjectMigration } from './BaseRealtedObjectMigration';
 
 Messages.importMessagesDirectory(__dirname);
@@ -36,6 +42,8 @@ export class ExperienceSiteMigration extends BaseRelatedObjectMigration {
   private ASSESS = 'Assess';
   private messages: Messages<string>;
   private IS_STANDARD_DATA_MODEL: boolean = isStandardDataModel();
+  private flexCardInfos: FlexCardAssessmentInfo[] = [];
+  private osInfos: OSAssessmentInfo[] = [];
 
   public constructor(projectPath: string, namespace: string, org: Org, messages: Messages<string>) {
     super(projectPath, namespace, org);
@@ -46,11 +54,21 @@ export class ExperienceSiteMigration extends BaseRelatedObjectMigration {
     return Constants.ExpSites;
   }
 
-  public assess(): ExperienceSiteAssessmentInfo[] {
+  public assess(
+    flexCardInfos?: FlexCardAssessmentInfo[],
+    osInfos?: OSAssessmentInfo[]
+  ): ExperienceSiteAssessmentInfo[] {
+    this.flexCardInfos = flexCardInfos || [];
+    this.osInfos = osInfos || [];
     return this.process(this.ASSESS);
   }
 
-  public migrate(): ExperienceSiteAssessmentInfo[] {
+  public migrate(
+    flexCardInfos?: FlexCardAssessmentInfo[],
+    osInfos?: OSAssessmentInfo[]
+  ): ExperienceSiteAssessmentInfo[] {
+    this.flexCardInfos = flexCardInfos || [];
+    this.osInfos = osInfos || [];
     return this.process(this.MIGRATE);
   }
 
@@ -166,6 +184,21 @@ export class ExperienceSiteMigration extends BaseRelatedObjectMigration {
       this.processRegion(region, experienceSiteAssessmentInfo, storage, lookupComponentName, type);
     }
 
+    // NEW: Check for cross-reference issues with custom LWCs
+    const componentsWithLWCs = this.detectCustomLWCUsageInSite(experienceSiteParsedJSON);
+    if (componentsWithLWCs.length > 0) {
+      const warning = CrossReferenceDetector.getInstance().formatPageWarning(
+        componentsWithLWCs,
+        type === this.ASSESS ? 'assess' : 'migrate'
+      );
+      experienceSiteAssessmentInfo.warnings.push(warning);
+      if (experienceSiteAssessmentInfo.status === 'Ready for migration') {
+        experienceSiteAssessmentInfo.status = 'Warnings';
+      }
+      // Mark as having content so the page is included in the report
+      experienceSiteAssessmentInfo.hasOmnistudioContentWithChanges = true;
+    }
+
     Logger.logVerbose(this.messages.getMessage('printUpdatedObject', [JSON.stringify(experienceSiteParsedJSON)]));
 
     const noarmalizeUpdatedFileContent = JSON.stringify(experienceSiteParsedJSON, null, 2); // Pretty-print with 2 spaces
@@ -177,10 +210,11 @@ export class ExperienceSiteMigration extends BaseRelatedObjectMigration {
 
     Logger.logVerbose(this.messages.getMessage('printDifference', [JSON.stringify(difference)]));
 
-    // If there are no differences, mark as not having OmniStudio content to exclude from report
+    // If there are no differences and no warnings, mark as not having OmniStudio content to exclude from report
     // Only exclude if status is 'Ready for migration' or 'Successfully migrated' (no warnings/errors)
     if (
       difference.length === 0 &&
+      experienceSiteAssessmentInfo.warnings.length === 0 &&
       (experienceSiteAssessmentInfo.status === 'Ready for migration' ||
         experienceSiteAssessmentInfo.status === 'Successfully migrated')
     ) {
@@ -503,5 +537,172 @@ export class ExperienceSiteMigration extends BaseRelatedObjectMigration {
     } else {
       return this.messages.getMessage('manualInterventionForExperienceSiteAsDuplicateKey', [oldTypeSubtypeLanguage]);
     }
+  }
+
+  /**
+   * Detects FlexCard/OmniScript components with custom LWC dependencies in an Experience Site.
+   * Recursively scans all regions and nested components.
+   *
+   * @param pageJson - The Experience Site page JSON structure
+   * @returns Array of components that have custom LWC dependencies
+   */
+  private detectCustomLWCUsageInSite(pageJson: ExpSitePageJson): ComponentWithLWC[] {
+    const componentsWithLWCs: ComponentWithLWC[] = [];
+    const detector = CrossReferenceDetector.getInstance();
+
+    if (!pageJson.regions) return componentsWithLWCs;
+
+    // Recursively scan regions
+    // eslint-disable-next-line complexity, @typescript-eslint/explicit-function-return-type
+    const scanRegion = (region: ExpSiteRegion) => {
+      // Check components in this region
+      if (region.components) {
+        for (const component of region.components) {
+          const componentName = component.componentName;
+          if (!componentName) continue;
+
+          // Check for runtime_omnistudio:flexcard
+          if (componentName === TARGET_COMPONENT_NAME_FC) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            const fcName: string = component.componentAttributes?.flexcardName as string;
+            if (fcName && detector.hasCustomLWCDependencies(fcName, this.flexCardInfos)) {
+              const customLWCs = detector.getCustomLWCs(fcName, this.flexCardInfos);
+              componentsWithLWCs.push({
+                type: 'FlexCard',
+                name: fcName,
+                customLWCs,
+              });
+            }
+          }
+
+          // Check for runtime_omnistudio:omniscript or runtime_omnistudio:omniscriptExperienceCloud
+          if (componentName === TARGET_COMPONENT_NAME_OS || componentName === TARGET_COMPONENT_NAME_OS_EXP) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            const attrs = component.componentAttributes;
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            const type = attrs?.type;
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            const subType = attrs?.subType;
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            const language = attrs?.language;
+
+            if (
+              type &&
+              subType &&
+              language &&
+              // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+              detector.hasOSCustomLWCDependencies(type, subType, language, this.osInfos)
+            ) {
+              // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+              const customLWCs = detector.getOSCustomLWCs(type, subType, language, this.osInfos);
+              componentsWithLWCs.push({
+                type: 'OmniScript',
+                // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+                name: `${type}_${subType}_${language}`,
+                customLWCs,
+              });
+            }
+          }
+
+          // Check for directly embedded FlexCard LWC wrapper (c:cf{FlexCardName})
+          // In Experience Sites, auto-generated wrappers appear as 'c:cf{name}'
+          if (componentName.startsWith('c:cf') && componentName.length > 4) {
+            const potentialFcName = componentName.substring(4); // Remove 'c:cf' prefix
+            if (detector.hasCustomLWCDependencies(potentialFcName, this.flexCardInfos)) {
+              const customLWCs = detector.getCustomLWCs(potentialFcName, this.flexCardInfos);
+              componentsWithLWCs.push({
+                type: 'FlexCard',
+                name: potentialFcName,
+                customLWCs,
+              });
+            }
+          }
+
+          // Check for directly embedded OmniScript LWC wrapper (c:{type}{SubType}{Language})
+          // Auto-generated OS wrappers appear as 'c:{type}{subtype}{language}' in Experience Sites
+          if (componentName.startsWith('c:') && !componentName.startsWith('c:cf')) {
+            const strippedName = componentName.substring(2); // Remove 'c:' prefix
+            const nameLower = strippedName.toLowerCase();
+            const osMatch = this.osInfos.find(
+              (os) => os.name.toLowerCase().replace(/_\d+$/, '').replace(/_/g, '') === nameLower
+            );
+            if (osMatch) {
+              const nameWithoutVersion = osMatch.name.replace(/_\d+$/, '');
+              const parts = nameWithoutVersion.split('_');
+              if (parts.length >= 3) {
+                const [type, subtype, ...langParts] = parts;
+                const language = langParts.join('_');
+                if (detector.hasOSCustomLWCDependencies(type, subtype, language, this.osInfos)) {
+                  const customLWCs = detector.getOSCustomLWCs(type, subtype, language, this.osInfos);
+                  componentsWithLWCs.push({
+                    type: 'OmniScript',
+                    name: nameWithoutVersion,
+                    customLWCs,
+                  });
+                }
+              }
+            }
+          }
+
+          // Check for legacy wrapper (vlocity_ins:vlocityLWCOmniWrapper)
+          if (componentName === `${this.namespace}:vlocityLWCOmniWrapper`) {
+            const target = component.componentAttributes?.target;
+            if (target) {
+              // FlexCard: target starts with c:cf
+              if (target.startsWith('c:cf')) {
+                const fcName = target.substring(3); // Remove 'c:cf' prefix
+                if (detector.hasCustomLWCDependencies(fcName, this.flexCardInfos)) {
+                  const customLWCs = detector.getCustomLWCs(fcName, this.flexCardInfos);
+                  componentsWithLWCs.push({
+                    type: 'FlexCard',
+                    name: fcName,
+                    customLWCs,
+                  });
+                }
+              }
+              // OmniScript: target is c:OmniScriptName (format: Type_SubType_Language)
+              else if (target.startsWith('c:')) {
+                const osName = target.substring(2); // Remove 'c:' prefix
+                const parts = osName.split('_');
+                if (parts.length >= 3) {
+                  const type = parts[0];
+                  const subtype = parts[1];
+                  const language = parts.slice(2).join('_');
+                  if (detector.hasOSCustomLWCDependencies(type, subtype, language, this.osInfos)) {
+                    const customLWCs = detector.getOSCustomLWCs(type, subtype, language, this.osInfos);
+                    componentsWithLWCs.push({
+                      type: 'OmniScript',
+                      name: osName,
+                      customLWCs,
+                    });
+                  }
+                }
+              }
+            }
+          }
+
+          // Check nested regions within components
+          if (component.regions) {
+            for (const nestedRegion of component.regions) {
+              scanRegion(nestedRegion);
+            }
+          }
+        }
+      }
+
+      // Check nested regions
+      if (region.regions) {
+        for (const nestedRegion of region.regions) {
+          scanRegion(nestedRegion);
+        }
+      }
+    };
+
+    // Scan all top-level regions
+    for (const region of pageJson.regions) {
+      scanRegion(region);
+    }
+
+    return componentsWithLWCs;
   }
 }

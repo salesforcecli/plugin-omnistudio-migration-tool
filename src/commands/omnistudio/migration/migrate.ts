@@ -249,6 +249,9 @@ export default class Migrate extends SfCommand<MigrateResult> {
       projectPath,
       targetApexNamespace
     );
+    // Note: Cross-reference detection for custom LWCs will work in migration mode
+    // even without passing FlexCard/OmniScript assessment infos, as the detector
+    // will check the migrated components during the wrapper conversion process
     const relatedObjectMigrationResult = omnistudioRelatedObjectsMigration.migrateAll(objectsToProcess);
 
     // POST MIGRATION

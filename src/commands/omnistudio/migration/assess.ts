@@ -233,7 +233,12 @@ export default class Assess extends SfCommand<AssessmentInfo> {
         org,
         projectPath
       );
-      const relatedObjectAssessmentResult = omnistudioRelatedObjectsMigration.assessAll(objectsToProcess);
+      // Pass FlexCard and OmniScript assessment infos for cross-reference detection
+      const relatedObjectAssessmentResult = omnistudioRelatedObjectsMigration.assessAll(
+        objectsToProcess,
+        assesmentInfo.flexCardAssessmentInfos,
+        assesmentInfo.omniAssessmentInfo?.osAssessmentInfos
+      );
       assesmentInfo.lwcAssessmentInfos = relatedObjectAssessmentResult.lwcAssessmentInfos;
       assesmentInfo.apexAssessmentInfos = relatedObjectAssessmentResult.apexAssessmentInfos;
       assesmentInfo.flexipageAssessmentInfos = relatedObjectAssessmentResult.flexipageAssessmentInfos;

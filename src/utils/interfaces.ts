@@ -228,7 +228,13 @@ export interface ExperienceSiteAssessmentPageInfo extends FileChangeInfo {
   infos: string[];
   hasOmnistudioContentWithChanges: boolean;
   errors: string[];
-  status: 'Ready for migration' | 'Failed' | 'Successfully migrated' | 'Needs manual intervention' | 'Skipped';
+  status:
+    | 'Ready for migration'
+    | 'Failed'
+    | 'Successfully migrated'
+    | 'Needs manual intervention'
+    | 'Skipped'
+    | 'Warnings';
 }
 
 export interface ExperienceSiteAssessmentInfo {
@@ -295,6 +301,8 @@ export interface QueryResult {
 
 export interface FlexiPageAssessmentInfo extends FileChangeInfo {
   errors: string[];
+  warnings?: string[];
+  masterLabel?: string;
   status:
     | 'Ready for migration'
     | 'Failed'

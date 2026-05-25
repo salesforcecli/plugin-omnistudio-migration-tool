@@ -32,4 +32,6 @@ export const documentRegistry = {
   customLabelMigrationErrorMessage:
     'https://help.salesforce.com/s/articleView?id=xcloud.os_migrate_oma_prereq.htm&type=5',
   corruptedParentChildLevel: 'https://help.salesforce.com/s/articleView?id=xcloud.os_version_omniscripts.htm&type=5',
+  customLwcReservedActionKey:
+    'https://help.salesforce.com/s/articleView?id=xcloud.os_embed_a_custom_lwc_inside_a_flexcard.htm&type=5',
 };

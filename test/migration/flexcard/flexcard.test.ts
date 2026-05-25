@@ -523,4 +523,218 @@ describe('FlexCard Community Targets Functionality', () => {
       expect(definition.states[0].components['layer-0'].children[0].property.customlwcname).to.equal('cfTestChildCard');
     });
   });
+
+  describe('Custom LWC reserved "action" property key handling', () => {
+    const RESERVED_ACTION_MESSAGE_KEY = 'customLwcReservedActionKey';
+
+    function buildAssessmentInfo(): any {
+      return {
+        name: 'Test',
+        oldName: 'Test',
+        id: 'test-id',
+        dependenciesIP: [],
+        dependenciesDR: [],
+        dependenciesOS: [],
+        dependenciesFC: [],
+        dependenciesLWC: [],
+        dependenciesApexRemoteAction: [],
+        infos: [],
+        warnings: [],
+        errors: [],
+        migrationStatus: 'Ready for migration',
+      };
+    }
+
+    function withMessageMock(): void {
+      // Replace getMessage with a smarter mock that echoes the key + params
+      // so we can assert which message key was emitted.
+      (cardTool as any).messages = {
+        getMessage: (key: string, params: any[] = []) => `${key}::${(params || []).join(',')}`,
+      };
+    }
+
+    it('flags a Custom LWC component that defines property.action with errors + warnings + manual intervention', () => {
+      withMessageMock();
+      const component = {
+        element: 'customLwc',
+        elementLabel: 'Custom LWC-0',
+        property: {
+          action: 'abcd',
+          customlwcname: 'alert',
+          customLwcData: { NamespacePrefix: 'devopsimpkg15' },
+        },
+      };
+      const info = buildAssessmentInfo();
+
+      (cardTool as any).checkCustomLwcForDependencies(component, info);
+
+      expect(info.errors).to.have.length(1);
+      expect(info.warnings).to.have.length(1);
+      expect(info.errors[0]).to.equal(`${RESERVED_ACTION_MESSAGE_KEY}::alert`);
+      expect(info.warnings[0]).to.equal(`${RESERVED_ACTION_MESSAGE_KEY}::alert`);
+      expect(info.errors[0]).to.equal(info.warnings[0]);
+      expect(info.migrationStatus).to.equal('Needs manual intervention');
+      // Existing tracking still applies
+      expect(info.dependenciesLWC).to.deep.equal(['alert']);
+      expect(info.dependenciesFC).to.deep.equal([]);
+    });
+
+    it('triggers regardless of the value of property.action (empty string still counts)', () => {
+      withMessageMock();
+      const component = {
+        element: 'customLwc',
+        property: {
+          action: '',
+          customlwcname: 'alert',
+        },
+      };
+      const info = buildAssessmentInfo();
+
+      (cardTool as any).checkCustomLwcForDependencies(component, info);
+
+      expect(info.errors).to.have.length(1);
+      expect(info.warnings).to.have.length(1);
+      expect(info.migrationStatus).to.equal('Needs manual intervention');
+    });
+
+    it('triggers when property.action is null', () => {
+      withMessageMock();
+      const component = {
+        element: 'customLwc',
+        property: {
+          action: null,
+          customlwcname: 'alert',
+        },
+      };
+      const info = buildAssessmentInfo();
+
+      (cardTool as any).checkCustomLwcForDependencies(component, info);
+
+      expect(info.errors).to.have.length(1);
+      expect(info.warnings).to.have.length(1);
+      expect(info.migrationStatus).to.equal('Needs manual intervention');
+    });
+
+    it('does not flag when property has no "action" key', () => {
+      withMessageMock();
+      const component = {
+        element: 'customLwc',
+        property: {
+          customlwcname: 'alert',
+        },
+      };
+      const info = buildAssessmentInfo();
+
+      (cardTool as any).checkCustomLwcForDependencies(component, info);
+
+      expect(info.errors).to.be.empty;
+      expect(info.warnings).to.be.empty;
+      expect(info.migrationStatus).to.equal('Ready for migration');
+      expect(info.dependenciesLWC).to.deep.equal(['alert']);
+    });
+
+    it('does not flag non-customLwc components even if they have property.action', () => {
+      withMessageMock();
+      const component = {
+        element: 'someOtherElement',
+        property: {
+          action: 'abcd',
+          customlwcname: 'alert',
+        },
+      };
+      const info = buildAssessmentInfo();
+
+      (cardTool as any).checkCustomLwcForDependencies(component, info);
+
+      expect(info.errors).to.be.empty;
+      expect(info.warnings).to.be.empty;
+      expect(info.migrationStatus).to.equal('Ready for migration');
+    });
+
+    it('flags Custom LWC with "action" even when customlwcname starts with cf', () => {
+      withMessageMock();
+      // Independent of cf-prefix behavior, the reserved-key check must still fire
+      const component = {
+        element: 'customLwc',
+        property: {
+          action: 'doSomething',
+          customlwcname: 'cfMyFlex',
+        },
+      };
+      const info = buildAssessmentInfo();
+
+      (cardTool as any).checkCustomLwcForDependencies(component, info);
+
+      expect(info.errors[0]).to.equal(`${RESERVED_ACTION_MESSAGE_KEY}::cfMyFlex`);
+      expect(info.warnings[0]).to.equal(`${RESERVED_ACTION_MESSAGE_KEY}::cfMyFlex`);
+      expect(info.migrationStatus).to.equal('Needs manual intervention');
+    });
+
+    it('falls back to elementLabel when customlwcname is absent', () => {
+      withMessageMock();
+      const component = {
+        element: 'customLwc',
+        elementLabel: 'Custom LWC-0',
+        property: {
+          action: 'x',
+        },
+      };
+      const info = buildAssessmentInfo();
+
+      (cardTool as any).checkCustomLwcForDependencies(component, info);
+
+      expect(info.errors[0]).to.equal(`${RESERVED_ACTION_MESSAGE_KEY}::Custom LWC-0`);
+    });
+
+    it('falls back to "customLwc" when customlwcname and elementLabel are absent', () => {
+      withMessageMock();
+      const component = {
+        element: 'customLwc',
+        property: {
+          action: 'x',
+        },
+      };
+      const info = buildAssessmentInfo();
+
+      (cardTool as any).checkCustomLwcForDependencies(component, info);
+
+      expect(info.errors[0]).to.equal(`${RESERVED_ACTION_MESSAGE_KEY}::customLwc`);
+    });
+
+    it('keeps "Needs manual intervention" status when processing the example payload via processFlexCard', async () => {
+      withMessageMock();
+      const flexCard = {
+        Id: 'card-1',
+        Name: 'testAction',
+        vlocity_ins__Definition__c: JSON.stringify({
+          states: [
+            {
+              components: {
+                'layer-0': {
+                  children: [
+                    {
+                      element: 'customLwc',
+                      elementLabel: 'Custom LWC-0',
+                      property: {
+                        action: 'abcd',
+                        customlwcname: 'alert',
+                        customLwcData: { NamespacePrefix: 'devopsimpkg15' },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        }),
+      };
+
+      const info = await (cardTool as any).processFlexCard(flexCard, new Set(), new Map());
+
+      expect(info.migrationStatus).to.equal('Needs manual intervention');
+      expect(info.errors.some((e: string) => e.startsWith(RESERVED_ACTION_MESSAGE_KEY))).to.be.true;
+      expect(info.warnings.some((w: string) => w.startsWith(RESERVED_ACTION_MESSAGE_KEY))).to.be.true;
+      expect(info.dependenciesLWC).to.include('alert');
+    });
+  });
 });

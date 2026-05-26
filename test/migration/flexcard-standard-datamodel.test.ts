@@ -873,6 +873,117 @@ describe('FlexCard Standard Data Model (Metadata API Disabled) - Assessment and 
       expect(result.dependenciesOS).to.have.length.greaterThan(0);
       expect(result.warnings).to.have.length.greaterThan(0);
     });
+
+    it('should detect Vlocity Action in events[].actionList[].stateAction and mark for manual intervention', async () => {
+      const mockFlexCard = {
+        Id: 'fc_events_vlocity_action',
+        Name: 'EventsVlocityActionCard',
+        DataSourceConfig: JSON.stringify({ type: 'None' }),
+        PropertySetConfig: JSON.stringify({
+          layout: 'Card',
+          states: [],
+          events: [
+            {
+              actionList: [
+                {
+                  stateAction: {
+                    type: 'Vlocity Action',
+                    name: 'OpenAccountPage',
+                    displayName: 'Open Account',
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+        IsActive: true,
+        OmniUiCardType: 'Parent',
+        VersionNumber: 1,
+      };
+
+      const result = await (cardTool as any).processFlexCard(mockFlexCard, new Set<string>());
+
+      expect(result.dependenciesVlocityAction).to.include('OpenAccountPage');
+      expect(result.migrationStatus).to.equal('Needs manual intervention');
+      expect(result.warnings).to.have.length.greaterThan(0);
+    });
+
+    it('should detect Vlocity Action inside state.components[].property.actionList[].stateAction', async () => {
+      const mockFlexCard = {
+        Id: 'fc_component_vlocity_action',
+        Name: 'ComponentVlocityActionCard',
+        DataSourceConfig: JSON.stringify({ type: 'None' }),
+        PropertySetConfig: JSON.stringify({
+          layout: 'Card',
+          states: [
+            {
+              components: {
+                'block-0': {
+                  element: 'action',
+                  property: {
+                    actionList: [
+                      {
+                        stateAction: {
+                          type: 'Vlocity Action',
+                          name: 'CallAction',
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+        }),
+        IsActive: true,
+        OmniUiCardType: 'Parent',
+        VersionNumber: 1,
+      };
+
+      const result = await (cardTool as any).processFlexCard(mockFlexCard, new Set<string>());
+
+      expect(result.dependenciesVlocityAction).to.include('CallAction');
+      expect(result.migrationStatus).to.equal('Needs manual intervention');
+      expect(result.warnings).to.have.length.greaterThan(0);
+    });
+
+    it('should not flag Vlocity Action when none is present', async () => {
+      const mockFlexCard = {
+        Id: 'fc_no_vlocity_action',
+        Name: 'NoVlocityActionCard',
+        DataSourceConfig: JSON.stringify({ type: 'None' }),
+        PropertySetConfig: JSON.stringify({
+          layout: 'Card',
+          states: [
+            {
+              components: {
+                'block-0': {
+                  element: 'action',
+                  property: {
+                    actionList: [
+                      {
+                        stateAction: {
+                          type: 'cardAction',
+                          eventName: 'reload',
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+        }),
+        IsActive: true,
+        OmniUiCardType: 'Parent',
+        VersionNumber: 1,
+      };
+
+      const result = await (cardTool as any).processFlexCard(mockFlexCard, new Set<string>());
+
+      expect(result.dependenciesVlocityAction).to.be.an('array').that.is.empty;
+      expect(result.migrationStatus).to.equal('Ready for migration');
+    });
   });
 
   describe('Events Array Reference Handling - Migration', () => {

@@ -107,6 +107,7 @@
   "integrationProcedureManualUpdateMessage": "All references to %s in this Integration Procedure must be manually updated after migration.",
   "duplicateCardNameMessage": "A Flexcard with the same name \"%s\" already exists after name cleaning, which could lead to conflicts during migration.",
   "lowerVersionDuplicateCardNameMessage": "A Flexcard with the name \"%s\" will not be migrated because lower version of same card will be marked as duplicate, which could lead to conflicts during migration.",
+  "vlocityActionNotSupportedMessage": "The Vlocity Action \"%s\" is not supported in standard runtime FlexCards. This FlexCard cannot be migrated automatically. Reimplement the logic using the FlexCard Action (cardAction) feature.",
   "startingCustomLabelAssessment": "Starting Custom Label assessment",
   "assessedCustomLabelsCount": "Found %s labels that need attention out of %s total",
   "customLabelAssessmentCompleted": "Custom Label assessment completed",

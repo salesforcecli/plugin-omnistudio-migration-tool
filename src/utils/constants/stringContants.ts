@@ -69,6 +69,8 @@ export const Constants = {
   RemoteAction: 'Remote Action',
   StepElement: 'Step',
   CustomLightningWebComponent: 'Custom Lightning Web Component',
+  NavigateAction: 'Navigate Action',
+  VlocityAction: 'Vlocity Action',
 
   // artifacts persistance folder names
   AssessmentReportsFolderName: 'assessment_reports',

@@ -42,8 +42,7 @@ const titles = {
   reservedKeysFoundInPropertySet: 'Omnistudio Naming Conventions',
   manualDeploymentSteps: 'Set Up Your Environment to Customize Omniscript Elements',
   customLabelMigrationErrorMessage: 'Omnistudio Migration Prerequisites',
-  customLwcReservedActionKey:
-    'Embed a Custom Lightning Web Component, a Flexcard, or an Omniscript in a Flexcard (Managed Package)',
+  customLwcReservedActionKey: 'Omnistudio Naming Conventions',
 };
 
 describe('DocumentRegistry', () => {

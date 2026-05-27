@@ -972,6 +972,8 @@ export class ResultsBuilder {
   }
 
   private static createMigrationSummaryItem(result: MigratedObject): SummaryItemParam {
+    Logger.log(`getMigrationHeading : ${result.name}`);
+
     return {
       name: `${getMigrationHeading(result.name)}`,
       total: result.data?.length || 0,

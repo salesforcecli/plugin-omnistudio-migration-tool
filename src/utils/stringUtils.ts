@@ -30,6 +30,8 @@ export function getMigrationHeading(name: string): string {
     return 'Data Mappers';
   } else if (name.toLowerCase().includes('flexcard')) {
     return 'Flexcards';
+  } else if (name.toLowerCase().includes('omniscript saved session')) {
+    return 'Omniscript Saved Sessions';
   } else if (name.toLowerCase().includes('omniscript')) {
     return 'Omniscripts';
   } else if (name.toLowerCase().includes('integration')) {

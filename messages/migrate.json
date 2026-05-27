@@ -14,8 +14,8 @@
   ],
   "commandDescription": "If your Omnistudio components are on custom data model, migrate the components from custom data model to standard data model, and switch the runtime from Omnistudio managed package runtime to Omnistudio standard runtime. If your Omnistudio components are on standard data model, the component names and references will be updated to contain only alphanumeric characters. This update is required to enable the metadata API. See: https://help.salesforce.com/s/articleView?id=xcloud.os_omnistudio_naming_conventions.htm&type=5",
   "errorNoOrgResults": "No records found in the org '%s' to migrate.",
-  "onlyFlagDescription": "Migrate a single component: os | ip | fc | dm | autonumber | cl",
-  "invalidOnlyFlag": "Invalid parameter entered. Select a valid parameter from these options: os | ip | fc | dm | autonumber | cl",
+  "onlyFlagDescription": "Migrate a single component: os | ip | fc | dm | autonumber | cl | sfl",
+  "invalidOnlyFlag": "Invalid parameter entered. Select a valid parameter from these options: os | ip | fc | dm | autonumber | cl | sfl",
   "couldNotTruncate": "We couldn't clear all %s records.",
   "couldNotTruncateOmnniProcess": "We couldn't clear all records of your %s because the %s is referenced in an Omniscript or a Flexcard.",
   "invalidOrRepeatingOmniscriptElementNames": "Omniscript with invalid or duplicate element names found. Rename your Omniscript elements and try again.",
@@ -341,5 +341,6 @@
   "preparingStorageForMetadataEnabledOrg": "Preparing storage for %s org on standard data model with the Omnistudio Metadata setting turned on.",
   "processingNotRequired": "Migration is not required for orgs on standard data model with the Omnistudio Metadata setting turned on.",
   "skippingTruncation": "Skipping truncation as the org is on standard data model.",
-  "loglevelFlagDeprecated": "loglevel is deprecated. Use --verbose instead."
+  "loglevelFlagDeprecated": "loglevel is deprecated. Use --verbose instead.",
+  "errorOmniProcessWithTypeQuery": "Error calling queryOmniProcessesWithType() during Save for Later migration"
 }

@@ -639,6 +639,16 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           flexCardAssessmentInfo.dependenciesLWC.push(customLwcName);
         }
       }
+
+      // "action" is a reserved keyword in the core runtime; flag any Custom LWC
+      // that defines it as a property so the user removes/renames it pre-migration.
+      if (Object.prototype.hasOwnProperty.call(component.property, 'action')) {
+        const lwcLabel = component.property.customlwcname || component.elementLabel || Constants.CustomLwc;
+        const reservedActionMessage = this.messages.getMessage('customLwcReservedActionKey', [lwcLabel]);
+        flexCardAssessmentInfo.errors.push(reservedActionMessage);
+        flexCardAssessmentInfo.warnings.push(reservedActionMessage);
+        flexCardAssessmentInfo.migrationStatus = 'Needs manual intervention';
+      }
     }
   }
 

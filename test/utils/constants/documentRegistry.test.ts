@@ -45,6 +45,7 @@ const titles = {
   customCssStylesheetNamespaceWarningOmniScript: 'Custom Styles for Omniscripts',
   customCssStylesheetNamespaceWarningFlexCard: 'Apply Custom Lightning Styles to a Specific Flexcard (Managed Package)',
   customCssInlineNamespaceWarning: 'Apply Custom CSS to a Flexcard Element (Managed Package)',
+  customLwcReservedActionKey: 'Omnistudio Naming Conventions',
 };
 
 describe('DocumentRegistry', () => {
@@ -134,6 +135,7 @@ describe('DocumentRegistry', () => {
         'customCssStylesheetNamespaceWarningOmniScript',
         'customCssStylesheetNamespaceWarningFlexCard',
         'customCssInlineNamespaceWarning',
+        'customLwcReservedActionKey',
       ];
 
       expectedKeys.forEach((key) => {

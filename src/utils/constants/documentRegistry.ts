@@ -1,4 +1,6 @@
 export const documentRegistry = {
+  customLwcReservedActionKey:
+    'https://help.salesforce.com/s/articleView?id=xcloud.os_omnistudio_naming_conventions.htm&type=5',
   invalidOrRepeatingOmniscriptElementNames:
     'https://help.salesforce.com/s/articleView?id=xcloud.os_omnistudio_naming_conventions.htm&type=5',
   duplicatedCardName: 'https://help.salesforce.com/s/articleView?id=xcloud.os_omnistudio_naming_conventions.htm&type=5',

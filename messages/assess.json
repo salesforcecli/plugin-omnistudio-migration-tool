@@ -99,6 +99,7 @@
   "cardNameChangeMessage": "The Flexcard name will be changed from %s to %s to adhere to the API naming standards.",
   "authordNameChangeMessage": "The Flexcard author name will be changed from %s to %s to adhere to the naming rules",
   "cardLWCNameChangeMessage": "The Flexcard generated LWC name will be changed from %s to %s to align with Flexcard name change.",
+  "customLwcReservedActionKey": "Custom LWC \"%s\" defines a reserved property key \"action\" which is not supported by the core runtime. Manual intervention required to rename this key to a non reserved key before migration.",
   "webPageOmniScriptNavigationDetected": "Detected Omniscript navigation in web page action URL: %s.\n\nIt will be replaced with: %s",
   "webPageOmniScriptUrlMalformedToken": "Detected Omniscript navigation in web page action URL with malformed fragment token(s) [%s]. The token(s) couldn't be URL-decoded and were kept as-is.\nURL: %s.\n\nIt will be replaced with: %s.\nVerify that the rewritten URL points to the intended Omniscript before using this Flexcard in the destination org.",
   "omniScriptNameChangeMessage": "The Omniscript reference name %s will be changed to %s during migration.",

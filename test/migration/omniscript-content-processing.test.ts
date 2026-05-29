@@ -309,61 +309,90 @@ describe('OmniScript Content Processing - Comprehensive Tests', () => {
   });
 
   describe('Navigate Action Processing', () => {
-    it('should resolve Type/Sub Type/Language from LWC OmniScript reference and clear LWC name', () => {
+    it('should resolve omniscript__type/subType/language from targetLWC reference', () => {
       const propSetMap: any = {
-        'LWC OmniScript': 'c:customerprofileEnglish',
-        'OmniScript Prefill': '',
-        'Page Reference Type': 'Vlocity OmniScript',
+        targetType: 'Vlocity OmniScript',
+        targetLWC: 'c:customerprofileEnglish',
+        targetLWCParams: '',
       };
 
       (omniScriptTool as any).processNavigateAction(propSetMap);
 
-      expect(propSetMap.Type).to.equal('Customer');
-      expect(propSetMap['Sub Type']).to.equal('ProfileCleaned');
-      expect(propSetMap.Language).to.equal('English');
-      expect(propSetMap['LWC OmniScript']).to.equal('');
-      expect(propSetMap['Page Reference Type']).to.equal('Vlocity OmniScript');
+      expect(propSetMap.omniscript__type).to.equal('Customer');
+      expect(propSetMap.omniscript__subType).to.equal('ProfileCleaned');
+      expect(propSetMap.omniscript__language).to.equal('English');
+      expect(propSetMap.targetLWC).to.equal('c:customerprofileEnglish');
     });
 
-    it('should rewrite c__ prefill keys to omniscript__ at key boundaries', () => {
+    it('should resolve targetLWC when the reference uses the c__ namespace prefix', () => {
       const propSetMap: any = {
-        'LWC OmniScript': '',
-        'OmniScript Prefill': 'c__OrderNumber=%OrderNumber%&c__tabLabel=Order Summary&c__tabIcon=standard:orders',
+        targetType: 'Vlocity OmniScript',
+        targetLWC: 'c__customerprofileEnglish',
+        targetLWCParams: '',
       };
 
       (omniScriptTool as any).processNavigateAction(propSetMap);
 
-      expect(propSetMap['OmniScript Prefill']).to.equal(
+      expect(propSetMap.omniscript__type).to.equal('Customer');
+      expect(propSetMap.omniscript__subType).to.equal('ProfileCleaned');
+      expect(propSetMap.omniscript__language).to.equal('English');
+    });
+
+    it('should rewrite c__ targetLWCParams keys to omniscript__ at key boundaries', () => {
+      const propSetMap: any = {
+        targetType: 'Vlocity OmniScript',
+        targetLWC: '',
+        targetLWCParams: 'c__OrderNumber=%OrderNumber%&c__tabLabel=Order Summary&c__tabIcon=standard:orders',
+      };
+
+      (omniScriptTool as any).processNavigateAction(propSetMap);
+
+      expect(propSetMap.targetLWCParams).to.equal(
         'omniscript__OrderNumber=%OrderNumber%&omniscript__tabLabel=Order Summary&omniscript__tabIcon=standard:orders'
       );
     });
 
-    it('should not rewrite c__ substrings inside prefill values', () => {
+    it('should not rewrite c__ substrings inside targetLWCParams values', () => {
       const propSetMap: any = {
-        'LWC OmniScript': '',
-        'OmniScript Prefill': 'c__foo=c__bar',
+        targetType: 'Vlocity OmniScript',
+        targetLWCParams: 'c__foo=c__bar',
       };
 
       (omniScriptTool as any).processNavigateAction(propSetMap);
 
-      expect(propSetMap['OmniScript Prefill']).to.equal('omniscript__foo=c__bar');
+      expect(propSetMap.targetLWCParams).to.equal('omniscript__foo=c__bar');
     });
 
-    it('should leave Type/Sub Type/LWC OmniScript untouched when registry has no match', () => {
+    it('should leave propertySet untouched when registry has no match', () => {
       const propSetMap: any = {
-        'LWC OmniScript': 'c:unknownscriptEnglish',
-        'OmniScript Prefill': '',
+        targetType: 'Vlocity OmniScript',
+        targetLWC: 'c:unknownscriptEnglish',
+        targetLWCParams: '',
       };
 
       (omniScriptTool as any).processNavigateAction(propSetMap);
 
-      expect(propSetMap['LWC OmniScript']).to.equal('c:unknownscriptEnglish');
-      expect(propSetMap.Type).to.equal(undefined);
-      expect(propSetMap['Sub Type']).to.equal(undefined);
+      expect(propSetMap.targetLWC).to.equal('c:unknownscriptEnglish');
+      expect(propSetMap.omniscript__type).to.equal(undefined);
+      expect(propSetMap.omniscript__subType).to.equal(undefined);
     });
 
-    it('should not throw when LWC OmniScript and OmniScript Prefill are missing or empty', () => {
-      const propSetMap: any = { someOther: 'value' };
+    it('should be a no-op when targetType is not Vlocity OmniScript', () => {
+      const propSetMap: any = {
+        targetType: 'URL',
+        targetLWC: 'c:customerprofileEnglish',
+        targetLWCParams: 'c__foo=bar',
+      };
+
+      (omniScriptTool as any).processNavigateAction(propSetMap);
+
+      expect(propSetMap.targetLWC).to.equal('c:customerprofileEnglish');
+      expect(propSetMap.targetLWCParams).to.equal('c__foo=bar');
+      expect(propSetMap.omniscript__type).to.equal(undefined);
+    });
+
+    it('should not throw when targetLWC and targetLWCParams are missing or empty', () => {
+      const propSetMap: any = { targetType: 'Vlocity OmniScript', someOther: 'value' };
 
       expect(() => {
         (omniScriptTool as any).processNavigateAction(propSetMap);
@@ -377,19 +406,19 @@ describe('OmniScript Content Processing - Comprehensive Tests', () => {
         {
           type: 'Navigate Action',
           propSetMap: {
-            'LWC OmniScript': 'c:customerprofileEnglish',
-            'OmniScript Prefill': 'c__OrderNumber=%OrderNumber%',
+            targetType: 'Vlocity OmniScript',
+            targetLWC: 'c:customerprofileEnglish',
+            targetLWCParams: 'c__OrderNumber=%OrderNumber%',
           },
         },
       ];
 
       (omniScriptTool as any).processContentChildren(children);
 
-      expect((children[0].propSetMap as any).Type).to.equal('Customer');
-      expect((children[0].propSetMap as any)['Sub Type']).to.equal('ProfileCleaned');
-      expect((children[0].propSetMap as any).Language).to.equal('English');
-      expect((children[0].propSetMap as any)['LWC OmniScript']).to.equal('');
-      expect((children[0].propSetMap as any)['OmniScript Prefill']).to.equal('omniscript__OrderNumber=%OrderNumber%');
+      expect((children[0].propSetMap as any).omniscript__type).to.equal('Customer');
+      expect((children[0].propSetMap as any).omniscript__subType).to.equal('ProfileCleaned');
+      expect((children[0].propSetMap as any).omniscript__language).to.equal('English');
+      expect((children[0].propSetMap as any).targetLWCParams).to.equal('omniscript__OrderNumber=%OrderNumber%');
     });
   });
 

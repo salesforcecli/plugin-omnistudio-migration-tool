@@ -456,6 +456,7 @@ export default class Migrate extends SfCommand<MigrateResult> {
               data: this.mergeRecordAndUploadResults(r, cls),
               errors: r.errors,
               totalCount: r.totalCount, // Preserve totalCount for custom labels
+              allRecords: r.allRecords, // All records for CSV export
             };
           })
         );

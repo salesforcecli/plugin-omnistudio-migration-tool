@@ -210,6 +210,27 @@ export class QueryTools {
     return allrecords.map((record) => record['Id']);
   }
 
+  public static async queryCustom(connection: Connection, queryString: string): Promise<string[]> {
+    let allrecords = [];
+    const query = queryString;
+    // Execute the query
+    let results = await connection.query<any>(query);
+
+    if (results && results.totalSize > 0) {
+      allrecords = results.records;
+
+      // Load more pages
+      while (results.nextRecordsUrl) {
+        results = await connection.queryMore<any>(results.nextRecordsUrl);
+        results.records.forEach((row) => {
+          allrecords.push(row);
+        });
+      }
+    }
+
+    return allrecords;
+  }
+
   private static getFilterValue(val: any): string {
     switch (typeof val) {
       case 'bigint':

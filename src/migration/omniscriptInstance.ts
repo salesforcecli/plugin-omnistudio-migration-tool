@@ -7,7 +7,8 @@ import { QueryTools } from '../utils';
 import { Logger } from '../utils/logger';
 import { isStandardDataModel, isStandardDataModelWithMetadataAPIEnabled } from '../utils/dataModelService';
 import { SaveForLaterAssessmentInfo } from '../utils/interfaces';
-import { Constants, Status } from '../utils/constants/stringContants';
+import { Constants } from '../utils/constants/stringContants';
+import { OmniscriptNameMapping, OSAssessmentInfo } from '../../src/utils';
 import { BaseMigrationTool, ComponentType } from './base';
 import { InvalidEntityTypeError, MigrationResult, MigrationTool, ObjectMapping } from './interfaces';
 import { createProgressBar } from './base';
@@ -54,7 +55,7 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
    * Checks dependencies on OmniScript migration status
    */
   public async assess(omniAssessmentInfos?: {
-    osAssessmentInfos: Array<{ id: string; oldName?: string; name: string; migrationStatus: string }>;
+    osAssessmentInfos: OSAssessmentInfo[];
   }): Promise<SaveForLaterAssessmentInfo[]> {
     try {
       if (isStandardDataModelWithMetadataAPIEnabled()) {
@@ -65,61 +66,34 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
         this.messages.getMessage('startingOmniScriptAssessment', [Constants.OmniScriptSavedSessionsDisplayName])
       );
 
-      const packageInstances = await this.queryPackageInstances();
+      const omniscriptInstances = await this.queryOmniscriptInstance();
       Logger.log(
         this.messages.getMessage('foundOmniScriptsToAssess', [
-          packageInstances.length,
+          omniscriptInstances.length,
           Constants.OmniScriptSavedSessionsDisplayName,
         ])
       );
 
-      if (packageInstances.length === 0) {
+      if (omniscriptInstances.length === 0) {
         return [];
       }
 
-      // Create a map of migrated OmniScript IDs for quick lookup
-      const readyToMigrateOmniScriptIds = new Set<string>();
-      if (omniAssessmentInfos) {
-        // Collect all successfully migrated OmniScript IDs
-        omniAssessmentInfos.osAssessmentInfos.forEach((info) => {
-          if (info.migrationStatus === Status.ReadyForMigration) {
-            readyToMigrateOmniScriptIds.add(info.id);
-          }
-        });
-      }
+      const { omniProcessesSet, omniscriptSet } = await this.assessPrepare(omniscriptInstances, omniAssessmentInfos);
 
       const progressBar = createProgressBar('Assessing', this.getName() as ComponentType);
-      progressBar.start(packageInstances.length, 0);
+      progressBar.start(omniscriptInstances.length, 0);
 
       const assessmentInfos: SaveForLaterAssessmentInfo[] = [];
       let progressCounter = 0;
 
-      for (const packageInstance of packageInstances) {
-        try {
-          const assessmentInfo = await this.assessSingleInstance(
-            packageInstance,
-            readyToMigrateOmniScriptIds,
-            omniAssessmentInfos
-          );
-          assessmentInfos.push(assessmentInfo);
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : String(error);
-          Logger.error(`Error assessing instance ${String(packageInstance['Id'])}:`, error);
-          assessmentInfos.push({
-            id: String(packageInstance['Id']),
-            name: String(packageInstance['Name'] || ''),
-            oldName: String(packageInstance['Name'] || ''),
-            omniScriptId: String(this.getPackageFieldValue(packageInstance, 'OmniScriptId__c') || ''),
-            omniScriptName: '',
-            status: String(this.getPackageFieldValue(packageInstance, 'Status__c') || ''),
-            lastSaved: String(this.getPackageFieldValue(packageInstance, 'LastSaved__c') || ''),
-            migrationStatus: Status.Failed as 'Failed',
-            infos: [],
-            warnings: [],
-            errors: [errorMsg],
-          });
-        }
-
+      // Process and set the migration status for both saved sessions and omniscripts
+      for (const osInstance of omniscriptInstances) {
+        const assessInfo: SaveForLaterAssessmentInfo = this.performAssessment(
+          osInstance,
+          omniProcessesSet,
+          omniscriptSet
+        );
+        assessmentInfos.push(assessInfo);
         progressBar.update(++progressCounter);
       }
 
@@ -137,7 +111,7 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
       if (err instanceof InvalidEntityTypeError) {
         throw err;
       }
-      Logger.error('Error during Save for Later assessment', err);
+      Logger.error(this.messages.getMessage('errorDuringSaveForLaterAssessment', [(err as Error).message]));
       return [];
     }
   }
@@ -147,6 +121,10 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
    * TODO: Implement in Story 3
    */
   public async migrate(): Promise<MigrationResult[]> {
+    const queryAttachments = await this.queryAttachments(new Set());
+    if (queryAttachments) {
+      Logger.log('temporary placeholder');
+    }
     return Promise.resolve([
       {
         name: this.getName(),
@@ -156,181 +134,192 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
     ]);
   }
 
-  /**
-   * Assess a single instance and return its assessment info
-   */
-  private async assessSingleInstance(
-    packageInstance: AnyJson,
-    readyToMigrateOmniScriptIds: Set<string>,
+  private async assessPrepare(
+    omniscriptInstances: AnyJson[],
     omniAssessmentInfos?: {
-      osAssessmentInfos: Array<{ id: string; oldName?: string; name: string; migrationStatus: string }>;
+      osAssessmentInfos: OSAssessmentInfo[];
     }
-  ): Promise<SaveForLaterAssessmentInfo> {
-    const packageInstanceId = String(packageInstance['Id']);
-    const packageOmniScriptId = String(this.getPackageFieldValue(packageInstance, 'OmniScriptId__c') || '');
-    const status = String(this.getPackageFieldValue(packageInstance, 'Status__c') || '');
-    const lastSaved = String(this.getPackageFieldValue(packageInstance, 'LastSaved__c') || '');
-    const name = String(packageInstance['Name'] || '');
+  ): Promise<{ omniProcessesSet: Set<string>; omniscriptSet: Set<string> }> {
+    let omniscriptSet: Set<string> = new Set();
+    if (omniAssessmentInfos && omniAssessmentInfos.osAssessmentInfos) {
+      omniscriptSet = this.extractUniqueNamesFromOmniscriptAssessment(omniAssessmentInfos.osAssessmentInfos);
+    }
 
-    const { omniScriptName, omniScriptMigrationStatus } = await this.getOmniScriptInfo(
-      packageOmniScriptId,
-      readyToMigrateOmniScriptIds,
-      omniAssessmentInfos
-    );
+    const omniscriptTypes: Set<string> = new Set();
 
-    const { migrationStatus, warnings, errors, infos } = this.determineMigrationStatus(
-      packageOmniScriptId,
-      omniScriptMigrationStatus
-    );
+    // extract all OmniscriptType__c field from omniscriptInstance to prepare for query
+    // NOTE : if OmniscriptType__c is null for an omniscriptInstance,
+    // it means that the original omniscript has been deleted AND this specific instance might be unrepairable
+    for (const osInst of omniscriptInstances) {
+      const osType = String(osInst[this.getPackageFieldKey('OmniScriptType__c')] ?? '');
+      if (osInst && osType !== '') {
+        omniscriptTypes.add(osType);
+      }
+    }
+
+    // query for OmniProcesses matching the types defined in the OmniscriptInstance__c
+    const omniProcesses: AnyJson = await this.queryOmniProcessesWithType(omniscriptTypes);
+
+    // extract the unique string for each omni process, store it in a set, it will be used
+    // later to determine the omniscript migration status
+    const omniProcessesSet = omniProcesses.reduce((newSet: Set<string>, op: AnyJson) => {
+      const uniqueOmniProcessString =
+        String(op['Type'] ?? '') + String(op['SubType'] ?? '') + String(op['Language'] ?? '');
+      if (uniqueOmniProcessString !== '') {
+        newSet.add(uniqueOmniProcessString);
+      }
+      return newSet;
+    }, new Set());
 
     return {
-      id: packageInstanceId,
-      name,
-      oldName: name,
-      omniScriptId: packageOmniScriptId,
-      omniScriptName,
-      status,
-      lastSaved,
-      migrationStatus,
-      infos,
-      warnings,
-      errors,
-      omniScriptMigrationStatus,
+      omniProcessesSet,
+      omniscriptSet,
     };
   }
 
-  /**
-   * Get OmniScript information for a given ID
-   */
-  private async getOmniScriptInfo(
-    packageOmniScriptId: string,
-    readyToMigrateOmniScriptIds: Set<string>,
-    omniAssessmentInfos?: {
-      osAssessmentInfos: Array<{ id: string; oldName?: string; name: string; migrationStatus: string }>;
-    }
-  ): Promise<{
-    omniScriptName: string;
-    omniScriptMigrationStatus?:
-      | 'Ready for migration'
-      | 'Failed'
-      | 'Skipped'
-      | 'Complete'
-      | 'Needs manual intervention'
-      | 'Warnings';
-  }> {
-    let omniScriptName = '';
-    let omniScriptMigrationStatus:
-      | 'Ready for migration'
-      | 'Failed'
-      | 'Skipped'
-      | 'Complete'
-      | 'Needs manual intervention'
-      | 'Warnings'
-      | undefined;
+  private extractUniqueNamesFromOmniscriptAssessment(osAssessmentInfos: OSAssessmentInfo[]): Set<string> {
+    const omniscriptSet: Set<string> = new Set();
+    if (Array.isArray(osAssessmentInfos)) {
+      for (const osAssessInfo of osAssessmentInfos) {
+        // assessment info for omniscripts will show what the old and newType, newSubtype and newLanguage
+        // newType, newSubType, newLanguage will show up regardless of migration,
+        // so that OmniProcess doesn't even have to exist
 
-    if (packageOmniScriptId) {
-      if (readyToMigrateOmniScriptIds.has(packageOmniScriptId)) {
-        omniScriptMigrationStatus = Status.ReadyForMigration as 'Ready for migration';
-      } else if (omniAssessmentInfos) {
-        const osInfo = omniAssessmentInfos.osAssessmentInfos.find((info) => info.id === packageOmniScriptId);
-        if (osInfo) {
-          omniScriptName = osInfo.name;
-          // Type guard to ensure migrationStatus is valid
-          omniScriptMigrationStatus = osInfo.migrationStatus as
-            | 'Ready for migration'
-            | 'Failed'
-            | 'Skipped'
-            | 'Complete'
-            | 'Needs manual intervention'
-            | 'Warnings';
+        if (osAssessInfo) {
+          const nameMapping: OmniscriptNameMapping | undefined = osAssessInfo['nameMapping'];
+          if (nameMapping != null) {
+            const uniqueOmniscriptString =
+              String(nameMapping['newType'] ?? '') +
+              String(nameMapping['newSubType'] ?? '') +
+              String(nameMapping['newLanguage'] ?? '');
+
+            if (uniqueOmniscriptString !== '') {
+              omniscriptSet.add(uniqueOmniscriptString);
+            }
+          }
         }
       }
-
-      if (!omniScriptName && packageOmniScriptId) {
-        omniScriptName = await this.queryOmniScriptName(packageOmniScriptId);
-      }
     }
 
-    return { omniScriptName, omniScriptMigrationStatus };
+    return omniscriptSet;
   }
 
-  /**
-   * Query OmniScript name by ID using QueryTools with filter map
-   */
-  private async queryOmniScriptName(omniScriptId: string): Promise<string> {
-    try {
-      const filters = new Map<string, unknown>();
-      filters.set('Id', omniScriptId);
+  private performAssessment(
+    osInstance: AnyJson,
+    omniProcessSet: Set<string>,
+    omniscriptSet: Set<string>
+  ): SaveForLaterAssessmentInfo {
+    const osId = String(osInstance[this.getPackageFieldKey('OmniScriptId__c')] ?? '');
+    const osType = String(osInstance[this.getPackageFieldKey('OmniScriptType__c')] ?? '');
+    const osSubType = String(osInstance[this.getPackageFieldKey('OmniScriptSubType__c')] ?? '');
+    const osLanguage = String(osInstance[this.getPackageFieldKey('OmniScriptLanguage__c')] ?? '');
 
-      const omniScriptObjectName = this.IS_STANDARD_DATA_MODEL ? Constants.OmniProcessObjectName : 'OmniScript__c';
+    const osInstanceId = String(osInstance['Id'] ?? '');
+    const osInstanceName = String(osInstance['Name'] ?? '');
+    const osInstanceStatus = String(osInstance[this.getPackageFieldKey('Status__c')] ?? '');
+    const osInstanceLastSaved = String(osInstance[this.getPackageFieldKey('LastSaved__c')] ?? '');
 
-      const results = await QueryTools.queryWithFilter(
-        this.connection,
-        this.getQueryNamespace(),
-        omniScriptObjectName,
-        ['Name'],
-        filters
-      );
+    const uniqueOmniProcessString = osType + osSubType + osLanguage;
 
-      if (results && results.length > 0) {
-        return String(results[0]['Name'] || '');
-      }
-    } catch (error) {
-      Logger.logVerbose(`Error querying OmniScript ${omniScriptId}: ${String(error)}`);
-    }
-    return '';
-  }
-
-  /**
-   * Determine migration status based on OmniScript status
-   */
-  private determineMigrationStatus(
-    packageOmniScriptId: string,
-    omniScriptMigrationStatus: string
-  ): {
-    migrationStatus: 'Ready for migration' | 'Failed' | 'Skipped' | 'Needs manual intervention' | 'Warnings';
-    warnings: string[];
-    errors: string[];
-    infos: string[];
-  } {
-    let migrationStatus: 'Ready for migration' | 'Failed' | 'Skipped' | 'Needs manual intervention' | 'Warnings' =
-      Status.ReadyForMigration as 'Ready for migration';
-    const warnings: string[] = [];
+    const osUniqueName = osType !== '' ? `${osType}_${osSubType}_${osLanguage}` : '';
     const errors: string[] = [];
-    const infos: string[] = [];
+    const dependencies: string[] = [];
 
-    if (!packageOmniScriptId) {
-      migrationStatus = Status.NeedsManualIntervention as 'Needs manual intervention';
-      errors.push('Missing OmniScriptId__c');
-    } else if (!omniScriptMigrationStatus || omniScriptMigrationStatus === Status.Skipped) {
-      migrationStatus = Status.Skipped as 'Skipped';
-      warnings.push(`OmniScript ${packageOmniScriptId} not assessed or not found`);
-    } else if (
-      omniScriptMigrationStatus === Status.NeedsManualIntervention ||
-      omniScriptMigrationStatus === Status.Failed
-    ) {
-      migrationStatus = Status.NeedsManualIntervention as 'Needs manual intervention';
-      warnings.push(`Dependent OmniScript has status: ${omniScriptMigrationStatus}`);
-    } else if (omniScriptMigrationStatus === Status.Warnings) {
-      migrationStatus = Status.Warnings as 'Warnings';
-      warnings.push('Dependent OmniScript has warnings');
-    } else if (
-      omniScriptMigrationStatus === Status.Complete ||
-      omniScriptMigrationStatus === Status.ReadyForMigration
-    ) {
-      migrationStatus = Status.ReadyForMigration as 'Ready for migration';
-      infos.push('Dependent OmniScript is ready for migration');
+    let migrationStatus: SaveForLaterAssessmentInfo['migrationStatus'] = 'Ready for migration';
+    let omniScriptMigrationStatus: SaveForLaterAssessmentInfo['omniScriptMigrationStatus'] = 'Ready for migration';
+
+    // if omniscriptInstance's referenced omniscript is not migrated to core
+    // then check the passed in omniscripts assessments from managed package
+    if (omniProcessSet.has(uniqueOmniProcessString)) {
+      // active Omni Process is in the org (already migrated)
+      migrationStatus = 'Ready for migration';
+      omniScriptMigrationStatus = 'Complete';
+    } else if (omniscriptSet.has(uniqueOmniProcessString)) {
+      // active Omniscript__c is in the org
+      // No active Omni Process
+      migrationStatus = 'Ready for migration';
+      omniScriptMigrationStatus = 'Ready for migration';
+
+      const osNeedsToBeDeployed = this.messages.getMessage('omniscriptNeedsToBeMigrated', [osUniqueName]);
+      errors.push(osNeedsToBeDeployed);
+      dependencies.push(osUniqueName);
+    } else {
+      // both Omniscript__c and Omni Process does not exist in the org, panic
+      // OR
+      // OmniscriptInstance having no data for OmniScriptType__c probably means the Omniscript__c no longer exists in the Org.
+      migrationStatus = 'Needs manual intervention';
+      omniScriptMigrationStatus = 'Needs manual intervention';
+
+      const unableToFindOs = this.messages.getMessage('unableToFindActiveOmniscript', [osUniqueName]);
+      const followUpMsg = this.messages.getMessage('omniscriptDoesNotExistOrActivate');
+      let msg = `${unableToFindOs}`;
+      if (osType === '') {
+        const noOsFound = this.messages.getMessage('noOmniscriptFoundForOsInstance', [osInstanceName]);
+        // OmniscriptInstance having no data for OmniScriptType__c probably means the Omniscript no longer exists in the Org.
+        msg = `${noOsFound}`;
+      }
+
+      errors.push(msg);
+      errors.push(followUpMsg);
     }
 
-    return { migrationStatus, warnings, errors, infos };
+    const assessInfo = {
+      id: osInstanceId,
+      name: osInstanceName,
+      oldName: osInstanceName,
+      omniScriptId: osId,
+      omniScriptName: osUniqueName,
+      status: osInstanceStatus,
+      lastSaved: osInstanceLastSaved,
+      migrationStatus,
+      omniScriptMigrationStatus,
+      dependenciesOS: dependencies,
+      errors,
+      infos: [],
+      warnings: [],
+    };
+
+    return assessInfo;
   }
 
   /**
-   * Query Package instances using QueryTools pattern
+   * Query Omni Process (Core) and filter by type using QueryTools pattern
    * Uses mappings to determine which fields to query
    */
-  private async queryPackageInstances(): Promise<AnyJson[]> {
-    const fields = this.getQueryFields();
+  private async queryOmniProcessesWithType(omniProcessTypes: Set<string>): Promise<AnyJson[]> {
+    const fields = ['Name', 'Type', 'SubType', 'Language'];
+    const osTypeList = Array.from(omniProcessTypes);
+    const typeInListFilter = `Type IN (${osTypeList.map((s) => `'${s}'`).join(',')})`;
+    const filters = ['IsActive = true'];
+    let filterQuery = '';
+    if (osTypeList.length > 0) {
+      filters.push(typeInListFilter);
+      filterQuery = filters.join(' AND ');
+    } else {
+      filterQuery = filters.join('');
+    }
+    /**
+     * SELECT Name, Type, SubType, Language FROM OmniProcess WHERE Type IN ('sfl','test','other') AND IsActive = true
+     */
+    const queryString = `SELECT ${fields.join(',')} 
+                        FROM ${Constants.OmniProcessObjectName} 
+                        WHERE ${filterQuery}`;
+
+    try {
+      return await QueryTools.queryCustom(this.connection, queryString);
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      Logger.error(this.messages.getMessage('errorOmniProcessWithTypeQuery'), error);
+      return [];
+    }
+  }
+
+  /**
+   * Query OmniscriptInstance__c (Package) using QueryTools pattern
+   * Uses mappings to determine which fields to query
+   */
+  private async queryOmniscriptInstance(): Promise<AnyJson[]> {
+    const fields = this.getQueryFields(OmniScriptInstanceMappings, false);
 
     const filters = new Map<string, unknown>();
     // Only migrate 'In Progress' sessions
@@ -350,7 +339,38 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
           `${Constants.OmniScriptInstanceObjectName} type is not found under this namespace`
         );
       }
-      throw err;
+      return [];
+    }
+  }
+
+  /**
+   * Query for all attachments with the following parent ids
+   *
+   * @param attachmentParentIds a set containing ids
+   * @returns a list of attachment records with parent ids matching the list of parent ids provided
+   */
+
+  private async queryAttachments(attachmentParentIds: Set<string>): Promise<AnyJson[]> {
+    const fields = ['Id', 'Name', 'Body'];
+    const parentIdsList = Array.from(attachmentParentIds);
+    const parentIdInListFilter = `ParentId IN (${parentIdsList.map((s) => `'${s}'`).join(',')})`;
+    let filterQuery = ' WHERE ';
+    if (parentIdInListFilter.length > 0) {
+      filterQuery = parentIdInListFilter;
+    }
+    /**
+     * SELECT Id, Name, Body FROM Attachment WHERE ParentId IN ('a3eSB000000DI0jYAG','test','other')
+     */
+    const queryString = `SELECT ${fields.join(',')} 
+                        FROM ${Constants.AttachmentObjectName} 
+                        ${filterQuery}`;
+
+    try {
+      return await QueryTools.queryCustom(this.connection, queryString);
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      Logger.error(this.messages.getMessage('errorOmniProcessWithTypeQuery'), error);
+      return [];
     }
   }
 
@@ -358,34 +378,41 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
    * Get field key with namespace prefix from mappings
    * Uses mappings object to get the source field name, then adds namespace if needed
    */
-  private getFieldKey(fieldName: string): string {
+  private getFieldKey(fieldName: string, useStandardDataModel = false): string {
     // If fieldName is already a key in mappings, use it directly
     if (Object.prototype.hasOwnProperty.call(OmniScriptInstanceMappings, fieldName)) {
-      const mappedValue = OmniScriptInstanceMappings[fieldName as keyof typeof OmniScriptInstanceMappings];
-      return this.IS_STANDARD_DATA_MODEL ? mappedValue : this.namespacePrefix + fieldName;
+      if (useStandardDataModel) {
+        const mappedValue = OmniScriptInstanceMappings[fieldName as keyof typeof OmniScriptInstanceMappings];
+        return mappedValue;
+      }
+      return `${this.namespace}__${fieldName}`;
     }
     // Otherwise, assume it's already the correct field name
-    return this.IS_STANDARD_DATA_MODEL ? fieldName : this.namespacePrefix + fieldName;
+    return fieldName;
   }
 
-  /**
-   * Get package field value using mappings
-   */
-  private getPackageFieldValue(packageInstance: AnyJson, mappingKey: string): unknown {
-    const fieldKey = this.getFieldKey(mappingKey);
-    return packageInstance[fieldKey];
+  private getPackageFieldKey(fieldName: string): string {
+    return this.getFieldKey(fieldName, false);
   }
 
   /**
    * Get all field keys from mappings for querying
    * Returns field names without namespace prefix - QueryTools will add it
    */
-  private getQueryFields(): string[] {
-    // Return mapping keys directly - QueryTools.buildCustomObjectFields() will add namespace prefix
-    return Object.keys(OmniScriptInstanceMappings);
+  private getQueryFields(objectMap: AnyJson, useStandardDataModel: boolean): string[] {
+    if (useStandardDataModel) {
+      return Object.values(objectMap) as string[];
+    }
+    return Object.keys(objectMap);
   }
 
-  private getQueryNamespace(): string {
-    return this.IS_STANDARD_DATA_MODEL ? '' : this.namespace;
+  /**
+   * Returns the namespace of the managed package
+   *
+   * @param useStandardDataModel false by default
+   * @returns empty string or namespace
+   */
+  private getQueryNamespace(useStandardDataModel = false): string {
+    return useStandardDataModel ? '' : this.namespace;
   }
 }

@@ -179,6 +179,7 @@ export default class Assess extends SfCommand<AssessmentInfo> {
       flexipageAssessmentInfos: [],
       experienceSiteAssessmentInfos: [],
       customLabelAssessmentInfos: [],
+      allCustomLabelAssessmentInfos: [],
       customLabelStatistics: {
         totalLabels: 0,
         readyForMigration: 0,
@@ -320,6 +321,16 @@ export default class Assess extends SfCommand<AssessmentInfo> {
       case Constants.CustomLabel:
         await this.assessCustomLabels(assesmentInfo, namespace, conn);
         break;
+      case Constants.SaveForLater:
+        if (!isFoundationPackage()) {
+          // First assess OmniScripts to get dependency information
+          await this.assessOmniScripts(assesmentInfo, namespace, conn, allVersions, OmniScriptExportType.OS, ux);
+          // Then assess Save for Later with OmniScript info
+          await this.assessSaveForLater(assesmentInfo, namespace, conn, ux);
+        } else {
+          Logger.warn(messages.getMessage('saveForLaterNotSupportedInFoundationPackage'));
+        }
+        break;
       default:
         throw new Error(messages.getMessage('invalidOnlyFlag'));
     }
@@ -445,11 +456,13 @@ export default class Assess extends SfCommand<AssessmentInfo> {
       Logger.log(messages.getMessage('startingCustomLabelAssessment'));
       const customLabelResult = await CustomLabelsUtil.fetchCustomLabels(conn, namespace, messages);
       assesmentInfo.customLabelAssessmentInfos = customLabelResult.labels;
+      assesmentInfo.allCustomLabelAssessmentInfos = customLabelResult.allLabels;
       assesmentInfo.customLabelStatistics = customLabelResult.statistics;
       Logger.log(messages.getMessage('customLabelAssessmentCompleted'));
     } catch (error) {
       Logger.error(messages.getMessage('errorDuringCustomLabelAssessment', [(error as Error).message]));
       assesmentInfo.customLabelAssessmentInfos = [];
+      assesmentInfo.allCustomLabelAssessmentInfos = [];
       assesmentInfo.customLabelStatistics = {
         totalLabels: 0,
         readyForMigration: 0,

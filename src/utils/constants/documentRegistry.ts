@@ -37,4 +37,7 @@ export const documentRegistry = {
     'https://help.salesforce.com/s/articleView?id=xcloud.os_apply_custom_lightning_styles_to_a_specific_flexcard.htm&type=5',
   customCssInlineNamespaceWarning:
     'https://help.salesforce.com/s/articleView?id=xcloud.os_apply_custom_css_to_a_flexcard_element.htm&type=5',
+  corruptedParentChildLevel: 'https://help.salesforce.com/s/articleView?id=xcloud.os_version_omniscripts.htm&type=5',
+  vlocityActionNotSupportedMessage:
+    'https://help.salesforce.com/s/articleView?id=xcloud.os_add_an_action_to_a_flexcard_25672.htm&type=5',
 };

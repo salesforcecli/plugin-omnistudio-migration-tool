@@ -212,6 +212,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           dependenciesOS: [],
           dependenciesLWC: [],
           dependenciesApexRemoteAction: [],
+          dependenciesVlocityAction: [],
           infos: [],
           warnings: [],
           errors: [this.messages.getMessage('unexpectedError')],
@@ -244,6 +245,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       dependenciesFC: [],
       dependenciesLWC: [],
       dependenciesApexRemoteAction: [],
+      dependenciesVlocityAction: [],
       infos: [],
       warnings: [],
       errors: [],
@@ -332,6 +334,7 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
     flexCardAssessmentInfo.dependenciesApexRemoteAction = [
       ...new Set(flexCardAssessmentInfo.dependenciesApexRemoteAction),
     ];
+    flexCardAssessmentInfo.dependenciesVlocityAction = [...new Set(flexCardAssessmentInfo.dependenciesVlocityAction)];
 
     return flexCardAssessmentInfo;
   }
@@ -523,6 +526,11 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         }
 
         const stateAction = action.stateAction;
+
+        // Detect Vlocity Action (not supported in standard runtime FlexCards)
+        if (stateAction.type === Constants.VlocityAction) {
+          this.addVlocityActionDependency(stateAction, flexCardAssessmentInfo);
+        }
 
         // 1-2. Handle message.value.bundle (DataRaptor) and message.value.ipMethod (Integration Procedure)
         this.processStateActionMessageForDependencies(stateAction, flexCardAssessmentInfo);
@@ -825,6 +833,11 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
       // Process each action in the actionList
       for (const action of component.property.actionList) {
         if (action.stateAction) {
+          // Detect Vlocity Action (not supported in standard runtime FlexCards)
+          if (action.stateAction.type === Constants.VlocityAction) {
+            this.addVlocityActionDependency(action.stateAction, flexCardAssessmentInfo);
+          }
+
           // Handle message field (contains DataRaptor/IP references as JSON string)
           this.processStateActionMessageForDependencies(action.stateAction, flexCardAssessmentInfo);
 
@@ -2387,6 +2400,33 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
         'Warnings'
       );
     }
+  }
+
+  /**
+   * Helper method to flag a Vlocity Action dependency during assessment.
+   * Vlocity Actions are not supported in standard runtime FlexCards, so the
+   * FlexCard cannot be auto-migrated and must be manually reimplemented using
+   * the FlexCard Action (cardAction) feature.
+   */
+  private addVlocityActionDependency(stateAction: any, flexCardAssessmentInfo: FlexCardAssessmentInfo): void {
+    const actionName: string = stateAction.name || stateAction.displayName || 'Unnamed Vlocity Action';
+    if (!flexCardAssessmentInfo.dependenciesVlocityAction.includes(actionName)) {
+      flexCardAssessmentInfo.dependenciesVlocityAction.push(actionName);
+    }
+
+    const warning = this.messages.getMessage('vlocityActionNotSupportedMessage', [actionName]);
+    if (!flexCardAssessmentInfo.warnings.includes(warning)) {
+      flexCardAssessmentInfo.warnings.push(warning);
+    }
+
+    flexCardAssessmentInfo.migrationStatus = getUpdatedAssessmentStatus(
+      flexCardAssessmentInfo.migrationStatus as
+        | 'Warnings'
+        | 'Needs manual intervention'
+        | 'Ready for migration'
+        | 'Failed',
+      'Needs manual intervention'
+    );
   }
 
   // ==================== End Assessment Helper Methods ====================

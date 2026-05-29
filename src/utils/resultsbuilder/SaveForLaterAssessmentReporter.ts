@@ -91,7 +91,7 @@ export class SaveForLaterAssessmentReporter {
       { name: 'Assessment Status', colspan: 1, rowspan: 2 },
       { name: 'Summary', colspan: 1, rowspan: 2 },
       { name: 'Errors', colspan: 1, rowspan: 2 },
-      { name: 'Warnings', colspan: 1, rowspan: 2 },
+      { name: 'OmniScript Dependencies', colspan: 1, rowspan: 2 },
     ];
 
     const secondRowHeaders = [
@@ -137,8 +137,6 @@ export class SaveForLaterAssessmentReporter {
           undefined,
           info.omniScriptMigrationStatus === 'Ready for migration' || info.omniScriptMigrationStatus === 'Complete'
             ? 'text-success'
-            : info.omniScriptMigrationStatus === 'Warnings'
-            ? 'text-warning'
             : info.omniScriptMigrationStatus === 'Needs manual intervention' ||
               info.omniScriptMigrationStatus === 'Failed'
             ? 'text-error'
@@ -182,14 +180,14 @@ export class SaveForLaterAssessmentReporter {
           info.errors
         ),
         createRowDataParam(
-          'warnings',
-          info.warnings ? info.warnings.join(', ') : '',
+          'dependenciesOS',
+          info.dependenciesOS ? info.dependenciesOS.join(', ') : '',
           false,
           1,
           1,
           false,
           undefined,
-          info.warnings
+          info.dependenciesOS
         ),
       ],
     }));

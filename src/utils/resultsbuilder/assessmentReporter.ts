@@ -63,7 +63,7 @@ export class AssessmentReporter {
         Array.isArray(result.saveForLaterAssessmentInfos) &&
         result.saveForLaterAssessmentInfos.length > 0
       ) {
-        reports.push('sfl'); // Using 'sfl' as the report identifier
+        reports.push(Constants.SaveForLater); // Using 'sfl' as the report identifier
       }
 
       this.generateAllOmnistudioDocuments(
@@ -179,7 +179,8 @@ export class AssessmentReporter {
       instanceUrl,
       omnistudioOrgDetails,
       messages,
-      template
+      template,
+      result.allCustomLabelAssessmentInfos || []
     );
 
     // Generate Save for Later document if instances exist
@@ -284,6 +285,20 @@ export class AssessmentReporter {
           this.basePath,
           this.customLabelAssessmentFileName,
           result.customLabelAssessmentInfos || [],
+          instanceUrl,
+          omnistudioOrgDetails,
+          messages,
+          template,
+          result.allCustomLabelAssessmentInfos || []
+        );
+        break;
+
+      case Constants.SaveForLater:
+        reports.push(Constants.SaveForLater);
+        AssessmentReportHelper.generateSaveForLaterDocument(
+          this.basePath,
+          'saveforlater_assessment.html',
+          result,
           instanceUrl,
           omnistudioOrgDetails,
           messages,

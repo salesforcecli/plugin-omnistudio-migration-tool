@@ -97,6 +97,7 @@ describe('CustomLabelsUtil - Custom Label Assessment', () => {
 
       // Should return labels ready for migration (no conflicts)
       expect(result.labels).to.be.an('array').that.is.empty; // No warnings/errors
+      expect(result.allLabels).to.be.an('array').with.length(2); // All labels for CSV export
       expect(result.statistics.totalLabels).to.equal(2);
       expect(result.statistics.readyForMigration).to.equal(2);
       expect(result.statistics.warnings).to.equal(0);
@@ -137,6 +138,7 @@ describe('CustomLabelsUtil - Custom Label Assessment', () => {
 
       // Should detect warning for value mismatch
       expect(result.labels).to.have.length(1);
+      expect(result.allLabels).to.have.length(1); // allLabels includes all processed labels
       expect(result.labels[0].assessmentStatus).to.equal('Warnings');
       expect(result.labels[0].packageValue).to.equal('Namespaced value');
       expect(result.labels[0].coreValue).to.equal('Different core value');
@@ -177,8 +179,38 @@ describe('CustomLabelsUtil - Custom Label Assessment', () => {
 
       // Should be ready for migration (values match)
       expect(result.labels).to.be.empty; // No warnings/errors shown
+      expect(result.allLabels).to.have.length(1); // allLabels still includes this label for CSV export
       expect(result.statistics.readyForMigration).to.equal(1);
       expect(result.statistics.warnings).to.equal(0);
+    });
+
+    it('should return allLabels with all records including success for CSV export', async () => {
+      // Setup: 3 labels - 2 ready for migration (no conflict), 1 with value conflict
+      const mockNamespacedLabels: ExternalStringRecord[] = [
+        { Id: 'label1', Name: 'Label_No_Conflict_1', NamespacePrefix: 'testNS', Value: 'Value A' },
+        { Id: 'label2', Name: 'Label_No_Conflict_2', NamespacePrefix: 'testNS', Value: 'Value B' },
+        { Id: 'label3', Name: 'Label_With_Conflict', NamespacePrefix: 'testNS', Value: 'Package value' },
+      ];
+
+      const mockCoreLabels: ExternalStringRecord[] = [
+        { Id: 'core3', Name: 'Label_With_Conflict', NamespacePrefix: '', Value: 'Different core value' },
+      ];
+
+      toolingQueryStub.onFirstCall().resolves({ records: mockNamespacedLabels, done: true });
+      toolingQueryStub.onSecondCall().resolves({ records: mockCoreLabels, done: true });
+
+      const result = await CustomLabelsUtil.fetchCustomLabels(mockConnection, 'testNS', mockMessages);
+
+      // labels (HTML report): only shows warnings/errors
+      expect(result.labels).to.have.length(1);
+      expect(result.labels[0].name).to.equal('Label_With_Conflict');
+
+      // allLabels (CSV export): includes ALL labels including success
+      expect(result.allLabels).to.have.length(3);
+      const allNames = result.allLabels.map((l) => l.name);
+      expect(allNames).to.include('Label_No_Conflict_1');
+      expect(allNames).to.include('Label_No_Conflict_2');
+      expect(allNames).to.include('Label_With_Conflict');
     });
 
     it('should handle empty custom labels result', async () => {
@@ -191,6 +223,7 @@ describe('CustomLabelsUtil - Custom Label Assessment', () => {
       const result = await CustomLabelsUtil.fetchCustomLabels(mockConnection, 'testNS', mockMessages);
 
       expect(result.labels).to.be.empty;
+      expect(result.allLabels).to.be.empty;
       expect(result.statistics.totalLabels).to.equal(0);
       expect(result.statistics.readyForMigration).to.equal(0);
     });

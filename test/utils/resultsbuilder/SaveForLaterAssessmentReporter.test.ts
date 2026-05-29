@@ -65,6 +65,7 @@ describe('SaveForLaterAssessmentReporter', () => {
           infos: ['Dependent OmniScript is ready for migration'],
           warnings: [],
           errors: [],
+          dependenciesOS: [],
           omniScriptMigrationStatus: 'Ready for migration',
         },
       ];
@@ -103,6 +104,7 @@ describe('SaveForLaterAssessmentReporter', () => {
           infos: ['Dependent OmniScript is ready for migration'],
           warnings: [],
           errors: [],
+          dependenciesOS: [],
         },
         {
           id: 'a0D002',
@@ -116,6 +118,7 @@ describe('SaveForLaterAssessmentReporter', () => {
           infos: [],
           warnings: ['Dependent OmniScript has warnings'],
           errors: [],
+          dependenciesOS: [],
         },
         {
           id: 'a0D003',
@@ -129,6 +132,7 @@ describe('SaveForLaterAssessmentReporter', () => {
           infos: [],
           warnings: ['Dependent OmniScript has status: Failed'],
           errors: [],
+          dependenciesOS: [],
         },
         {
           id: 'a0D004',
@@ -142,6 +146,7 @@ describe('SaveForLaterAssessmentReporter', () => {
           infos: [],
           warnings: [],
           errors: ['Missing OmniScriptId__c'],
+          dependenciesOS: [],
         },
       ];
 
@@ -210,6 +215,7 @@ describe('SaveForLaterAssessmentReporter', () => {
           infos: [],
           warnings: [],
           errors: [],
+          dependenciesOS: [],
         },
         {
           id: 'a0D002',
@@ -223,6 +229,7 @@ describe('SaveForLaterAssessmentReporter', () => {
           infos: [],
           warnings: [],
           errors: [],
+          dependenciesOS: [],
         },
       ];
 
@@ -254,6 +261,7 @@ describe('SaveForLaterAssessmentReporter', () => {
           infos: ['Info message'],
           warnings: [],
           errors: [],
+          dependenciesOS: [],
           omniScriptMigrationStatus: 'Ready for migration',
         },
       ];
@@ -291,6 +299,7 @@ describe('SaveForLaterAssessmentReporter', () => {
           infos: [],
           warnings: [],
           errors: [],
+          dependenciesOS: [],
         },
       ];
 
@@ -324,6 +333,7 @@ describe('SaveForLaterAssessmentReporter', () => {
           infos: [],
           warnings: [],
           errors: ['Missing OmniScriptId__c'],
+          dependenciesOS: [],
         },
       ];
 
@@ -364,6 +374,7 @@ describe('SaveForLaterAssessmentReporter', () => {
           infos: [],
           warnings: ['Dependent OmniScript has status: Failed'],
           errors: [],
+          dependenciesOS: [],
         },
       ];
 
@@ -479,5 +490,6 @@ function createMockInfo(
     infos: [],
     warnings: [],
     errors: [],
+    dependenciesOS: [],
   };
 }

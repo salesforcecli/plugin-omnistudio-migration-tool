@@ -308,6 +308,120 @@ describe('OmniScript Content Processing - Comprehensive Tests', () => {
     });
   });
 
+  describe('Navigate Action Processing', () => {
+    it('should resolve omniscript__type/subType/language from targetLWC reference', () => {
+      const propSetMap: any = {
+        targetType: 'Vlocity OmniScript',
+        targetLWC: 'c:customerprofileEnglish',
+        targetLWCParams: '',
+      };
+
+      (omniScriptTool as any).processNavigateAction(propSetMap);
+
+      expect(propSetMap.omniscript__type).to.equal('Customer');
+      expect(propSetMap.omniscript__subType).to.equal('ProfileCleaned');
+      expect(propSetMap.omniscript__language).to.equal('English');
+      expect(propSetMap.targetLWC).to.equal('c:customerprofileEnglish');
+    });
+
+    it('should resolve targetLWC when the reference uses the c__ namespace prefix', () => {
+      const propSetMap: any = {
+        targetType: 'Vlocity OmniScript',
+        targetLWC: 'c__customerprofileEnglish',
+        targetLWCParams: '',
+      };
+
+      (omniScriptTool as any).processNavigateAction(propSetMap);
+
+      expect(propSetMap.omniscript__type).to.equal('Customer');
+      expect(propSetMap.omniscript__subType).to.equal('ProfileCleaned');
+      expect(propSetMap.omniscript__language).to.equal('English');
+    });
+
+    it('should rewrite c__ targetLWCParams keys to omniscript__ at key boundaries', () => {
+      const propSetMap: any = {
+        targetType: 'Vlocity OmniScript',
+        targetLWC: '',
+        targetLWCParams: 'c__OrderNumber=%OrderNumber%&c__tabLabel=Order Summary&c__tabIcon=standard:orders',
+      };
+
+      (omniScriptTool as any).processNavigateAction(propSetMap);
+
+      expect(propSetMap.targetLWCParams).to.equal(
+        'omniscript__OrderNumber=%OrderNumber%&omniscript__tabLabel=Order Summary&omniscript__tabIcon=standard:orders'
+      );
+    });
+
+    it('should not rewrite c__ substrings inside targetLWCParams values', () => {
+      const propSetMap: any = {
+        targetType: 'Vlocity OmniScript',
+        targetLWCParams: 'c__foo=c__bar',
+      };
+
+      (omniScriptTool as any).processNavigateAction(propSetMap);
+
+      expect(propSetMap.targetLWCParams).to.equal('omniscript__foo=c__bar');
+    });
+
+    it('should leave propertySet untouched when registry has no match', () => {
+      const propSetMap: any = {
+        targetType: 'Vlocity OmniScript',
+        targetLWC: 'c:unknownscriptEnglish',
+        targetLWCParams: '',
+      };
+
+      (omniScriptTool as any).processNavigateAction(propSetMap);
+
+      expect(propSetMap.targetLWC).to.equal('c:unknownscriptEnglish');
+      expect(propSetMap.omniscript__type).to.equal(undefined);
+      expect(propSetMap.omniscript__subType).to.equal(undefined);
+    });
+
+    it('should be a no-op when targetType is not Vlocity OmniScript', () => {
+      const propSetMap: any = {
+        targetType: 'URL',
+        targetLWC: 'c:customerprofileEnglish',
+        targetLWCParams: 'c__foo=bar',
+      };
+
+      (omniScriptTool as any).processNavigateAction(propSetMap);
+
+      expect(propSetMap.targetLWC).to.equal('c:customerprofileEnglish');
+      expect(propSetMap.targetLWCParams).to.equal('c__foo=bar');
+      expect(propSetMap.omniscript__type).to.equal(undefined);
+    });
+
+    it('should not throw when targetLWC and targetLWCParams are missing or empty', () => {
+      const propSetMap: any = { targetType: 'Vlocity OmniScript', someOther: 'value' };
+
+      expect(() => {
+        (omniScriptTool as any).processNavigateAction(propSetMap);
+      }).to.not.throw();
+
+      expect(propSetMap.someOther).to.equal('value');
+    });
+
+    it('should be reachable via processContentChildren dispatcher', () => {
+      const children = [
+        {
+          type: 'Navigate Action',
+          propSetMap: {
+            targetType: 'Vlocity OmniScript',
+            targetLWC: 'c:customerprofileEnglish',
+            targetLWCParams: 'c__OrderNumber=%OrderNumber%',
+          },
+        },
+      ];
+
+      (omniScriptTool as any).processContentChildren(children);
+
+      expect((children[0].propSetMap as any).omniscript__type).to.equal('Customer');
+      expect((children[0].propSetMap as any).omniscript__subType).to.equal('ProfileCleaned');
+      expect((children[0].propSetMap as any).omniscript__language).to.equal('English');
+      expect((children[0].propSetMap as any).targetLWCParams).to.equal('omniscript__OrderNumber=%OrderNumber%');
+    });
+  });
+
   describe('Step Action Processing', () => {
     it('should handle remoteOptions transform bundles with registry mapping', () => {
       const propSetMap = {

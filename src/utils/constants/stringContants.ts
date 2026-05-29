@@ -6,6 +6,7 @@ export const Constants = {
   DataMapper: 'dm',
   GlobalAutoNumber: 'autonumber',
   CustomLabel: 'cl',
+  SaveForLater: 'sfl',
   LWC: 'lwc',
   Apex: 'apex',
   FlexiPage: 'flexipage',
@@ -68,10 +69,14 @@ export const Constants = {
   RemoteAction: 'Remote Action',
   StepElement: 'Step',
   CustomLightningWebComponent: 'Custom Lightning Web Component',
+  NavigateAction: 'Navigate Action',
+  VlocityAction: 'Vlocity Action',
 
   // artifacts persistance folder names
   AssessmentReportsFolderName: 'assessment_reports',
   MigrationReportsFolderName: 'migration_report',
+  CustomLabelAssessmentCsvFileName: 'customlabel_assessment_export.csv',
+  CustomLabelMigrationCsvFileName: 'customlabel_migration_export.csv',
 
   // custom label migration status constants
   CustomLabelInvalidStatuses: ['error', 'duplicate'],
@@ -87,6 +92,7 @@ export const Constants = {
   Off: 'off',
 
   // SObject API names
+  AttachmentObjectName: 'Attachment',
   OmniProcessObjectName: 'OmniProcess',
   OmniUiCardObjectName: 'OmniUiCard',
   OmniDataTransformObjectName: 'OmniDataTransform',
@@ -104,13 +110,12 @@ export const Constants = {
 };
 
 export const Status = {
-  SuccessfullyMigrated: 'Successfully migrated',
-  Failed: 'Failed',
-  Skipped: 'Skipped',
   Complete: 'Complete',
-  ReadyForMigration: 'Ready for migration',
-  NeedsManualIntervention: 'Needs manual intervention',
-  Warnings: 'Warnings',
+  Failed: 'Failed',
   ManualDeploymentNeeded: 'Manual deployment needed',
+  NeedsManualIntervention: 'Needs manual intervention',
+  ReadyForMigration: 'Ready for migration',
+  Skipped: 'Skipped',
   SuccessfullyCompleted: 'Successfully Completed',
+  SuccessfullyMigrated: 'Successfully migrated',
 };

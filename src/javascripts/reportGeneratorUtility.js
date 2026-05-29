@@ -566,6 +566,186 @@ function applyDynamicStickyColumns() {
 // Run on page load
 document.addEventListener('DOMContentLoaded', applyDynamicStickyColumns);
 
+/**
+ * Export visible table data to CSV file
+ * Only exports rows that are currently visible (respects active filters and search)
+ * Shows visual feedback on the export button to confirm success or indicate failure
+ */
+function exportTableToCSV(tableId) {
+  const exportButton = document.querySelector('.export-csv-button');
+
+  try {
+    const reportTable = document.getElementById(tableId);
+    if (!reportTable) return;
+
+    // Show "Exporting..." state on button
+    if (exportButton) {
+      exportButton.textContent = 'Exporting...';
+      exportButton.disabled = true;
+    }
+
+    // Check if props has a pre-generated CSV file to download (e.g., Custom Labels with all records)
+    if (props && props.csvFile) {
+      // Download the pre-generated CSV file
+      const link = document.createElement('a');
+      link.setAttribute('href', props.csvFile);
+      link.setAttribute('download', props.csvFile);
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showExportSuccess(exportButton);
+      return;
+    }
+
+    const table = reportTable.querySelector('table.slds-table');
+    if (!table) {
+      showExportError(exportButton, 'No table data found');
+      return;
+    }
+
+    const csvRows = [];
+
+    // Extract headers - flatten multi-row headers into a single row
+    const thead = table.querySelector('thead');
+    if (thead) {
+      const headerRows = thead.querySelectorAll('tr');
+      const headers = [];
+
+      if (headerRows.length === 1) {
+        // Single-row header
+        headerRows[0].querySelectorAll('th').forEach((th) => {
+          headers.push(escapeCSVValue(th.textContent.trim()));
+        });
+      } else if (headerRows.length >= 2) {
+        // Multi-row header (e.g., Custom Labels with "Package > Id, Value" and "Core > Id, Value")
+        const firstRow = headerRows[0];
+        const secondRow = headerRows[1];
+        const secondRowHeaders = Array.from(secondRow.querySelectorAll('th'));
+        let subHeaderIndex = 0;
+
+        firstRow.querySelectorAll('th').forEach((th) => {
+          const colspan = parseInt(th.getAttribute('colspan') || '1', 10);
+          const rowspan = parseInt(th.getAttribute('rowspan') || '1', 10);
+          const headerName = th.textContent.trim();
+
+          if (rowspan >= 2 || colspan === 1) {
+            // This header spans all rows - use it directly
+            headers.push(escapeCSVValue(headerName));
+            if (rowspan < 2) subHeaderIndex++;
+          } else {
+            // This header has sub-headers in the second row
+            for (let i = 0; i < colspan && subHeaderIndex < secondRowHeaders.length; i++) {
+              const subHeader = secondRowHeaders[subHeaderIndex]?.textContent.trim() || '';
+              headers.push(escapeCSVValue(`${headerName} - ${subHeader}`));
+              subHeaderIndex++;
+            }
+          }
+        });
+      }
+
+      csvRows.push(headers.join(','));
+    }
+
+    // Extract visible body rows
+    const tbody = table.querySelector('tbody');
+    if (tbody) {
+      const rows = tbody.querySelectorAll('tr');
+      rows.forEach((row) => {
+        // Skip hidden rows (filtered out) and the "no rows" message
+        if (row.style.display === 'none' || row.id === 'no-rows-message') return;
+
+        const cells = [];
+        row.querySelectorAll('td').forEach((td) => {
+          // Get the text content, handling lists and links
+          let value = '';
+          const list = td.querySelector('ul');
+          if (list) {
+            value = Array.from(list.querySelectorAll('li'))
+              .map((li) => li.textContent.trim())
+              .join('; ');
+          } else {
+            value = td.textContent.trim();
+          }
+          cells.push(escapeCSVValue(value));
+        });
+        csvRows.push(cells.join(','));
+      });
+    }
+
+    // Generate and download CSV
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    // Use the report title for the filename
+    const title = document.querySelector('.slds-text-heading_large span')?.textContent.trim() || 'report';
+    const filename = `${title.replace(/[^a-zA-Z0-9]/g, '_')}_export.csv`;
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showExportSuccess(exportButton);
+  } catch (error) {
+    console.error('CSV export failed:', error);
+    showExportError(exportButton, 'Export failed');
+  }
+}
+
+/**
+ * Show success state on the export button briefly, then reset
+ */
+function showExportSuccess(button) {
+  if (!button) return;
+  button.textContent = '✓ Exported';
+  button.style.backgroundColor = '#2e844a';
+  button.disabled = false;
+  setTimeout(() => {
+    button.innerHTML =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">' +
+      '<path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/>' +
+      '<path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z"/>' +
+      '</svg> Export CSV';
+    button.style.backgroundColor = '';
+  }, 2000);
+}
+
+/**
+ * Show error state on the export button briefly, then reset
+ */
+function showExportError(button, message) {
+  if (!button) return;
+  button.textContent = message || 'Export failed';
+  button.style.backgroundColor = '#c23934';
+  button.disabled = false;
+  setTimeout(() => {
+    button.innerHTML =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">' +
+      '<path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/>' +
+      '<path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z"/>' +
+      '</svg> Export CSV';
+    button.style.backgroundColor = '';
+  }, 3000);
+}
+
+/**
+ * Escape a value for CSV format
+ * Wraps in quotes if it contains commas, quotes, or newlines
+ */
+function escapeCSVValue(value) {
+  if (value == null) return '""';
+  const str = String(value);
+  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
 // Expose globally so HTML inline event handlers can access them
 window.toggleFilterDropdown = toggleFilterDropdown;
 window.closeFilterDropdown = closeFilterDropdown;
@@ -573,3 +753,4 @@ window.closeAllFilterDropdowns = closeAllFilterDropdowns;
 window.filterAndSearchTable = filterAndSearchTable;
 window.toggleCtaSummaryPanel = toggleCtaSummaryPanel;
 window.applyDynamicStickyColumns = applyDynamicStickyColumns;
+window.exportTableToCSV = exportTableToCSV;

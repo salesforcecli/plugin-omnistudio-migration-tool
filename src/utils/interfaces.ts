@@ -7,6 +7,8 @@ export interface MigratedObject {
   records?: Record<string, unknown>; // For consolidated map approach - using Record<string, unknown> to avoid type conflicts
   errors?: string[];
   totalCount?: number; // Optional total count for dashboard calculation
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  allRecords?: Map<string, any>; // All records including success for CSV export
 }
 
 export interface MigratedRecordInfo {
@@ -149,6 +151,7 @@ export interface AssessmentInfo {
   flexipageAssessmentInfos: FlexiPageAssessmentInfo[];
   globalAutoNumberAssessmentInfos: GlobalAutoNumberAssessmentInfo[];
   customLabelAssessmentInfos: CustomLabelAssessmentInfo[];
+  allCustomLabelAssessmentInfos: CustomLabelAssessmentInfo[];
   customLabelStatistics: CustomLabelStatistics;
   saveForLaterAssessmentInfos: SaveForLaterAssessmentInfo[];
 }
@@ -169,6 +172,7 @@ export interface FlexCardAssessmentInfo {
   dependenciesFC: string[];
   dependenciesLWC: string[];
   dependenciesApexRemoteAction: string[];
+  dependenciesVlocityAction: string[];
   infos: string[];
   warnings: string[];
   errors: string[];

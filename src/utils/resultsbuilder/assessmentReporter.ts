@@ -179,7 +179,8 @@ export class AssessmentReporter {
       instanceUrl,
       omnistudioOrgDetails,
       messages,
-      template
+      template,
+      result.allCustomLabelAssessmentInfos || []
     );
 
     // Generate Save for Later document if instances exist
@@ -287,7 +288,8 @@ export class AssessmentReporter {
           instanceUrl,
           omnistudioOrgDetails,
           messages,
-          template
+          template,
+          result.allCustomLabelAssessmentInfos || []
         );
         break;
 

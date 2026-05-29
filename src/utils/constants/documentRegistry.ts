@@ -1,4 +1,6 @@
 export const documentRegistry = {
+  customLwcReservedActionKey:
+    'https://help.salesforce.com/s/articleView?id=xcloud.os_omnistudio_naming_conventions.htm&type=5',
   invalidOrRepeatingOmniscriptElementNames:
     'https://help.salesforce.com/s/articleView?id=xcloud.os_omnistudio_naming_conventions.htm&type=5',
   duplicatedCardName: 'https://help.salesforce.com/s/articleView?id=xcloud.os_omnistudio_naming_conventions.htm&type=5',
@@ -32,6 +34,6 @@ export const documentRegistry = {
   customLabelMigrationErrorMessage:
     'https://help.salesforce.com/s/articleView?id=xcloud.os_migrate_oma_prereq.htm&type=5',
   corruptedParentChildLevel: 'https://help.salesforce.com/s/articleView?id=xcloud.os_version_omniscripts.htm&type=5',
-  customLwcReservedActionKey:
-    'https://help.salesforce.com/s/articleView?id=xcloud.os_omnistudio_naming_conventions.htm&type=5',
+  vlocityActionNotSupportedMessage:
+    'https://help.salesforce.com/s/articleView?id=xcloud.os_add_an_action_to_a_flexcard_25672.htm&type=5',
 };

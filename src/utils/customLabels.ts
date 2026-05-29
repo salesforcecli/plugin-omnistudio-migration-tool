@@ -31,6 +31,7 @@ export interface CustomLabelStatistics {
 
 export interface CustomLabelResult {
   labels: CustomLabelAssessmentInfo[];
+  allLabels: CustomLabelAssessmentInfo[];
   statistics: CustomLabelStatistics;
 }
 
@@ -46,6 +47,7 @@ export class CustomLabelsUtil {
       if (!customLabels || customLabels.length === 0) {
         return {
           labels: [],
+          allLabels: [],
           statistics: { totalLabels: 0, readyForMigration: 0, needManualIntervention: 0, warnings: 0, failed: 0 },
         };
       }
@@ -99,6 +101,7 @@ export class CustomLabelsUtil {
 
       return {
         labels: [...warnings, ...needsManualIntervention, ...failed],
+        allLabels: processedLabels,
         statistics: {
           totalLabels: processedLabels.length,
           readyForMigration,
@@ -111,6 +114,7 @@ export class CustomLabelsUtil {
       Logger.error(messages.getMessage('errorFetchingCustomLabels', [String(error)]));
       return {
         labels: [],
+        allLabels: [],
         statistics: { totalLabels: 0, readyForMigration: 0, needManualIntervention: 0, warnings: 0, failed: 0 },
       };
     }

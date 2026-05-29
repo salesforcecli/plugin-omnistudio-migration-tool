@@ -91,6 +91,7 @@ export class CustomLabelsMigrationTool extends BaseMigrationTool implements Migr
       Logger.log(this.messages.getMessage('startingCustomLabelMigration'));
 
       const migrationData = new Map<string, any>();
+      const allMigrationData = new Map<string, any>();
       const errors: string[] = [];
 
       // Call clone-custom-labels API only
@@ -102,18 +103,26 @@ export class CustomLabelsMigrationTool extends BaseMigrationTool implements Migr
       // Get total count from API response
       const totalLabels = cloneLabelsResponse.results ? cloneLabelsResponse.results.length : 0;
 
-      // Process results - only show error and duplicate (where message is not "same value")
+      // Process results
       if (cloneLabelsResponse.results) {
         cloneLabelsResponse.results.forEach((labelResult) => {
           const key = labelResult.name;
+          const { mappedStatus, hasErrors } = this.mapCloneStatusToMigrationStatus(labelResult.status);
 
-          // Only include error and duplicate (where message is not "same value")
+          // Store all records for CSV export
+          allMigrationData.set(key, {
+            labelName: labelResult.name,
+            cloneStatus: labelResult.status,
+            message: labelResult.message,
+            coreInfo: labelResult.coreInfo,
+            packageInfo: labelResult.packageInfo,
+          });
+
+          // Only include error and duplicate (where message is not "same value") in report table
           if (
             Constants.CustomLabelInvalidStatuses.includes(labelResult.status) &&
             !(labelResult.status === 'duplicate' && labelResult.message === Constants.CustomLabelSameValueMessage)
           ) {
-            const { mappedStatus, hasErrors } = this.mapCloneStatusToMigrationStatus(labelResult.status);
-
             // Store consolidated data that can be used for both dashboard and detailed reporting
             const recordData = {
               // Properties needed for dashboard status calculation
@@ -156,6 +165,7 @@ export class CustomLabelsMigrationTool extends BaseMigrationTool implements Migr
           records: migrationData, // Both point to the same data
           errors,
           totalCount: totalLabels, // Use totalCount instead of statistics
+          allRecords: allMigrationData, // All records for CSV export
         },
       ];
     } catch (error) {
@@ -167,6 +177,7 @@ export class CustomLabelsMigrationTool extends BaseMigrationTool implements Migr
           results: emptyMap,
           records: emptyMap, // Both point to the same empty map
           errors: [this.messages.getMessage('customLabelMigrationErrorMessage')],
+          allRecords: emptyMap,
         },
       ];
     }

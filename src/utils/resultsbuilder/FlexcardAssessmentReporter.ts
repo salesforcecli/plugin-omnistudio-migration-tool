@@ -83,6 +83,7 @@ export class FlexcardAssessmentReporter {
       { name: 'Flexcard Dependencies', colspan: 1, rowspan: 2 },
       { name: 'Remote Action Dependencies', colspan: 1, rowspan: 2 },
       { name: 'Custom LWC Dependencies', colspan: 1, rowspan: 2 },
+      { name: 'Vlocity Action Dependencies', colspan: 1, rowspan: 2 },
     ];
 
     const nameLabel = isStandardDataModel() ? 'Name' : 'Updated Name';
@@ -223,6 +224,18 @@ export class FlexcardAssessmentReporter {
           false,
           undefined,
           flexCardAssessmentInfo.dependenciesLWC
+        ),
+        createRowDataParam(
+          'vlocityActionDependencies',
+          flexCardAssessmentInfo.dependenciesVlocityAction
+            ? flexCardAssessmentInfo.dependenciesVlocityAction.join(', ')
+            : '',
+          false,
+          1,
+          1,
+          false,
+          undefined,
+          flexCardAssessmentInfo.dependenciesVlocityAction
         ),
       ],
     }));

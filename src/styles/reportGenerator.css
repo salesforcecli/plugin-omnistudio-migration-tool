@@ -36,6 +36,31 @@
   margin-left: -32px;
 }
 
+/* EXPORT CSV BUTTON */
+.export-csv-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  background-color: #0070d2;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 13px;
+  height: 28px;
+  border: none;
+  white-space: nowrap;
+}
+
+.export-csv-button:hover {
+  background-color: #005bb5;
+}
+
+.export-csv-button:active {
+  background-color: #004494;
+}
+
 /* FILTER BUTTON */
 .filter-toggle-button {
   display: flex;

@@ -56,6 +56,7 @@ export interface MigrationResult {
   records: Map<string, any>;
   errors?: string[];
   totalCount?: number; // Optional total count for dashboard calculation
+  allRecords?: Map<string, any>; // All records including success for CSV export
 }
 
 export interface OriginalRecordItem {

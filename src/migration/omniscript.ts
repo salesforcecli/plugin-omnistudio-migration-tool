@@ -47,6 +47,7 @@ import { ApexNamespaceRegistry, ApexResolveStatus } from './ApexNamespaceRegistr
 export class OmniScriptMigrationTool extends BaseMigrationTool implements MigrationTool {
   private readonly exportType: OmniScriptExportType;
   private readonly allVersions: boolean;
+  private hookRegisteredClasses: Set<string> = new Set();
   private IS_STANDARD_DATA_MODEL: boolean = isStandardDataModel();
   private readonly apexNamespaceRegistry: ApexNamespaceRegistry = ApexNamespaceRegistry.getInstance();
 
@@ -85,6 +86,33 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     // Configure the shared Custom CSS registry. Idempotent — safe to call from
     // both the OS and IP tool instances within a single assess run.
     CustomCssRegistry.getInstance().init(connection, namespace, messages);
+  }
+
+  private async loadHookRegistrations(): Promise<Set<string>> {
+    try {
+      const objectName = `${this.namespacePrefix}CustomClassImplementation__c`;
+      const soql = `SELECT Id, Name FROM ${objectName} WHERE Name LIKE '%Hook' LIMIT 200`;
+      const result = await this.connection.query(soql);
+      const classes = new Set<string>();
+      if (result.totalSize > 0) {
+        for (const record of result.records as any[]) {
+          const hookName: string = record.Name || '';
+          if (hookName.endsWith('Hook')) {
+            classes.add(hookName.substring(0, hookName.length - 4));
+          }
+        }
+      }
+      return classes;
+    } catch (e) {
+      Logger.warn('Unable to query CustomClassImplementation__c for hook registrations: ' + e);
+      return new Set();
+    }
+  }
+
+  private hasHookForClass(remoteClass: string): boolean {
+    if (this.hookRegisteredClasses.size === 0 || !remoteClass) return false;
+    const simpleName = remoteClass.includes('.') ? remoteClass.split('.').pop() : remoteClass;
+    return this.hookRegisteredClasses.has(simpleName);
   }
 
   getName(
@@ -226,6 +254,9 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     try {
       const exportComponentType = this.getName() as ComponentType;
       const omniscripts = await this.getAllOmniScripts();
+      if (this.exportType !== OmniScriptExportType.OS) {
+        this.hookRegisteredClasses = await this.loadHookRegistrations();
+      }
 
       if (isStandardDataModelWithMetadataAPIEnabled()) {
         // For the Standard Data Model Orgs, we only need to prepare the storage
@@ -416,6 +447,7 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     const namespaceErrors: string[] = [];
 
     //const missingRA: string[] = [];
+    const hookEnabledSteps: string[] = [];
 
     // Check for duplicate element names within the same OmniScript
     const elementNames = new Set<string>();
@@ -520,6 +552,9 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
           } else if (status === ApexResolveStatus.NOT_FOUND) {
             namespaceErrors.push(this.messages.getMessage('apexClassNotFound', [className, nameVal]));
           }
+        }
+        if (className && this.hasHookForClass(className)) {
+          hookEnabledSteps.push(nameVal);
         }
       }
       // To handle radio , multiselect
@@ -748,6 +783,10 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
     const uniqueMissingIP = [...new Set(missingIP)];
     const uniqueMissingOS = [...new Set(missingOS)];
 
+    if (hookEnabledSteps.length > 0 && omniProcessType === 'Integration Procedure') {
+      warnings.push(this.messages.getMessage('prePostHookAutoEnabled', [hookEnabledSteps.join(', ')]));
+    }
+
     const result: OSAssessmentInfo = {
       name: recordName,
       id: omniscript['Id'],
@@ -918,6 +957,9 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
   async migrate(): Promise<MigrationResult[]> {
     // Get All Records from OmniScript__c (IP & OS Parent Records)
     const omniscripts = await this.getAllOmniScripts();
+    if (this.exportType !== OmniScriptExportType.OS) {
+      this.hookRegisteredClasses = await this.loadHookRegistrations();
+    }
 
     if (isStandardDataModelWithMetadataAPIEnabled()) {
       return this.handleMigrationForStdDataModelOrgsWithMetadataAPIEnabled(omniscripts);
@@ -2087,6 +2129,9 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
       case Constants.RemoteAction:
         this.processRemoteAction(propSet);
         break;
+      case Constants.NavigateAction:
+        this.processNavigateAction(propSet);
+        break;
       default:
         // Handle other element types if needed
         break;
@@ -2324,6 +2369,65 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
   }
 
   /**
+   * Processes Navigate Action elements so the migrated parent OmniScript can launch its child
+   * under the standard runtime. The standard-runtime Navigate Action LWC reads
+   * `omniscript__type`, `omniscript__subType`, `omniscript__language` from the propertySet to
+   * resolve the child OmniScript (it does not consume `targetLWC`). Params on the URL bound for
+   * the OmniScript page must use the `omniscript__` prefix instead of the managed-package `c__`
+   * prefix.
+   * @param propSetMap Property set map from the element
+   */
+  private processNavigateAction(propSetMap: any): void {
+    if (propSetMap.targetType !== 'Vlocity OmniScript') {
+      return;
+    }
+
+    const lwcRef: string = typeof propSetMap.targetLWC === 'string' ? propSetMap.targetLWC : '';
+    if (lwcRef) {
+      // propertySet stores the LWC tag form ("c:foo" or "c__foo"); the ES-module form ("c/foo")
+      // never appears here, so stripping a leading "<ns>:" or "c__" covers all valid inputs.
+      const stripped = lwcRef
+        .replace(/^[^:]+:/, '')
+        .replace(/^c__/, '')
+        .toLowerCase();
+      const candidates = this.nameRegistry.getOmniScriptMappingKeys().filter((key) => {
+        const parts = key.split('_');
+        if (parts.length < 2) return false;
+        const type = parts[0];
+        const subType = parts[1];
+        const language = parts[2] || 'English';
+        const candidate = `${this.cleanName(type)}${this.cleanName(subType)}${language}`.toLowerCase();
+        return candidate === stripped;
+      });
+
+      if (candidates.length > 1) {
+        Logger.logVerbose(
+          `\nMultiple OmniScript registry keys collapse to the same LWC name '${lwcRef}': ${candidates.join(
+            ', '
+          )}. Using the first match.`
+        );
+      }
+
+      const match = candidates[0];
+      if (match) {
+        const cleanedFullName = this.nameRegistry.getCleanedName(match, 'OmniScript');
+        const cleanedParts = cleanedFullName.split('_');
+        if (cleanedParts.length >= 2) {
+          propSetMap.omniscript__type = cleanedParts[0];
+          propSetMap.omniscript__subType = cleanedParts[1];
+          propSetMap.omniscript__language = cleanedParts[2] || match.split('_')[2] || 'English';
+        }
+      } else {
+        Logger.logVerbose(`\n${this.messages.getMessage('componentMappingNotFound', ['OmniScript', lwcRef])}`);
+      }
+    }
+
+    if (typeof propSetMap.targetLWCParams === 'string' && propSetMap.targetLWCParams) {
+      propSetMap.targetLWCParams = propSetMap.targetLWCParams.replace(/(^|&)c__/g, '$1omniscript__');
+    }
+  }
+
+  /**
    * Processes Step elements to update reference names
    * @param propSetMap Property set map from the element
    */
@@ -2449,6 +2553,13 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
 
     if (propSetMap.remoteClass) {
       propSetMap.remoteClass = this.apexNamespaceRegistry.getQualifiedClassName(propSetMap.remoteClass);
+    }
+
+    if (this.hasHookForClass(propSetMap.remoteClass)) {
+      const remoteOptions = propSetMap['remoteOptions'] || {};
+      remoteOptions['PreHook'] = true;
+      remoteOptions['PostHook'] = true;
+      propSetMap['remoteOptions'] = remoteOptions;
     }
   }
 

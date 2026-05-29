@@ -61,6 +61,39 @@ export function escapeHtml(text: string): string {
     .replace(/'/g, '&#39;');
 }
 
+/**
+ * Strips HTML tags and decodes common HTML entities for clean plain-text output (e.g., CSV values).
+ *
+ * @param str - The string potentially containing HTML
+ * @returns The plain-text string
+ */
+export function stripHtml(str: string): string {
+  return str
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+/**
+ * Escapes a value for CSV format.
+ * Wraps in quotes if it contains commas, quotes, or newlines.
+ *
+ * @param value - The value to escape
+ * @returns The CSV-safe string
+ */
+export function escapeCSVValue(value: string): string {
+  if (value == null) return '""';
+  const str = String(value);
+  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
 const AssessmentStatusPriority = {
   Failed: 0,
   'Needs manual intervention': 1,

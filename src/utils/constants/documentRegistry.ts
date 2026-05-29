@@ -31,5 +31,10 @@ export const documentRegistry = {
     'https://help.salesforce.com/s/articleView?id=xcloud.os_standard_set_up_your_environment_for_customizing_omniscript_elements.htm&type=5',
   customLabelMigrationErrorMessage:
     'https://help.salesforce.com/s/articleView?id=xcloud.os_migrate_oma_prereq.htm&type=5',
+<<<<<<< HEAD
   corruptedParentChildLevel: 'https://help.salesforce.com/s/articleView?id=xcloud.os_version_omniscripts.htm&type=5',
+=======
+  vlocityActionNotSupportedMessage:
+    'https://help.salesforce.com/s/articleView?id=xcloud.os_add_an_action_to_a_flexcard_25672.htm&type=5',
+>>>>>>> bbef79c (feat: adding cta link)
 };

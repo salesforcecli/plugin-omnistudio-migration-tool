@@ -14,9 +14,9 @@ The Omnistudio Migration Assistant is a Salesforce CLI plugin that automates the
 
 - To deploy LWC as part of auto-deployment process, environment variable 'OMA_AUTH_KEY' should be set with requested NPM repository access key from Salesforce Customer Support.
 
-- This tool requires Node Version 18+.
+- This tool requires Node Version 20+.
 
-- LWC migration auto-deployment needs minimum node version of 18.17.1
+- LWC migration auto-deployment needs minimum node version of 20.0.0
 
 ## Install and Run the Omnistudio Migration Assistant
 

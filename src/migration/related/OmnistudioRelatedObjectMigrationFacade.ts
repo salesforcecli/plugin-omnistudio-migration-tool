@@ -11,6 +11,8 @@ import {
   RelatedObjectAssesmentInfo,
   ExperienceSiteAssessmentInfo,
   FlexiPageAssessmentInfo,
+  FlexCardAssessmentInfo,
+  OSAssessmentInfo,
 } from '../../utils';
 import { sfProject } from '../../utils/sfcli/project/sfProject';
 import { Logger } from '../../utils/logger';
@@ -98,7 +100,12 @@ export default class OmnistudioRelatedObjectMigrationFacade {
     shell.cd(pwd);
   }
 
-  private processRelatedObjects(relatedObjects: string[], isMigration: boolean): RelatedObjectAssesmentInfo {
+  private processRelatedObjects(
+    relatedObjects: string[],
+    isMigration: boolean,
+    flexCardInfos?: FlexCardAssessmentInfo[],
+    osInfos?: OSAssessmentInfo[]
+  ): RelatedObjectAssesmentInfo {
     // Start the debug timer
     DebugTimer.getInstance().start();
     Logger.logVerbose(
@@ -134,11 +141,13 @@ export default class OmnistudioRelatedObjectMigrationFacade {
 
       if (relatedObjects.includes(Constants.ExpSites)) {
         experienceSiteAssessmentInfos = isMigration
-          ? this.experienceSiteMigration.migrate()
-          : this.experienceSiteMigration.assess();
+          ? this.experienceSiteMigration.migrate(flexCardInfos, osInfos)
+          : this.experienceSiteMigration.assess(flexCardInfos, osInfos);
       }
       if (relatedObjects.includes(Constants.FlexiPage)) {
-        flexipageAssessmentInfos = isMigration ? this.flexipageMigration.migrate() : this.flexipageMigration.assess();
+        flexipageAssessmentInfos = isMigration
+          ? this.flexipageMigration.migrate(flexCardInfos, osInfos)
+          : this.flexipageMigration.assess(flexCardInfos, osInfos);
       }
       if (relatedObjects.includes(Constants.LWC)) {
         lwcAssessmentInfos = isMigration ? this.lwcMigration.migrate() : this.lwcMigration.assessment();
@@ -158,11 +167,19 @@ export default class OmnistudioRelatedObjectMigrationFacade {
     return { apexAssessmentInfos, lwcAssessmentInfos, experienceSiteAssessmentInfos, flexipageAssessmentInfos };
   }
 
-  public migrateAll(relatedObjects: string[]): RelatedObjectAssesmentInfo {
-    return this.processRelatedObjects(relatedObjects, true);
+  public migrateAll(
+    relatedObjects: string[],
+    flexCardInfos?: FlexCardAssessmentInfo[],
+    osInfos?: OSAssessmentInfo[]
+  ): RelatedObjectAssesmentInfo {
+    return this.processRelatedObjects(relatedObjects, true, flexCardInfos, osInfos);
   }
 
-  public assessAll(relatedObjects: string[]): RelatedObjectAssesmentInfo {
-    return this.processRelatedObjects(relatedObjects, false);
+  public assessAll(
+    relatedObjects: string[],
+    flexCardInfos?: FlexCardAssessmentInfo[],
+    osInfos?: OSAssessmentInfo[]
+  ): RelatedObjectAssesmentInfo {
+    return this.processRelatedObjects(relatedObjects, false, flexCardInfos, osInfos);
   }
 }

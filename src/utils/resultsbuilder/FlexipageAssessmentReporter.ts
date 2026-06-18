@@ -104,10 +104,11 @@ export class FlexipageAssessmentReporter {
       data: [
         createRowDataParam(
           'name',
-          flexipageAssessmentInfo.name.substring(
-            0,
-            flexipageAssessmentInfo.name.length - this.flexiPageFileSuffix.length
-          ),
+          flexipageAssessmentInfo.masterLabel ||
+            flexipageAssessmentInfo.name.substring(
+              0,
+              flexipageAssessmentInfo.name.length - this.flexiPageFileSuffix.length
+            ),
           true,
           1,
           1,
@@ -155,6 +156,17 @@ export class FlexipageAssessmentReporter {
           undefined,
           flexipageAssessmentInfo.errors
         ),
+        createRowDataParam(
+          'warnings',
+          flexipageAssessmentInfo.warnings && flexipageAssessmentInfo.warnings.length > 0 ? 'Warnings' : 'No Warnings',
+          false,
+          1,
+          1,
+          false,
+          undefined,
+          flexipageAssessmentInfo.warnings,
+          flexipageAssessmentInfo.warnings && flexipageAssessmentInfo.warnings.length > 0 ? 'text-warning' : ''
+        ),
       ],
       rowId: `${this.rowIdPrefix}${this.rowId++}`,
     }));
@@ -191,6 +203,11 @@ export class FlexipageAssessmentReporter {
           },
           {
             name: 'Summary',
+            colspan: 1,
+            rowspan: 1,
+          },
+          {
+            name: 'Warnings',
             colspan: 1,
             rowspan: 1,
           },

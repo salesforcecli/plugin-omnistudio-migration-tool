@@ -10,18 +10,19 @@ import * as path from 'path';
 import { Messages, Org } from '@salesforce/core';
 import { Logger } from '../../utils/logger';
 import { Constants } from '../../utils/constants/stringContants';
-import { FlexiPageAssessmentInfo } from '../../utils/interfaces';
+import { FlexiPageAssessmentInfo, FlexCardAssessmentInfo, OSAssessmentInfo } from '../../utils/interfaces';
 import { createProgressBar } from '../base';
 import { XMLUtil } from '../../utils/XMLUtil';
 import { FileDiffUtil } from '../../utils/lwcparser/fileutils/FileDiffUtil';
 import { transformFlexipageBundle } from '../../utils/flexipage/flexiPageTransformer';
-import { Flexipage } from '../interfaces';
+import { Flexipage, FlexiComponentInstance } from '../interfaces';
 import {
   DuplicateKeyError,
   KeyNotFoundInStorageError,
   ProcessingError,
   TargetPropertyNotFoundError,
 } from '../../error/errorInterfaces';
+import { CrossReferenceDetector, ComponentWithLWC } from '../../utils/crossReferenceDetector';
 import { BaseRelatedObjectMigration } from './BaseRealtedObjectMigration';
 
 /**
@@ -46,6 +47,8 @@ export class FlexipageMigration extends BaseRelatedObjectMigration {
   /** Messages instance for internationalization */
   private messages: Messages<string>;
   private xmlUtil: XMLUtil;
+  private flexCardInfos: FlexCardAssessmentInfo[] = [];
+  private osInfos: OSAssessmentInfo[] = [];
 
   /**
    * Creates a new FlexipageMigration instance.
@@ -73,9 +76,13 @@ export class FlexipageMigration extends BaseRelatedObjectMigration {
   /**
    * Performs assessment of FlexiPage components to determine migration readiness.
    *
+   * @param flexCardInfos - Optional array of FlexCard assessment information for cross-reference detection
+   * @param osInfos - Optional array of OmniScript assessment information for cross-reference detection
    * @returns Array of FlexiPage assessment information
    */
-  public assess(): FlexiPageAssessmentInfo[] {
+  public assess(flexCardInfos?: FlexCardAssessmentInfo[], osInfos?: OSAssessmentInfo[]): FlexiPageAssessmentInfo[] {
+    this.flexCardInfos = flexCardInfos || [];
+    this.osInfos = osInfos || [];
     Logger.log(this.messages.getMessage('assessingFlexiPages'));
     return this.process('assess');
   }
@@ -83,9 +90,13 @@ export class FlexipageMigration extends BaseRelatedObjectMigration {
   /**
    * Performs migration of FlexiPage components to the target format.
    *
+   * @param flexCardInfos - Optional array of FlexCard assessment information for cross-reference detection
+   * @param osInfos - Optional array of OmniScript assessment information for cross-reference detection
    * @returns Array of FlexiPage assessment information after migration
    */
-  public migrate(): FlexiPageAssessmentInfo[] {
+  public migrate(flexCardInfos?: FlexCardAssessmentInfo[], osInfos?: OSAssessmentInfo[]): FlexiPageAssessmentInfo[] {
+    this.flexCardInfos = flexCardInfos || [];
+    this.osInfos = osInfos || [];
     Logger.log(this.messages.getMessage('migratingFlexiPages'));
     return this.process('migrate');
   }
@@ -187,12 +198,43 @@ export class FlexipageMigration extends BaseRelatedObjectMigration {
     Logger.logVerbose(this.messages.getMessage('readFlexiPageContent', [fileContent.length]));
 
     const json = this.xmlUtil.parse(fileContent) as Flexipage;
-    const transformedFlexiPage = transformFlexipageBundle(json, this.namespace, mode);
-    if (transformedFlexiPage === false) {
+    const masterLabel = (json.masterLabel as string) || '';
+
+    // Check for cross-reference issues with custom LWCs before transformation (which may throw)
+    const componentsWithLWCs = this.detectCustomLWCUsage(json);
+    const warnings: string[] = [];
+    if (componentsWithLWCs.length > 0) {
+      warnings.push(CrossReferenceDetector.getInstance().formatPageWarning(componentsWithLWCs, mode));
+    }
+
+    let transformedFlexiPage: Flexipage | boolean;
+    try {
+      transformedFlexiPage = transformFlexipageBundle(json, this.namespace, mode);
+    } catch (transformError) {
+      // Transformation failed — if we have cross-ref warnings, report them despite the error
+      if (warnings.length > 0) {
+        return {
+          path: filePath,
+          name: fileName,
+          masterLabel,
+          diff: '',
+          errors: [transformError instanceof Error ? transformError.message : JSON.stringify(transformError)],
+          warnings,
+          status: mode === 'assess' ? 'Warnings' : 'Skipped',
+        };
+      }
+      throw transformError;
+    }
+
+    // If no transformation needed and no warnings, skip this page
+    if (transformedFlexiPage === false && warnings.length === 0) {
       Logger.logVerbose(`No transformation needed on ${fileName}`);
       return null;
     }
-    const modifiedContent = this.xmlUtil.build(transformedFlexiPage, 'FlexiPage');
+
+    // If no transformation but we have warnings, use original JSON
+    const finalFlexiPage = transformedFlexiPage !== false ? transformedFlexiPage : json;
+    const modifiedContent = this.xmlUtil.build(finalFlexiPage, 'FlexiPage');
 
     if (mode === 'migrate') {
       fs.writeFileSync(filePath, modifiedContent);
@@ -206,22 +248,223 @@ export class FlexipageMigration extends BaseRelatedObjectMigration {
     const diff = new FileDiffUtil().getXMLDiff(normalizedOriginal, normalizedModified);
     Logger.logVerbose(this.messages.getMessage('generatedDiffForFile', [fileName]));
 
-    const status = mode === 'assess' ? 'Ready for migration' : 'Successfully migrated';
+    let status: 'Ready for migration' | 'Warnings' | 'Successfully migrated' =
+      mode === 'assess' ? 'Ready for migration' : 'Successfully migrated';
+
+    // Update status if we have warnings
+    if (warnings.length > 0 && status === 'Ready for migration') {
+      status = 'Warnings';
+    }
 
     // Check if there are any actual changes (where old !== new)
     const hasActualChanges = diff.some((d) => d.old !== d.new);
 
-    // Only exclude if there are no changes AND status indicates success (no warnings/errors)
-    if (!hasActualChanges && (status === 'Ready for migration' || status === 'Successfully migrated')) {
+    // Only exclude if there are no changes AND no warnings
+    if (
+      !hasActualChanges &&
+      warnings.length === 0 &&
+      (status === 'Ready for migration' || status === 'Successfully migrated')
+    ) {
       return null;
     }
 
     return {
       path: filePath,
       name: fileName,
+      masterLabel,
       diff: JSON.stringify(diff),
       errors: [],
+      warnings: warnings.length > 0 ? warnings : undefined,
       status,
     };
+  }
+
+  /**
+   * Detects FlexCard/OmniScript components with custom LWC dependencies in a FlexiPage.
+   *
+   * @param flexipage - The FlexiPage structure to scan
+   * @returns Array of components that have custom LWC dependencies
+   */
+  // eslint-disable-next-line complexity
+  private detectCustomLWCUsage(flexipage: Flexipage): ComponentWithLWC[] {
+    const componentsWithLWCs: ComponentWithLWC[] = [];
+    const detector = CrossReferenceDetector.getInstance();
+
+    if (!flexipage.flexiPageRegions) return componentsWithLWCs;
+
+    for (const region of flexipage.flexiPageRegions) {
+      if (!region.itemInstances) continue;
+
+      for (const item of region.itemInstances) {
+        const component = item.componentInstance;
+        if (!component) continue;
+
+        const componentName = component.componentName;
+        if (!componentName) continue;
+
+        // Check for runtime_omnistudio:flexcard
+        if (componentName.includes('runtime_omnistudio:flexcard')) {
+          const fcName = this.extractFlexCardName(component);
+          if (fcName && detector.hasCustomLWCDependencies(fcName, this.flexCardInfos)) {
+            const customLWCs = detector.getCustomLWCs(fcName, this.flexCardInfos);
+            componentsWithLWCs.push({
+              type: 'FlexCard',
+              name: fcName,
+              customLWCs,
+            });
+          }
+        }
+
+        // Check for runtime_omnistudio:omniscript
+        if (componentName.includes('runtime_omnistudio:omniscript')) {
+          const { type, subtype, language } = this.extractOmniScriptInfo(component);
+          if (
+            type &&
+            subtype &&
+            language &&
+            detector.hasOSCustomLWCDependencies(type, subtype, language, this.osInfos)
+          ) {
+            const customLWCs = detector.getOSCustomLWCs(type, subtype, language, this.osInfos);
+            componentsWithLWCs.push({
+              type: 'OmniScript',
+              name: `${type}_${subtype}_${language}`,
+              customLWCs,
+            });
+          }
+        }
+
+        // Check for directly embedded FlexCard LWC wrapper (cf{FlexCardName})
+        // Auto-generated FlexCard wrapper LWCs appear as plain 'cf{name}' in FlexiPages
+        if (!componentName.includes(':') && componentName.startsWith('cf') && componentName.length > 2) {
+          const potentialFcName = componentName.substring(2);
+          if (detector.hasCustomLWCDependencies(potentialFcName, this.flexCardInfos)) {
+            const customLWCs = detector.getCustomLWCs(potentialFcName, this.flexCardInfos);
+            componentsWithLWCs.push({
+              type: 'FlexCard',
+              name: potentialFcName,
+              customLWCs,
+            });
+          }
+        }
+
+        // Check for directly embedded OmniScript LWC wrapper ({type}{SubType}{Language})
+        // Auto-generated OS wrapper LWCs use camelCase concat of type_subtype_language
+        if (!componentName.includes(':') && !componentName.startsWith('cf')) {
+          const compLower = componentName.toLowerCase();
+          const osMatch = this.osInfos.find(
+            (os) => os.name.toLowerCase().replace(/_\d+$/, '').replace(/_/g, '') === compLower
+          );
+          if (osMatch) {
+            const nameWithoutVersion = osMatch.name.replace(/_\d+$/, '');
+            const parts = nameWithoutVersion.split('_');
+            if (parts.length >= 3) {
+              const [type, subtype, ...langParts] = parts;
+              const language = langParts.join('_');
+              if (detector.hasOSCustomLWCDependencies(type, subtype, language, this.osInfos)) {
+                const customLWCs = detector.getOSCustomLWCs(type, subtype, language, this.osInfos);
+                componentsWithLWCs.push({
+                  type: 'OmniScript',
+                  name: nameWithoutVersion,
+                  customLWCs,
+                });
+              }
+            }
+          }
+        }
+
+        // Check for legacy wrapper (vlocity_ins:vlocityLWCOmniWrapper)
+        if (componentName.includes(`${this.namespace}:vlocityLWCOmniWrapper`)) {
+          const target = this.extractTargetProperty(component);
+          if (target) {
+            // FlexCard: target starts with c:cf
+            if (target.startsWith('c:cf')) {
+              const fcName = target.substring(3); // Remove 'c:cf' prefix
+              if (detector.hasCustomLWCDependencies(fcName, this.flexCardInfos)) {
+                const customLWCs = detector.getCustomLWCs(fcName, this.flexCardInfos);
+                componentsWithLWCs.push({
+                  type: 'FlexCard',
+                  name: fcName,
+                  customLWCs,
+                });
+              }
+            }
+            // FlexCard: bare name (no c:cf prefix, e.g. target='irfantest')
+            else if (!target.includes(':') && !target.startsWith('c:')) {
+              if (detector.hasCustomLWCDependencies(target, this.flexCardInfos)) {
+                const customLWCs = detector.getCustomLWCs(target, this.flexCardInfos);
+                componentsWithLWCs.push({
+                  type: 'FlexCard',
+                  name: target,
+                  customLWCs,
+                });
+              }
+            }
+            // OmniScript: target is c:OmniScriptName (format: Type_SubType_Language)
+            else if (target.startsWith('c:')) {
+              const osName = target.substring(2); // Remove 'c:' prefix
+              const parts = osName.split('_');
+              if (parts.length >= 3) {
+                const type = parts[0];
+                const subtype = parts[1];
+                const language = parts.slice(2).join('_');
+                if (detector.hasOSCustomLWCDependencies(type, subtype, language, this.osInfos)) {
+                  const customLWCs = detector.getOSCustomLWCs(type, subtype, language, this.osInfos);
+                  componentsWithLWCs.push({
+                    type: 'OmniScript',
+                    name: osName,
+                    customLWCs,
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return componentsWithLWCs;
+  }
+
+  /**
+   * Extract FlexCard name from component instance properties
+   */
+  private extractFlexCardName(component: FlexiComponentInstance): string | null {
+    if (!component.componentInstanceProperties) return null;
+
+    const flexcardNameProp = component.componentInstanceProperties.find((prop) => prop.name === 'flexcardName');
+    return flexcardNameProp?.value || null;
+  }
+
+  /**
+   * Extract OmniScript type, subtype, and language from component instance properties
+   */
+  private extractOmniScriptInfo(component: FlexiComponentInstance): {
+    type: string;
+    subtype: string;
+    language: string;
+  } {
+    if (!component.componentInstanceProperties) {
+      return { type: '', subtype: '', language: '' };
+    }
+
+    const typeProp = component.componentInstanceProperties.find((prop) => prop.name === 'type');
+    const subtypeProp = component.componentInstanceProperties.find((prop) => prop.name === 'subType');
+    const languageProp = component.componentInstanceProperties.find((prop) => prop.name === 'language');
+
+    return {
+      type: typeProp?.value || '',
+      subtype: subtypeProp?.value || '',
+      language: languageProp?.value || '',
+    };
+  }
+
+  /**
+   * Extract target property from legacy vlocityLWCOmniWrapper component
+   */
+  private extractTargetProperty(component: FlexiComponentInstance): string | null {
+    if (!component.componentInstanceProperties) return null;
+
+    const targetProp = component.componentInstanceProperties.find((prop) => prop.name === 'target');
+    return targetProp?.value || null;
   }
 }

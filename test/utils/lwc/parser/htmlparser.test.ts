@@ -5,10 +5,18 @@ import * as path from 'path';
 import { expect } from 'chai';
 import { HTMLParser } from '../../../../src/utils/lwcparser/htmlParser/HTMLParser';
 import { FileConstant } from '../../../../src/utils/lwcparser/fileutils/FileConstant';
+import { LwcPackageUtilityRegistry } from '../../../../src/utils/lwcparser/LwcPackageUtilityRegistry';
 
 describe('HTMLParser', () => {
   const testInputDir = 'test/utils/lwc/parser/input';
   const testOutputDir = 'test/utils/lwc/parser/output';
+
+  before(() => {
+    // HTMLParser consults the registry for per-tag skip decisions; mirror the
+    // canonical caller wiring done once at command entry.
+    LwcPackageUtilityRegistry.getInstance().clear();
+    LwcPackageUtilityRegistry.getInstance().initialize();
+  });
 
   beforeEach(() => {
     // Ensure output directory exists
@@ -172,6 +180,80 @@ describe('HTMLParser', () => {
       expect(modifiedContent).to.contain('<template>');
       expect(modifiedContent).to.contain('<div class="container">');
       expect(modifiedContent).to.contain('<section>');
+    });
+  });
+
+  describe('Utility-component skip list', () => {
+    const skipFixture = path.join(testInputDir, 'utility-skip-list.html');
+
+    it('should leave a registered utility tag unchanged (vlocity_cmt-ins-utility)', () => {
+      const htmlParser = new HTMLParser(skipFixture);
+      htmlParser.replaceTags('vlocity_cmt');
+      const modified = htmlParser.getModifiedHTML();
+
+      // Skip-listed open + close tags survive verbatim with attributes intact.
+      expect(modified).to.contain('<vlocity_cmt-ins-utility data-id="util-1" title="Skip me">');
+      expect(modified).to.contain('</vlocity_cmt-ins-utility>');
+    });
+
+    it('should leave a registered multi-hyphen utility tag unchanged (vlocity_cmt-ins-accordion-section)', () => {
+      const htmlParser = new HTMLParser(skipFixture);
+      htmlParser.replaceTags('vlocity_cmt');
+      const modified = htmlParser.getModifiedHTML();
+
+      expect(modified).to.contain('<vlocity_cmt-ins-accordion-section>');
+      expect(modified).to.contain('</vlocity_cmt-ins-accordion-section>');
+    });
+
+    it('should rewrite vlocity_cmt-not-a-utility to c-not-a-utility (non-skip-list)', () => {
+      const htmlParser = new HTMLParser(skipFixture);
+      htmlParser.replaceTags('vlocity_cmt');
+      const modified = htmlParser.getModifiedHTML();
+
+      // Opening tag with attributes is rewritten; attributes are preserved.
+      expect(modified).to.contain('<c-not-a-utility label="Rewrite me">');
+      expect(modified).to.contain('</c-not-a-utility>');
+      // The original namespace form for this tag must be gone.
+      expect(modified).to.not.contain('<vlocity_cmt-not-a-utility');
+      expect(modified).to.not.contain('</vlocity_cmt-not-a-utility');
+    });
+
+    it('should rewrite only non-skip-list tags in a mixed document and keep matched open/close pairs', () => {
+      const htmlParser = new HTMLParser(skipFixture);
+      const resultMap = htmlParser.replaceTags('vlocity_cmt');
+      const modified = htmlParser.getModifiedHTML();
+      const base = resultMap.get(FileConstant.BASE_CONTENT) || '';
+
+      // 1. Every skip-list tag (open + close) must survive in BOTH base and modified.
+      const skipOpenCountBase = (base.match(/<vlocity_cmt-ins-utility[\s>]/g) || []).length;
+      const skipCloseCountBase = (base.match(/<\/vlocity_cmt-ins-utility>/g) || []).length;
+      const skipOpenCountMod = (modified.match(/<vlocity_cmt-ins-utility[\s>]/g) || []).length;
+      const skipCloseCountMod = (modified.match(/<\/vlocity_cmt-ins-utility>/g) || []).length;
+      expect(skipOpenCountMod).to.equal(skipOpenCountBase);
+      expect(skipCloseCountMod).to.equal(skipCloseCountBase);
+
+      // 2. Every non-skip vlocity_cmt-* tag must have moved to c-* with the same open/close count.
+      const nonSkipOpenBase = (base.match(/<vlocity_cmt-not-a-utility[\s>]/g) || []).length;
+      const nonSkipCloseBase = (base.match(/<\/vlocity_cmt-not-a-utility>/g) || []).length;
+      const nonSkipOpenMod = (modified.match(/<c-not-a-utility[\s>]/g) || []).length;
+      const nonSkipCloseMod = (modified.match(/<\/c-not-a-utility>/g) || []).length;
+      expect(nonSkipOpenMod).to.equal(nonSkipOpenBase);
+      expect(nonSkipCloseMod).to.equal(nonSkipCloseBase);
+
+      // 3. The "another-component" tag (also non-utility) must be rewritten too.
+      expect(modified).to.contain('<c-another-component');
+      expect(modified).to.contain('</c-another-component>');
+      expect(modified).to.not.contain('<vlocity_cmt-another-component');
+    });
+
+    it('should not rewrite a tag whose suffix matches a utility regardless of attribute content', () => {
+      const htmlParser = new HTMLParser(skipFixture);
+      htmlParser.replaceTags('vlocity_cmt');
+      const modified = htmlParser.getModifiedHTML();
+
+      // ins-labels nested inside ins-utility — confirm both open and close are preserved.
+      expect(modified).to.contain('<vlocity_cmt-ins-labels>');
+      expect(modified).to.contain('</vlocity_cmt-ins-labels>');
     });
   });
 

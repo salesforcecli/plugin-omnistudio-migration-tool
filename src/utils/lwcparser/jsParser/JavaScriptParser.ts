@@ -8,6 +8,7 @@ import { parse } from '@babel/parser';
 import traverse from '@babel/traverse';
 import { FileConstant } from '../fileutils/FileConstant';
 import { Logger } from '../../logger';
+import { LwcPackageUtilityRegistry } from '../LwcPackageUtilityRegistry';
 
 const DEFAULT_NAMESPACE = 'c';
 const PUBSUB_MODULE = 'pubsub';
@@ -37,23 +38,34 @@ export class JavaScriptParser {
 
     // Array to store replacement operations
     const replacements: Array<{ original: string; updated: string }> = [];
+    const utilityRegistry = LwcPackageUtilityRegistry.getInstance();
+
+    const prefix = oldSource + '/';
 
     // Traverse the AST and identify import declarations
     traverse(ast, {
       ImportDeclaration(path) {
         const importSource = path.node.source.value;
 
-        // Check if the import source contains the old substring
-        if (importSource.includes(oldSource + '/')) {
-          // Special handling for pubsub module - replace with lightning/omnistudioPubsub
-          if (importSource.endsWith('/' + PUBSUB_MODULE)) {
-            replacements.push({ original: importSource, updated: OMNISTUDIO_PUBSUB_MODULE });
-          } else {
-            // Replace the old substring with the new substring (default namespace 'c')
-            const updatedSource = importSource.replace(oldSource, DEFAULT_NAMESPACE);
-            replacements.push({ original: importSource, updated: updatedSource });
-          }
+        if (!importSource.startsWith(prefix)) {
+          return;
         }
+
+        if (importSource.endsWith('/' + PUBSUB_MODULE)) {
+          replacements.push({ original: importSource, updated: OMNISTUDIO_PUBSUB_MODULE });
+          return;
+        }
+
+        const afterPrefix = importSource.substring(prefix.length);
+        const slashIdx = afterPrefix.indexOf('/');
+        const firstSegment = slashIdx === -1 ? afterPrefix : afterPrefix.substring(0, slashIdx);
+
+        if (utilityRegistry.hasUtilityComponent(firstSegment)) {
+          return;
+        }
+
+        const updatedSource = DEFAULT_NAMESPACE + '/' + afterPrefix;
+        replacements.push({ original: importSource, updated: updatedSource });
       },
     });
 

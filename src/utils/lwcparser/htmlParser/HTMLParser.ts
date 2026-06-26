@@ -9,6 +9,7 @@
 import * as fs from 'fs';
 import { FileConstant } from '../fileutils/FileConstant';
 import { Logger } from '../../logger';
+import { LwcPackageUtilityRegistry } from '../LwcPackageUtilityRegistry';
 
 const DEFAULT_NAMESPACE = 'c';
 
@@ -44,13 +45,22 @@ export class HTMLParser {
     // Escape special regex characters in the namespace tag
     const escapedNamespaceTag = namespaceTag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-    // Use regular expressions with global flag to replace ALL occurrences
-    const openTagRegex = new RegExp('<' + escapedNamespaceTag, 'g');
-    const closeTagRegex = new RegExp('</' + escapedNamespaceTag, 'g');
+    const registry = LwcPackageUtilityRegistry.getInstance();
+    const skipDecisions = new Map<string, boolean>();
+    const shouldSkip = (suffix: string): boolean => {
+      let decision = skipDecisions.get(suffix);
+      if (decision === undefined) {
+        decision = registry.hasUtilityComponentByTag(suffix);
+        skipDecisions.set(suffix, decision);
+      }
+      return decision;
+    };
 
-    this.html = this.html
-      .replace(openTagRegex, '<' + DEFAULT_NAMESPACE)
-      .replace(closeTagRegex, '</' + DEFAULT_NAMESPACE);
+    const tagRegex = new RegExp('(</?)' + escapedNamespaceTag + '-([a-zA-Z0-9-]+)', 'g');
+
+    this.html = this.html.replace(tagRegex, (match: string, opener: string, suffix: string) =>
+      shouldSkip(suffix) ? match : opener + DEFAULT_NAMESPACE + '-' + suffix
+    );
 
     htmlContentMap.set(FileConstant.MODIFIED_CONTENT, this.html);
     return htmlContentMap;

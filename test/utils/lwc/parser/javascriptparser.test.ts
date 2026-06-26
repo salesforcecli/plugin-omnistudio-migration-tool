@@ -5,11 +5,20 @@ import * as path from 'path';
 import * as os from 'os';
 import { expect } from 'chai';
 import { JavaScriptParser } from '../../../../src/utils/lwcparser/jsParser/JavaScriptParser';
+import { LwcPackageUtilityRegistry } from '../../../../src/utils/lwcparser/LwcPackageUtilityRegistry';
+import { FileConstant } from '../../../../src/utils/lwcparser/fileutils/FileConstant';
 
 describe('JavaScriptParser', () => {
   let parser: JavaScriptParser;
   let tempDir: string;
   let tempFiles: string[];
+
+  before(() => {
+    // The skip-list branch consults LwcPackageUtilityRegistry, so the singleton
+    // must be initialized for these tests to mirror real command-entry wiring.
+    LwcPackageUtilityRegistry.getInstance().clear();
+    LwcPackageUtilityRegistry.getInstance().initialize();
+  });
 
   beforeEach(() => {
     parser = new JavaScriptParser();
@@ -139,6 +148,101 @@ import OtherModule from 'different_namespace/module';`;
 
       expect(modifiedContent).to.include("import pubsub from 'lightning/omnistudioPubsub'");
       expect(modifiedContent).to.include("import OtherModule from 'different_namespace/module'");
+    });
+  });
+
+  describe('Utility-component skip list', () => {
+    it('should leave imports targeting a registered utility component unchanged (vlocity_cmt/insUtility/labels)', () => {
+      const mockFileContent = `import labels from 'vlocity_cmt/insUtility/labels';
+import OtherModule from 'vlocity_cmt/otherModule';`;
+
+      const testFile = createTempFile('skip-utility.js', mockFileContent);
+      const result = parser.replaceImportSource(testFile, 'vlocity_cmt');
+
+      expect(result).to.not.be.null;
+      const modifiedContent = result.get(FileConstant.MODIFIED_CONTENT);
+
+      // The skip-listed import must be byte-identical to the original.
+      expect(modifiedContent).to.include("import labels from 'vlocity_cmt/insUtility/labels'");
+      // A peer non-skip-listed import must still rewrite to the default 'c' namespace.
+      expect(modifiedContent).to.include("import OtherModule from 'c/otherModule'");
+    });
+
+    it('should leave bare imports of a registered utility component unchanged (vlocity_cmt/insLabels)', () => {
+      const mockFileContent = "import { LABELS } from 'vlocity_cmt/insLabels';";
+
+      const testFile = createTempFile('skip-utility-bare.js', mockFileContent);
+      const result = parser.replaceImportSource(testFile, 'vlocity_cmt');
+
+      expect(result).to.not.be.null;
+      const modifiedContent = result.get(FileConstant.MODIFIED_CONTENT);
+      expect(modifiedContent).to.include("import { LABELS } from 'vlocity_cmt/insLabels'");
+      expect(modifiedContent).to.not.include("'c/insLabels'");
+    });
+
+    it('should rewrite vlocity_cmt/NotAUtility to c/NotAUtility (non-skip-list behavior)', () => {
+      const mockFileContent = "import x from 'vlocity_cmt/NotAUtility';";
+
+      const testFile = createTempFile('non-skip.js', mockFileContent);
+      const result = parser.replaceImportSource(testFile, 'vlocity_cmt');
+
+      expect(result).to.not.be.null;
+      const modifiedContent = result.get(FileConstant.MODIFIED_CONTENT);
+      expect(modifiedContent).to.include("import x from 'c/NotAUtility'");
+      expect(modifiedContent).to.not.include("'vlocity_cmt/NotAUtility'");
+    });
+
+    it('should always rewrite vlocity_cmt/pubsub to lightning/omnistudioPubsub, even if pubsub was somehow registered', () => {
+      // Force a 'pubsub' entry into the registry to prove the pubsub branch wins.
+      const registry = LwcPackageUtilityRegistry.getInstance();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const internalSet: Set<string> = (registry as any).utilityComponents;
+      const had = internalSet.has('pubsub');
+      internalSet.add('pubsub');
+
+      try {
+        const mockFileContent = "import pubsub from 'vlocity_cmt/pubsub';";
+        const testFile = createTempFile('pubsub-vs-skip.js', mockFileContent);
+
+        const result = parser.replaceImportSource(testFile, 'vlocity_cmt');
+
+        expect(result).to.not.be.null;
+        const modifiedContent = result.get(FileConstant.MODIFIED_CONTENT);
+        expect(modifiedContent).to.include("import pubsub from 'lightning/omnistudioPubsub'");
+        expect(modifiedContent).to.not.include("'vlocity_cmt/pubsub'");
+      } finally {
+        if (!had) internalSet.delete('pubsub');
+      }
+    });
+
+    it('should leave the modified content byte-identical to the original when every import is on the skip list', () => {
+      // If no replacement is recorded, the file body should be untouched (no diff entry produced).
+      const mockFileContent = `import labels from 'vlocity_cmt/insUtility/labels';
+import card from 'vlocity_cmt/insAccordion';`;
+
+      const testFile = createTempFile('all-skipped.js', mockFileContent);
+      const result = parser.replaceImportSource(testFile, 'vlocity_cmt');
+
+      expect(result).to.not.be.null;
+      const baseContent = result.get(FileConstant.BASE_CONTENT);
+      const modifiedContent = result.get(FileConstant.MODIFIED_CONTENT);
+
+      // No rewrites produced => modified content must equal the original.
+      // (This is the public proxy for "the diff array does not contain an entry for the skipped import".)
+      expect(modifiedContent).to.equal(baseContent);
+      expect(modifiedContent).to.not.include("'c/insUtility'");
+      expect(modifiedContent).to.not.include("'c/insAccordion'");
+    });
+
+    it('should preserve case when matching the registry (case-insensitive lookup)', () => {
+      // 'INSUTILITY' should still hit the registry (registry lowercases on store + lookup).
+      const mockFileContent = "import x from 'vlocity_cmt/INSUTILITY/labels';";
+      const testFile = createTempFile('case-insensitive.js', mockFileContent);
+      const result = parser.replaceImportSource(testFile, 'vlocity_cmt');
+
+      expect(result).to.not.be.null;
+      const modifiedContent = result.get(FileConstant.MODIFIED_CONTENT);
+      expect(modifiedContent).to.include("'vlocity_cmt/INSUTILITY/labels'");
     });
   });
 

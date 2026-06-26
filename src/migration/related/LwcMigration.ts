@@ -5,6 +5,7 @@ import * as shell from 'shelljs';
 import { FileUtil, File } from '../../utils/file/fileUtil';
 import { Logger } from '../../utils/logger';
 import { FileProcessorFactory } from '../../utils/lwcparser/fileutils/FileProcessorFactory';
+import { LwcPackageUtilityRegistry } from '../../utils/lwcparser/LwcPackageUtilityRegistry';
 import { FileChangeInfo, LWCAssessmentInfo } from '../../utils';
 import { Constants } from '../../utils/constants/stringContants';
 import { ComponentType, createProgressBar } from '../base';
@@ -29,6 +30,7 @@ export class LwcMigration extends BaseRelatedObjectMigration {
   // }
   public assessment(): LWCAssessmentInfo[] {
     Logger.logVerbose(assessMessages.getMessage('startingLwcAssessment', [this.projectPath]));
+    LwcPackageUtilityRegistry.getInstance().initialize();
     const type = 'assessment';
     const pwd = shell.pwd();
     shell.cd(this.projectPath);
@@ -42,6 +44,7 @@ export class LwcMigration extends BaseRelatedObjectMigration {
 
   public migrate(): LWCAssessmentInfo[] {
     Logger.logVerbose(migrateMessages.getMessage('startingLwcMigration', [this.projectPath]));
+    LwcPackageUtilityRegistry.getInstance().initialize();
     const pwd = shell.pwd();
     shell.cd(this.projectPath);
     Logger.info(migrateMessages.getMessage('processingLwcsForMigration'));

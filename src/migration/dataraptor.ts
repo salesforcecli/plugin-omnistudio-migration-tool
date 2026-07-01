@@ -550,8 +550,12 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 
     mappedObject['Name'] = this.cleanName(mappedObject['Name']);
     mappedObject['IsActive'] = true;
-    mappedObject['IsMigrated'] = true; 
-
+    // IsMigrated field only exists in core 264+ (API v68.0).
+    // Skip on older orgs to avoid "No such column" errors.
+    const apiVersion = parseFloat((this.connection as any).getApiVersion?.() ?? '0');
+    if (apiVersion >= 68.0) {
+      mappedObject['IsMigrated'] = true;
+    }
     // BATCH framework requires that each record has an "attributes" property
     mappedObject['attributes'] = {
       type: DataRaptorMigrationTool.OMNIDATATRANSFORM_NAME,

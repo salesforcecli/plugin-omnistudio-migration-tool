@@ -567,6 +567,30 @@ describe('DataRaptor Standard Data Model (Metadata API Disabled) - Assessment an
       expect(result.GlobalKey).to.equal('global-key-123');
       expect(result.IsActive).to.be.true; // Always set to true during migration
     });
+
+    it('should NOT set IsMigrated when getApiVersion returns 67.0 (pre-264 org)', () => {
+      (mockConnection as any).getApiVersion = sinon.stub().returns('67.0');
+      dataRaptorTool = new DataRaptorMigrationTool('testNamespace', mockConnection, mockLogger, mockMessages, mockUx);
+      const mockRecord = { Id: 'dr_api67', Name: 'TestDR', Type: 'Transform', IsActive: true };
+      const result = (dataRaptorTool as any).mapDataRaptorRecord(mockRecord);
+      expect(result).to.not.have.property('IsMigrated');
+      expect(result.IsActive).to.be.true;
+    });
+
+    it('should set IsMigrated = true when getApiVersion returns 68.0 (264+ org)', () => {
+      (mockConnection as any).getApiVersion = sinon.stub().returns('68.0');
+      dataRaptorTool = new DataRaptorMigrationTool('testNamespace', mockConnection, mockLogger, mockMessages, mockUx);
+      const mockRecord = { Id: 'dr_api68', Name: 'TestDR', Type: 'Transform', IsActive: true };
+      const result = (dataRaptorTool as any).mapDataRaptorRecord(mockRecord);
+      expect(result.IsMigrated).to.be.true;
+      expect(result.IsActive).to.be.true;
+    });
+
+    it('should NOT set IsMigrated when getApiVersion is missing from connection', () => {
+      const mockRecord = { Id: 'dr_no_api', Name: 'TestDR', Type: 'Transform', IsActive: true };
+      const result = (dataRaptorTool as any).mapDataRaptorRecord(mockRecord);
+      expect(result).to.not.have.property('IsMigrated');
+    });
   });
 
   describe('Standard Data Model - Field Access and Validation', () => {

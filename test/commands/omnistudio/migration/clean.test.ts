@@ -29,6 +29,7 @@ const BASE_ORG_DETAILS: OmnistudioOrgDetails = {
   hasValidNamespace: true,
   isFoundationPackage: false,
   isOmnistudioMetadataAPIEnabled: false,
+  isDRVersioningEnabled: false,
 };
 
 // Standard data model, Metadata API not yet enabled (happy path)

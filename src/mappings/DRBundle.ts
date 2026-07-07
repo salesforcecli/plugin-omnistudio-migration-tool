@@ -37,8 +37,9 @@ const mappings = {
   XmlOutputSequence__c: 'XmlOutputTagsOrder',
   XmlRemoveDeclaration__c: 'IsXmlDeclarationRemoved',
   GlobalKey__c: 'GlobalKey',
+  IsActive__c: 'IsActive',
+  Version__c: 'VersionNumber',
   //   Namespace: 'Namespace',
-  //   Version: 'VersionNumber',
 };
 
 export default mappings;

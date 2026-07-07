@@ -196,6 +196,8 @@ export interface DataRaptorAssessmentInfo {
   errors: string[];
   apexDependencies: string[];
   migrationStatus: 'Ready for migration' | 'Failed' | 'Skipped' | 'Complete' | 'Needs manual intervention' | 'Warnings';
+  version?: number;
+  isActive?: boolean;
 }
 
 export interface GlobalAutoNumberAssessmentInfo {

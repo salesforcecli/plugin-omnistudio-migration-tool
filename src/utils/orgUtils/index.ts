@@ -31,6 +31,7 @@ export interface OmnistudioOrgDetails {
   rollbackFlags?: string[];
   isFoundationPackage: boolean;
   isOmnistudioMetadataAPIEnabled: boolean;
+  isDRVersioningEnabled: boolean;
 }
 
 export interface PackageDetail {
@@ -366,6 +367,7 @@ export class OrgUtils {
         hasValidNamespace: false,
         isFoundationPackage: false,
         isOmnistudioMetadataAPIEnabled: false,
+        isDRVersioningEnabled: false,
       };
     }
 
@@ -380,6 +382,13 @@ export class OrgUtils {
       connection,
       packageDetails.namespace
     );
+
+    let isDRVersioningEnabled = false;
+    try {
+      isDRVersioningEnabled = await OrgPreferences.checkDRVersioning(connection);
+    } catch (error) {
+      Logger.error(`Error checking DR Versioning org preference`);
+    }
 
     const orgDataModel = omniStudioOrgPermissionEnabled ? this.standardDataModel : this.customDataModel;
     const orgPackageType = isFoundationPackage
@@ -399,6 +408,7 @@ export class OrgUtils {
       hasValidNamespace: hasValidNamespace,
       isFoundationPackage: isFoundationPackage,
       isOmnistudioMetadataAPIEnabled: isOmnistudioMetadataAPIEnabled,
+      isDRVersioningEnabled: isDRVersioningEnabled,
     };
   }
 

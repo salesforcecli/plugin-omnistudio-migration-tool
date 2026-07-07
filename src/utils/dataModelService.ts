@@ -27,6 +27,10 @@ export class DataModelService {
   public checkIfIsStandardDataModelWithMetadataAPIEnabled(): boolean {
     return this.checkIfIsStandardDataModel() && this.checkIfIsOmnistudioMetadataAPIEnabled();
   }
+
+  public checkIfIsDRVersioningEnabled(): boolean {
+    return this.orgs.isDRVersioningEnabled ?? false;
+  }
 }
 
 let globalDataModelService: DataModelService | null = null;
@@ -64,6 +68,10 @@ export function isStandardDataModelWithMetadataAPIEnabled(): boolean {
 
 export function isOmnistudioMetadataAPIEnabled(): boolean {
   return getDataModelService().checkIfIsOmnistudioMetadataAPIEnabled();
+}
+
+export function isDRVersioningEnabled(): boolean {
+  return getDataModelService().checkIfIsDRVersioningEnabled();
 }
 
 export function getFieldKeyForOmniscript(namespacePrefix: string, fieldName: string): string {

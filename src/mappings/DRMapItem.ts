@@ -33,6 +33,7 @@ const mappings = {
   LookupDomainObjectRequestedFieldName__c: 'LookupReturnedFieldName',
   MapId__c: 'GlobalKey',
   Name: 'Name',
+  OmniDataTransformationId__c: 'OmniDataTransformationId',
   TransformValuesMap__c: 'TransformValueMappings',
   UpsertKey__c: 'IsUpsertKey',
   GlobalKey__c: 'GlobalKey',

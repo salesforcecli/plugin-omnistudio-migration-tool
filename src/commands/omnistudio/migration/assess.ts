@@ -22,6 +22,7 @@ import { PostMigrate } from '../../../migration/postMigrate';
 import { CustomLabelsUtil } from '../../../utils/customLabels';
 import {
   initializeDataModelService,
+  isDRVersioningEnabled,
   isFoundationPackage,
   isOmnistudioMetadataAPIEnabled,
   isStandardDataModel,
@@ -145,16 +146,7 @@ export default class Assess extends SfCommand<AssessmentInfo> {
     const preMigrate: PreMigrate = new PreMigrate(namespace, conn, logger, messages, ux);
     const userActionMessages: string[] = [];
 
-    // Handle all versions prerequisite for standard data model
-    if (isStandardDataModel() && !isOmnistudioMetadataAPIEnabled()) {
-      // Check if OmniStudio metadata tables need cleanup, if yes, then populate userActions
-      const metadataCleanupService = new OmniStudioMetadataCleanupService(conn, messages);
-      const hasCleanTables = await metadataCleanupService.hasCleanOmniStudioMetadataTables();
-      if (!hasCleanTables) {
-        userActionMessages.push(messages.getMessage('cleanupMetadataTablesRequired'));
-      }
-      allVersions = await preMigrate.handleAllVersionsPrerequisites(allVersions);
-    }
+    allVersions = await this.handleAllVersionsConsentAndCleanup(allVersions, preMigrate, conn, userActionMessages);
     if (relatedObjects) {
       objectsToProcess = relatedObjects.split(',').map((obj) => obj.trim());
       projectPath = await ProjectPathUtil.getProjectPath(messages, true);
@@ -284,7 +276,7 @@ export default class Assess extends SfCommand<AssessmentInfo> {
   ): Promise<void> {
     if (!assessOnly) {
       // If no specific component is specified, assess all components
-      await this.assessDataRaptors(assesmentInfo, namespace, conn, ux);
+      await this.assessDataRaptors(assesmentInfo, namespace, conn, allVersions, ux);
       await this.assessFlexCards(assesmentInfo, namespace, conn, allVersions, ux);
       await this.assessOmniScripts(assesmentInfo, namespace, conn, allVersions, OmniScriptExportType.OS, ux);
       await this.assessOmniScripts(assesmentInfo, namespace, conn, allVersions, OmniScriptExportType.IP, ux);
@@ -300,7 +292,7 @@ export default class Assess extends SfCommand<AssessmentInfo> {
 
     switch (assessOnly) {
       case Constants.DataMapper:
-        await this.assessDataRaptors(assesmentInfo, namespace, conn, ux);
+        await this.assessDataRaptors(assesmentInfo, namespace, conn, allVersions, ux);
         break;
       case Constants.Flexcard:
         await this.assessFlexCards(assesmentInfo, namespace, conn, allVersions, ux);
@@ -336,13 +328,39 @@ export default class Assess extends SfCommand<AssessmentInfo> {
     }
   }
 
+  private async handleAllVersionsConsentAndCleanup(
+    allVersions: boolean,
+    preMigrate: PreMigrate,
+    conn: Connection,
+    userActionMessages: string[]
+  ): Promise<boolean> {
+    const standardModelNeedsConsent = isStandardDataModel() && !isOmnistudioMetadataAPIEnabled();
+    if (standardModelNeedsConsent) {
+      const metadataCleanupService = new OmniStudioMetadataCleanupService(conn, messages);
+      const hasCleanTables = await metadataCleanupService.hasCleanOmniStudioMetadataTables();
+      if (!hasCleanTables) {
+        userActionMessages.push(messages.getMessage('cleanupMetadataTablesRequired'));
+      }
+    }
+    // Prompt for all-versions consent when the standard data model needs it OR when DR Versioning
+    // is on (custom data model included), so multi-version Data Mappers aren't silently dropped.
+    if (standardModelNeedsConsent) {
+      return await preMigrate.handleAllVersionsPrerequisites(allVersions, 'standard-data-model');
+    }
+    if (isDRVersioningEnabled()) {
+      return await preMigrate.handleAllVersionsPrerequisites(allVersions, 'dr-versioning');
+    }
+    return allVersions;
+  }
+
   private async assessDataRaptors(
     assesmentInfo: AssessmentInfo,
     namespace: string,
     conn: Connection,
+    allVersions: boolean,
     ux: Ux
   ): Promise<void> {
-    const drMigrator = new DataRaptorMigrationTool(namespace, conn, Logger, messages, ux);
+    const drMigrator = new DataRaptorMigrationTool(namespace, conn, Logger, messages, ux, allVersions);
     assesmentInfo.dataRaptorAssessmentInfos = await drMigrator.assess();
     this.logAssessmentCompletionIfNeeded(
       'assessedDataRaptorsCount',

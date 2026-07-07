@@ -27,6 +27,7 @@ describe('OmniScript Standard Data Model (Metadata API Disabled) - Assessment an
       hasValidNamespace: true,
       isFoundationPackage: false,
       isOmnistudioMetadataAPIEnabled: false,
+      isDRVersioningEnabled: false,
     };
     initializeDataModelService(mockOrgDetails);
 

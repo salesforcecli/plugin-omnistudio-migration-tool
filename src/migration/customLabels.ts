@@ -203,8 +203,9 @@ export class CustomLabelsMigrationTool extends BaseMigrationTool implements Migr
 
       return response as CustomLabelMigrationResponse;
     } catch (error) {
-      Logger.error(this.messages.getMessage('errorCallingCloneCustomLabelsAPI', [String(error)]));
-      throw error;
+      const enhancedError = this.parseAPIError(error);
+      Logger.error(this.messages.getMessage('errorCallingCloneCustomLabelsAPI', [enhancedError]));
+      throw new Error(enhancedError);
     }
   }
 
@@ -255,5 +256,35 @@ export class CustomLabelsMigrationTool extends BaseMigrationTool implements Migr
       default:
         return { mappedStatus: 'Skipped', hasErrors: false };
     }
+  }
+
+  /**
+   * Parses API errors and provides user-friendly error messages with actionable guidance
+   *
+   * @param error - The error object from the API call
+   * @returns Enhanced error message with context and resolution steps
+   */
+  private parseAPIError(error: unknown): string {
+    const errorString = String(error);
+
+    // Check for common error patterns and provide helpful guidance
+    if (errorString.includes('FUNCTIONALITY_NOT_ENABLED')) {
+      return this.messages.getMessage('customLabelAPIFunctionalityNotEnabled', [errorString]);
+    }
+
+    if (errorString.includes('INVALID_SESSION_ID') || errorString.includes('Session expired')) {
+      return this.messages.getMessage('customLabelAPIInvalidSession', [errorString]);
+    }
+
+    if (errorString.includes('NOT_FOUND') || errorString.includes('404')) {
+      return this.messages.getMessage('customLabelAPINotFound', [errorString]);
+    }
+
+    if (errorString.includes('INSUFFICIENT_ACCESS')) {
+      return this.messages.getMessage('customLabelAPIInsufficientAccess', [errorString]);
+    }
+
+    // Return enhanced generic error
+    return this.messages.getMessage('customLabelAPIGenericError', [errorString]);
   }
 }

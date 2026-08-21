@@ -1344,18 +1344,22 @@ export class CardMigrationTool extends BaseMigrationTool implements MigrationToo
           uploadResult.hasErrors = true;
           uploadResult.errors = uploadResult.errors || [];
 
-          uploadResult.errors.push(this.messages.getMessage('errorWhileActivatingCard') + updateResult.errors);
+          uploadResult.errors.push(
+            this.messages.getMessage('errorWhileActivatingCard') +
+              (Array.isArray(updateResult.errors) ? updateResult.errors.join('; ') : String(updateResult.errors ?? ''))
+          );
         }
       }
     } catch (err) {
-      this.setRecordErrors(card, this.messages.getMessage('errorWhileUploadingCard') + err);
+      const errorMessages = NetUtils.extractErrorMessages(err);
+      this.setRecordErrors(card, this.messages.getMessage('errorWhileUploadingCard') + errorMessages.join('; '));
       originalRecords.set(recordId, card);
 
       cardsUploadInfo.set(recordId, {
         referenceId: recordId,
         hasErrors: true,
         success: false,
-        errors: err,
+        errors: errorMessages,
         warnings: [],
       });
     }

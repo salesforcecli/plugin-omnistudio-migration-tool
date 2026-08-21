@@ -257,16 +257,17 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
       } else {
         // Handle failed migration - add error information
         if (!drUploadResponse?.success) {
-          Logger.logVerbose(
-            `\n${this.messages.getMessage('dataMapperMigrationFailed', [name]) + drUploadResponse.errors}`
-          );
+          const errorDetail = Array.isArray(drUploadResponse?.errors)
+            ? drUploadResponse.errors.join('; ')
+            : String(drUploadResponse?.errors ?? '');
+          Logger.logVerbose(`\n${this.messages.getMessage('dataMapperMigrationFailed', [name])}${errorDetail}`);
 
           drUploadResponse = {
             referenceId: recordId,
             id: '',
             success: false,
             hasErrors: true,
-            errors: [this.messages.getMessage('dataMapperMigrationFailed', [name]) + drUploadResponse.errors],
+            errors: [this.messages.getMessage('dataMapperMigrationFailed', [name]) + errorDetail],
             warnings: [],
             newName: '',
           };

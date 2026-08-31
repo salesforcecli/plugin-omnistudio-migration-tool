@@ -1,20 +1,23 @@
-OmniStudio Migration Tool
-=========================
+# OmniStudio Migration Tool
 
+## 🚀 Before You Begin
 
-### Before You Begin
-1. Confirm you have an OmniStudio Admin license.
-2. Enable Standard OmniStudio Runtime in Setup > OmniStudio Settings.
+⚠️ IMPORTANT: Before installing and using the Omnistudio Migration Tool, contact Salesforce support.
+
+Follow the steps in [Migration Process from Omnistudio for Managed Packages to Omnistudio](https://help.salesforce.com/s/articleView?id=xcloud.os_migrate_omnistudio_custom_objects_to_standard_objects.htm&language=en_US&type=5)
 
 ## Running SFDX plugin
 
 1. Install SFDX cli using the official documentation located [here](https://developer.salesforce.com/docs/atlas.en-us.sfdx_setup.meta/sfdx_setup/sfdx_setup_install_cli.htm).
 2. Authenticate your SFDX cli into the org you are going to use for development. You can follow authentication steps [here](https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_auth_web.htm).
 3. In a new terminal session, install the plugin using the following command
+
 ```
 sfdx plugins:install @salesforce/plugin-omnistudio-migration-tool
 ```
+
 4. To run the migration tool, run the following command from your command line tool:
+
 ```
 // To migrate everything
 sfdx omnistudio:migration:migrate -u YOUR_ORG_USERNAME@DOMAIN.COM --namespace=VLOCITY_PACKAGE_NAMESPACE
@@ -24,14 +27,18 @@ sfdx omnistudio:migration:migrate -u YOUR_ORG_USERNAME@DOMAIN.COM --namespace=VL
 --only=ip
 --only=os
 --only=fc
+
+//to migrate all versions of the components and not just the active ones:
+--allversions
 ```
+
 5. An HTML page will be open in your default browser with the results of your migration job.
 
 ### Usage & parameters
 
 ```
 USAGE
-  $ sfdx omnistudio:migration:migrate [-n <string>] [-f] [-v <string>] [-u <string>] [--apiversion <string>] [--json] [--loglevel 
+  $ sfdx omnistudio:migration:migrate [-n <string>] [-f] [-v <string>] [-u <string>] [--apiversion <string>] [--json] [--loglevel
   trace|debug|info|warn|error|fatal|TRACE|DEBUG|INFO|WARN|ERROR|FATAL]
 
 OPTIONS
@@ -50,5 +57,8 @@ OPTIONS
 
   --loglevel=(trace|debug|info|warn|error|fatal|TRACE|DEBUG|INFO|WARN|ERROR|FATAL)  [default: warn] logging level for
                                                                                     this command invocation
+
+  -a, --allversions                                                                 migrate all versions and not
+                                                                                    and not just the active ones.
 
 ```

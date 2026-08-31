@@ -24,5 +24,9 @@
   "errorWhileActivatingOs": "Could not activate OmniScript / Integration Procedure: ",
   "errorWhileActivatingCard": "Could not activate Card: ",
   "errorWhileUploadingCard": "An error ocurred while uploading Card: ",
-  "errorWhileCreatingElements": "An error ocurred while saving OmniScript elements: "
+  "errorWhileCreatingElements": "An error ocurred while saving OmniScript elements: ",
+  "allVersionsDescription": "Migrate all versions of a component",
+  "noPackageInstalled": "No managed package found in your org.",
+  "alreadyStandardModel": "Migration cannot proceed for the org %s as the org already uses the standard data model. Contact Salesforce support.",
+  "invalidNamespace": "Invalid namespace value provided: %s. Try again with the correct namespace value."
 }

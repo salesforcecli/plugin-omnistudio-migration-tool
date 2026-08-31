@@ -29,6 +29,11 @@ export default class Org extends SfdxCommand {
       char: 'n',
       description: messages.getMessage('nameFlagDescription'),
     }),
+    allversions: flags.boolean({
+      char: 'a',
+      description: messages.getMessage('allVersionsDescription'),
+      required: false,
+    }),
   };
 
   // Comment this out if your command does not require an org username
@@ -42,6 +47,8 @@ export default class Org extends SfdxCommand {
 
   public async run(): Promise<AnyJson> {
     const name = (this.flags.name || 'world') as string;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const allVersions = this.flags.allversions || false;
 
     // this.org is guaranteed because requiresUsername=true, as opposed to supportsUsername
     const conn = this.org.getConnection();
@@ -77,6 +84,10 @@ export default class Org extends SfdxCommand {
     if (this.hubOrg) {
       const hubOrgId = this.hubOrg.getOrgId();
       this.ux.log(`My hub org id is: ${hubOrgId}`);
+    }
+
+    if (allVersions) {
+      outputString = `${outputString} and all versions will be migrated`;
     }
 
     // Return an object to be displayed with --json

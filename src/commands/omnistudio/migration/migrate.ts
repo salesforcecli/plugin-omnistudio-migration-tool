@@ -267,7 +267,11 @@ export default class Migrate extends SfCommand<MigrateResult> {
     );
 
     if (!migrateOnly) {
-      await postMigrate.executeTasks(namespace, actionItems);
+      await postMigrate.executeTasks(
+        namespace,
+        actionItems,
+        this.hasSuccessfulComponentMigration(objectMigrationResults)
+      );
     }
 
     const migrationActionItems = this.collectActionItems(objectMigrationResults);
@@ -398,6 +402,12 @@ export default class Migrate extends SfCommand<MigrateResult> {
     }
 
     return consent;
+  }
+
+  private hasSuccessfulComponentMigration(objectMigrationResults: MigratedObject[]): boolean {
+    return objectMigrationResults.some((result) =>
+      (result.data ?? []).some((record) => record.status === 'Successfully migrated')
+    );
   }
 
   private collectActionItems(objectMigrationResults: MigratedObject[]): string[] {

@@ -191,10 +191,10 @@ class NetUtils {
 }
 
 enum RequestMethod {
-  POST = 'post',
-  GET = 'get',
-  PATCH = 'patch',
-  DELETE = 'delete',
+  POST = 'POST',
+  GET = 'GET',
+  PATCH = 'PATCH',
+  DELETE = 'DELETE',
 }
 
 interface TreeResult {

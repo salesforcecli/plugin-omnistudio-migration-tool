@@ -1512,7 +1512,10 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
               osUploadResponse.errors = osUploadResponse.errors || [];
 
               osUploadResponse.errors.push(
-                this.messages.getMessage('errorWhileActivatingOs', [this.getName(true)]) + updateResult.errors
+                this.messages.getMessage('errorWhileActivatingOs', [this.getName(true)]) +
+                  (Array.isArray(updateResult.errors)
+                    ? updateResult.errors.join('; ')
+                    : String(updateResult.errors ?? ''))
               );
             }
           }
@@ -1860,6 +1863,18 @@ export class OmniScriptMigrationTool extends BaseMigrationTool implements Migrat
           standardOsDefintionId,
           osDefinitionRecord
         );
+
+        // The definition update response was previously discarded, so a failed
+        // compilation update surfaced only as an opaque 400 with no context. Log the
+        // detail so these failures are diagnosable.
+        if (!osUploadResponse?.success) {
+          const errorDetail = Array.isArray(osUploadResponse?.errors)
+            ? osUploadResponse.errors.join('; ')
+            : String(osUploadResponse?.errors ?? '');
+          Logger.logVerbose(
+            `Failed to update ${OmniScriptMigrationTool.OMNIPROCESSCOMPILATION_NAME} (id: ${standardOsDefintionId}): ${errorDetail}`
+          );
+        }
 
         osUploadResponse['Id'] = standardOsDefintionId;
         osUploadResponse['OmniProcessId'] = standardOmniProcessId;

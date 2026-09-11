@@ -12,7 +12,7 @@
     "@oclif/command": "^1",
     "@oclif/config": "^1",
     "@oclif/errors": "^1",
-    "@salesforce/core": "^8.23.4",
+    "@salesforce/core": "8.32.6",
     "@salesforce/sf-plugins-core": "^11.3.12",
     "@types/jsdom": "^21.1.7",
     "@types/lodash.chunk": "^4.2.9",
@@ -68,6 +68,8 @@
     "typescript": "^5.4.5"
   },
   "resolutions": {
+    "@jsforce/jsforce-node": "3.10.25",
+    "@salesforce/core": "8.32.6",
     "nanoid": "^3.3.8",
     "marked": "^4.0.10",
     "semver": "^7.5.2",

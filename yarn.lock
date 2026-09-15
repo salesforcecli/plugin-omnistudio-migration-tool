@@ -587,7 +587,7 @@
 
 "@jsforce/jsforce-node@3.10.25", "@jsforce/jsforce-node@^3.10.17":
   version "3.10.25"
-  resolved "https://nexus-proxy.repo.local.sfdc.net/nexus/content/groups/npm-all/@jsforce/jsforce-node/-/jsforce-node-3.10.25.tgz#19a457a8d0b5217188576507139134cfae836eef"
+  resolved "https://registry.yarnpkg.com/@jsforce/jsforce-node/-/jsforce-node-3.10.25.tgz#19a457a8d0b5217188576507139134cfae836eef"
   integrity sha512-L4GfTOzmGBypjG1O7aTxwbk4DTKitU7yvnnqQE7wypFyEyHH9VR6cVZxi4+Gfk7cmItHRHAV7MyBTFfrP5DaHA==
   dependencies:
     "@sindresorhus/is" "^4"
@@ -913,7 +913,7 @@
 
 "@salesforce/core@8.32.6", "@salesforce/core@^8.31.4", "@salesforce/core@^8.31.5", "@salesforce/core@^8.5.1":
   version "8.32.6"
-  resolved "https://nexus-proxy.repo.local.sfdc.net/nexus/content/groups/npm-all/@salesforce/core/-/core-8.32.6.tgz#2824dc917888dc040995dfef3a9e83d41fafbdea"
+  resolved "https://registry.yarnpkg.com/@salesforce/core/-/core-8.32.6.tgz#2824dc917888dc040995dfef3a9e83d41fafbdea"
   integrity sha512-ZR973WoqCgi6cR58WhgokbHVZOaADNKHiuM1FAwS5pTLQnC91xYi04i2e/gpAX2AUf7Ya6zjbusYtZNpSyKKAQ==
   dependencies:
     "@jsforce/jsforce-node" "^3.10.17"

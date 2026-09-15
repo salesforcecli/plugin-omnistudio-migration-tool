@@ -98,6 +98,11 @@ jobs:
     uses: salesforcecli/github-workflows/.github/workflows/ctcOpen.yml@main
     with:
       githubTag: ${{ inputs.githubTag }}
+      # This repo is yarn-managed (yarn.lock, no package-lock.json). The shared
+      # workflow defaults package-manager to 'npm', which makes setup-node cache
+      # look for package-lock.json and fail with "Some specified paths were not
+      # resolved". Pin it to yarn so it caches against yarn.lock.
+      package-manager: yarn
     secrets: inherit
 
   npm-publish:
@@ -145,6 +150,7 @@ jobs:
     secrets: inherit
     with:
       changeCaseId: ${{needs.ctc-open.outputs.changeCaseId}}
+      package-manager: yarn
 
   ctcCloseFail:
     needs: [ctc-open, npm-publish]
@@ -154,3 +160,4 @@ jobs:
     with:
       changeCaseId: ${{ needs.ctc-open.outputs.changeCaseId }}
       status: Not Implemented
+      package-manager: yarn

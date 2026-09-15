@@ -6,5 +6,6 @@
   "examples": [
     "sfdx omnistudio:migration:info --targetusername myOrg@example.com --targetdevhubusername devhub@org.com",
     "sfdx omnistudio:migration:info --name myname --targetusername myOrg@example.com"
-  ]
+  ],
+  "allVersionsDescription": "Migrate all versions of a component"
 }

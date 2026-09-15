@@ -52,6 +52,10 @@ on:
         description: the github release tag that you want to publish as an npm package
         required: true
         type: string
+
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
 jobs:
   check-publish:
     outputs:

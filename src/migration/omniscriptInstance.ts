@@ -21,6 +21,11 @@ import {
 } from './interfaces';
 import { createProgressBar } from './base';
 
+const SOURCE_CHUNK_SIZE = 200;
+// Salesforce REST requests allow up to 6 MB for JSON payloads; retain 1 MB of headroom.
+const ATTACHMENT_REQUEST_BODY_BYTE_LIMIT = 5 * 1024 * 1024;
+const ATTACHMENT_REQUEST_ENVELOPE_BYTE_LENGTH = Buffer.byteLength(JSON.stringify({ records: [] }), 'utf8');
+
 export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implements MigrationTool {
   private readonly IS_STANDARD_DATA_MODEL: boolean = isStandardDataModel();
 
@@ -169,14 +174,15 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
 
       let progressCounter = 0;
 
-      // Process and set the migration status for both saved sessions and omniscripts
-      for (const osInstance of omniscriptInstances) {
-        const migratedInfo: UploadRecordResult = await this.performMigration(osInstance, omniProcessMap);
-        const osInstanceId = String(osInstance['Id'] ?? '');
-        osInstanceUploadInfo.set(osInstanceId, migratedInfo);
-        originalOsInstanceRecords.set(osInstanceId, osInstance);
+      for (let offset = 0; offset < omniscriptInstances.length; offset += SOURCE_CHUNK_SIZE) {
+        const sourceChunk = omniscriptInstances.slice(offset, offset + SOURCE_CHUNK_SIZE);
+        await this.performMigrationChunk(sourceChunk, omniProcessMap, osInstanceUploadInfo);
 
-        progressBar.update(++progressCounter);
+        for (const osInstance of sourceChunk) {
+          const osInstanceId = String(osInstance['Id'] ?? '');
+          originalOsInstanceRecords.set(osInstanceId, osInstance);
+          progressBar.update(++progressCounter);
+        }
       }
 
       progressBar.stop();
@@ -360,10 +366,10 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
     return assessInfo;
   }
 
-  private async performMigration(
+  private prepareMigration(
     osInstance: AnyJson,
     omniProcessMap: Map<string, string>
-  ): Promise<UploadRecordResult> {
+  ): PreparedSession | UploadRecordResult {
     const errors: string[] = [];
     const warnings: string[] = [];
     let skipped = false;
@@ -389,7 +395,7 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
         ])
       );
       skipped = true;
-      const uploadedRecord: UploadRecordResult = {
+      return {
         referenceId: osInstanceId,
         id: '',
         success: errors.length === 0,
@@ -399,8 +405,6 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
         newName: osInstanceName,
         skipped,
       };
-
-      return uploadedRecord;
     }
 
     // Extract OmniProcess Id from omniProcessSet
@@ -410,7 +414,7 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
     if (!targetOmniProcessId) {
       errors.push(this.messages.getMessage('ossOmniscriptNeedsMigration', [osType, osSubType, osLanguage]));
       skipped = true;
-      const uploadedRecord: UploadRecordResult = {
+      return {
         referenceId: osInstanceId,
         id: '',
         success: errors.length === 0,
@@ -420,8 +424,6 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
         newName: osInstanceName,
         skipped,
       };
-
-      return uploadedRecord;
     }
 
     Logger.debug(this.messages.getMessage('ossFoundOmniProcess', [osType, osSubType, osLanguage, targetOmniProcessId]));
@@ -450,206 +452,252 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
       savedSessionData['ManagedPkgSessKey'] = osInstanceId;
     }
 
-    // Upload to OmniScriptSavedSession
-    const omniscriptSavedSessionResult: CreateOmniscriptSavedSessionResult =
-      await this.migrateCreateOmniscriptSavedSession(
-        osInstanceId,
-        osInstanceName,
-        osType,
-        osSubType,
-        osLanguage,
-        savedSessionData
-      );
-    if (omniscriptSavedSessionResult?.errors?.length > 0) {
-      errors.push(...omniscriptSavedSessionResult.errors);
-    }
-
-    // Extract Id for OmniScriptSavedSession
-    const newSavedSessionId = omniscriptSavedSessionResult?.id;
-    if (!newSavedSessionId) {
-      const errMsg = this.messages.getMessage('ossSkipAttachmentUpload', [osInstanceName]);
-      Logger.error(errMsg);
-      errors.push(errMsg);
-    } else {
-      // Extract all attachment object information for current omniscriptInstance record
-      // includes the url to the content of the attachment Body
-      const attachments: AnyJson[] = await this.queryAttachments(osInstanceId);
-      Logger.log(this.messages.getMessage('ossFoundAttachments', [attachments.length, osInstanceId]));
-      // Download attachment body
-      const attachmentBodyData: AttachmentDownloadResult[] = await this.downloadAttachments(attachments);
-
-      // Transform / replace references to managed package in attachments Body  : OmniscriptFullJSON.json
-
-      // Upload Attachment with Saved Session's Id as ParentId
-      const uploadAttachmentResult: MigrateUploadAttachmentsResult = await this.migrateUploadAttachments(
-        attachmentBodyData,
-        newSavedSessionId,
-        osInstanceName
-      );
-      if (uploadAttachmentResult?.errors?.length > 0) {
-        errors.concat(uploadAttachmentResult.errors);
-      }
-    }
-
-    const uploadedRecord: UploadRecordResult = {
+    savedSessionData['attributes'] = {
+      type: Constants.OmniScriptSavedSessionObjectName,
       referenceId: osInstanceId,
-      id: newSavedSessionId,
-      success: errors.length === 0,
-      hasErrors: errors.length > 0,
-      errors,
-      warnings,
-      newName: osInstanceName,
-      skipped,
     };
 
-    return uploadedRecord;
+    return { osInstanceId, osInstanceName, osType, osSubType, osLanguage, savedSessionData };
   }
 
-  private async migrateCreateOmniscriptSavedSession(
-    osInstanceId: string,
-    osInstanceName: string,
-    osType: string,
-    osSubType: string,
-    osLanguage: string,
-    savedSessionData: AnyJson
-  ): Promise<CreateOmniscriptSavedSessionResult> {
-    const errors: string[] = [];
-    let recordId = '';
-    let uploadResult: UploadRecordResult;
-
-    try {
-      uploadResult = await NetUtils.createOne(
-        this.connection,
-        Constants.OmniScriptSavedSessionObjectName,
-        osInstanceId,
-        savedSessionData
-      );
-
-      if (!uploadResult.success || uploadResult.hasErrors) {
-        const errMsg = this.messages.getMessage('ossCreateOssFailure', [osInstanceName, JSON.stringify(uploadResult)]);
-        Logger.error(errMsg);
-        errors.push(errMsg);
+  // Each phase remains serial; batching only reduces API round trips.
+  // eslint-disable-next-line complexity
+  private async performMigrationChunk(
+    osInstances: AnyJson[],
+    omniProcessMap: Map<string, string>,
+    uploadInfo: Map<string, UploadRecordResult>
+  ): Promise<void> {
+    const preparedSessions: PreparedSession[] = [];
+    for (const osInstance of osInstances) {
+      const prepared = this.prepareMigration(osInstance, omniProcessMap);
+      if ('savedSessionData' in prepared) {
+        preparedSessions.push(prepared);
+      } else {
+        uploadInfo.set(prepared.referenceId, prepared);
       }
-
-      recordId = uploadResult.id || '';
-
-      Logger.logVerbose(this.messages.getMessage('ossCreateOssSuccess', [recordId]));
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      const msg = this.messages.getMessage('ossCreateOssError', [osInstanceName, errorMsg]);
-      Logger.error(msg);
-      errors.push(msg);
     }
 
-    if (savedSessionData && recordId !== '') {
-      // update the Session Id's Resume Urls with its own record Id
-      // replace the URLS
-      savedSessionData['ResumeUrl'] = this.replaceResumeSessionUrl(
-        String(savedSessionData['ResumeUrl'] ?? ''),
-        osType,
-        osSubType,
-        osLanguage,
-        recordId
-      );
-      savedSessionData['RelativeResumeUrl'] = this.replaceResumeSessionUrl(
-        String(savedSessionData['RelativeResumeUrl'] ?? ''),
-        osType,
-        osSubType,
-        osLanguage,
-        recordId
-      );
+    if (preparedSessions.length === 0) return;
 
-      // resume urls have been updated, show as debugging log
-      Logger.debug(this.messages.getMessage('ossSessionDataShape', [JSON.stringify(savedSessionData)]));
+    let createResults: Map<string, UploadRecordResult>;
+    try {
+      createResults = await NetUtils.create(
+        this.connection,
+        Constants.OmniScriptSavedSessionObjectName,
+        preparedSessions.map((session) => session.savedSessionData)
+      );
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      for (const session of preparedSessions) {
+        const msg = this.messages.getMessage('ossCreateOssError', [session.osInstanceName, errorMsg]);
+        Logger.error(msg);
+        uploadInfo.set(session.osInstanceId, this.createUploadResult(session, '', [msg]));
+      }
+      return;
+    }
 
-      try {
-        uploadResult = await NetUtils.updateOne(
-          this.connection,
-          Constants.OmniScriptSavedSessionObjectName,
-          osInstanceId,
-          recordId,
-          savedSessionData
+    const successfulSessions: CreatedSession[] = [];
+    for (const session of preparedSessions) {
+      const createResult = createResults.get(session.osInstanceId);
+      const errors: string[] = [];
+      const recordId = createResult?.id ?? '';
+      if (
+        !createResult ||
+        createResult.success === false ||
+        createResult.hasErrors ||
+        createResult.errors?.length > 0 ||
+        recordId === ''
+      ) {
+        const errMsg = this.messages.getMessage('ossCreateOssFailure', [
+          session.osInstanceName,
+          JSON.stringify(createResult),
+        ]);
+        Logger.error(errMsg);
+        errors.push(errMsg);
+        const skipMsg = this.messages.getMessage('ossSkipAttachmentUpload', [session.osInstanceName]);
+        Logger.error(skipMsg);
+        errors.push(skipMsg);
+      } else {
+        Logger.logVerbose(this.messages.getMessage('ossCreateOssSuccess', [recordId]));
+        successfulSessions.push({ ...session, recordId });
+      }
+      uploadInfo.set(session.osInstanceId, this.createUploadResult(session, recordId, errors));
+    }
+
+    if (successfulSessions.length === 0) return;
+
+    const updateRecords = successfulSessions.map((session) =>
+      Object.assign({}, session.savedSessionData, {
+        attributes: { type: Constants.OmniScriptSavedSessionObjectName },
+        Id: session.recordId,
+        ResumeUrl: this.replaceResumeSessionUrl(
+          String(session.savedSessionData['ResumeUrl'] ?? ''),
+          session.osType,
+          session.osSubType,
+          session.osLanguage,
+          session.recordId
+        ),
+        RelativeResumeUrl: this.replaceResumeSessionUrl(
+          String(session.savedSessionData['RelativeResumeUrl'] ?? ''),
+          session.osType,
+          session.osSubType,
+          session.osLanguage,
+          session.recordId
+        ),
+      })
+    );
+
+    try {
+      const updateResults = await NetUtils.update(this.connection, updateRecords);
+      for (const session of successfulSessions) {
+        const updateResult = updateResults.get(session.recordId);
+        if (!updateResult || !updateResult.success || updateResult.hasErrors) {
+          this.addError(
+            uploadInfo,
+            session.osInstanceId,
+            this.messages.getMessage('ossUpdateOssFailure', [session.osInstanceName, JSON.stringify(updateResult)])
+          );
+        }
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      for (const session of successfulSessions) {
+        this.addError(
+          uploadInfo,
+          session.osInstanceId,
+          this.messages.getMessage('ossUpdateOssError', [session.osInstanceName, errorMsg])
         );
+      }
+    }
 
-        if (!uploadResult.success || uploadResult.hasErrors) {
-          const errMsg = this.messages.getMessage('ossUpdateOssFailure', [
-            osInstanceName,
-            JSON.stringify(uploadResult),
-          ]);
-          Logger.error(errMsg);
-          errors.push(errMsg);
+    const attachmentRecords: AnyJson[] = [];
+    const attachmentOwners = new Map<string, { session: CreatedSession; attachmentName: string }>();
+    for (const session of successfulSessions) {
+      const attachments = await this.queryAttachments(session.osInstanceId);
+      Logger.log(this.messages.getMessage('ossFoundAttachments', [attachments.length, session.osInstanceId]));
+      const downloads = await this.downloadAttachments(attachments);
+      if (downloads.length > 0) {
+        Logger.logVerbose(
+          this.messages.getMessage('ossAttachmentUploadStart', [downloads.length, session.osInstanceName])
+        );
+      }
+      for (const attachment of downloads) {
+        if (attachment.errors.length > 0) {
+          attachment.errors.forEach((error) => this.addError(uploadInfo, session.osInstanceId, error));
+          continue;
+        }
+        const referenceId = `${session.osInstanceId}_${attachment.id}`;
+        attachmentOwners.set(referenceId, { session, attachmentName: attachment.name });
+        const attachmentRecord: AnyJson = {
+          attributes: { type: Constants.AttachmentObjectName, referenceId },
+          ParentId: session.recordId,
+          Name: attachment.name,
+          Body: attachment.body,
+        };
+        if (attachment.contentType) attachmentRecord['ContentType'] = attachment.contentType;
+        attachmentRecords.push(attachmentRecord);
+      }
+    }
+
+    if (attachmentRecords.length === 0) return;
+
+    let attachmentBatch: AnyJson[] = [];
+    let attachmentBatchBytes = ATTACHMENT_REQUEST_ENVELOPE_BYTE_LENGTH;
+
+    const recordAttachmentResult = (attachment: AnyJson, result?: UploadRecordResult): void => {
+      const attachmentId = String((attachment['attributes'] as AnyJson)['referenceId']);
+      const owner = attachmentOwners.get(attachmentId);
+      if (!owner) return;
+      if (!result || result.success === false || result.hasErrors || result.errors?.length > 0 || !result.id) {
+        const errorMsg = this.messages.getMessage('ossAttachmentUploadFailed', [
+          owner.attachmentName,
+          JSON.stringify(result?.errors),
+        ]);
+        Logger.warn(errorMsg);
+        this.addError(uploadInfo, owner.session.osInstanceId, errorMsg);
+      } else {
+        Logger.logVerbose(this.messages.getMessage('ossAttachmentUploadSuccess', [String(attachment['Name'] ?? '')]));
+      }
+    };
+
+    const flushAttachmentBatch = async (): Promise<void> => {
+      if (attachmentBatch.length === 0) return;
+      const batch = attachmentBatch;
+      attachmentBatch = [];
+      attachmentBatchBytes = ATTACHMENT_REQUEST_ENVELOPE_BYTE_LENGTH;
+      try {
+        const attachmentResults = await NetUtils.create(this.connection, Constants.AttachmentObjectName, batch);
+        for (const attachment of batch) {
+          const attachmentId = String((attachment['attributes'] as AnyJson)['referenceId']);
+          recordAttachmentResult(attachment, attachmentResults.get(attachmentId));
         }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        const msg = this.messages.getMessage('ossUpdateOssError', [osInstanceName, errorMsg]);
-        Logger.error(msg);
-        errors.push(msg);
+        for (const attachment of batch) {
+          const attachmentId = String((attachment['attributes'] as AnyJson)['referenceId']);
+          const owner = attachmentOwners.get(attachmentId);
+          if (owner) {
+            this.addError(
+              uploadInfo,
+              owner.session.osInstanceId,
+              this.messages.getMessage('ossAttachmentUploadError', [owner.attachmentName, errorMsg])
+            );
+          }
+        }
       }
-    }
+    };
 
+    for (const attachment of attachmentRecords) {
+      const attachmentId = String((attachment['attributes'] as AnyJson)['referenceId']);
+      const recordBytes = Buffer.byteLength(JSON.stringify(attachment), 'utf8');
+      const singleRecordBytes = ATTACHMENT_REQUEST_ENVELOPE_BYTE_LENGTH + recordBytes;
+      if (singleRecordBytes > ATTACHMENT_REQUEST_BODY_BYTE_LIMIT) {
+        await flushAttachmentBatch();
+        const attachmentData = { ...(attachment as Record<string, unknown>) };
+        delete attachmentData.attributes;
+        const result = await NetUtils.createOne(
+          this.connection,
+          Constants.AttachmentObjectName,
+          attachmentId,
+          attachmentData
+        );
+        recordAttachmentResult(attachment, result);
+        continue;
+      }
+
+      const separatorBytes = attachmentBatch.length === 0 ? 0 : 1;
+      if (
+        attachmentBatch.length === SOURCE_CHUNK_SIZE ||
+        attachmentBatchBytes + separatorBytes + recordBytes > ATTACHMENT_REQUEST_BODY_BYTE_LIMIT
+      ) {
+        await flushAttachmentBatch();
+      }
+      attachmentBatch.push(attachment);
+      attachmentBatchBytes += (attachmentBatch.length === 1 ? 0 : 1) + recordBytes;
+    }
+    await flushAttachmentBatch();
+  }
+
+  private createUploadResult(session: PreparedSession, id: string, errors: string[]): UploadRecordResult {
     return {
-      id: recordId,
-      createOmniscriptSavedSessionSuccess: errors.length === 0,
+      referenceId: session.osInstanceId,
+      id,
+      success: errors.length === 0,
+      hasErrors: errors.length > 0,
       errors,
+      warnings: [],
+      newName: session.osInstanceName,
+      skipped: false,
     };
   }
 
-  private async migrateUploadAttachments(
-    attachments: AttachmentDownloadResult[],
-    savedSessionId: string,
-    osInstanceName: string
-  ): Promise<MigrateUploadAttachmentsResult> {
-    let attachmentsUploaded = 0;
-    const errors: string[] = [];
-
-    if (attachments.length > 0) {
-      Logger.logVerbose(this.messages.getMessage('ossAttachmentUploadStart', [attachments.length, osInstanceName]));
-
-      for (const attachment of attachments) {
-        const attachmentName = String(attachment['name'] ?? '');
-        const attachmentData: AnyJson = {
-          ParentId: savedSessionId,
-          Name: attachmentName,
-          Body: String(attachment['body'] ?? ''),
-        };
-
-        const attachmentId = String(attachment['id'] ?? '');
-
-        try {
-          const attachResult = await NetUtils.createOne(
-            this.connection,
-            Constants.AttachmentObjectName,
-            attachmentId,
-            attachmentData
-          );
-
-          if (!attachResult.success || attachResult.hasErrors) {
-            const errorMsg = this.messages.getMessage('ossAttachmentUploadFailed', [
-              attachmentName,
-              JSON.stringify(attachResult.errors),
-            ]);
-            Logger.warn(errorMsg);
-            errors.push(errorMsg);
-          } else {
-            attachmentsUploaded++;
-            Logger.logVerbose(this.messages.getMessage('ossAttachmentUploadSuccess', [attachmentName]));
-          }
-        } catch (error) {
-          const errMsg = error instanceof Error ? error.message : String(error);
-          const errorMsg = this.messages.getMessage('ossAttachmentUploadError', [attachmentName, errMsg]);
-          Logger.warn(errorMsg);
-          errors.push(errorMsg);
-        }
-      }
-      Logger.logVerbose(
-        this.messages.getMessage('ossAttachmentUploadEnd', [attachmentsUploaded, attachments.length, osInstanceName])
-      );
+  private addError(uploadInfo: Map<string, UploadRecordResult>, referenceId: string, error: string): void {
+    const result = uploadInfo.get(referenceId);
+    if (result) {
+      result.errors.push(error);
+      result.success = false;
+      result.hasErrors = true;
     }
-
-    return {
-      attachmentUploadSuccess: attachmentsUploaded === 3,
-      errors,
-    };
   }
 
   private replaceResumeSessionUrl(
@@ -862,6 +910,7 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
       const errors: string[] = [];
       const attachmentId = String(attachment['Id'] ?? '');
       const attachmentName = String(attachment['Name'] ?? '');
+      const contentType = String(attachment['ContentType'] ?? '');
       const path = String(attachment['Body'] ?? '');
       let body = '';
 
@@ -871,10 +920,11 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
           url: path,
         });
 
-        if (typeof raw === 'object') {
-          body = JSON.stringify(raw);
+        if (Buffer.isBuffer(raw)) {
+          body = raw.toString('base64');
         } else if (typeof raw === 'string') {
-          body = raw;
+          // jsforce exposes binary response strings using the binary (latin1) encoding.
+          body = Buffer.from(raw, 'binary').toString('base64');
         }
 
         Logger.logVerbose(this.messages.getMessage('ossAttachmentDownloadSuccess', [attachmentId, body.length]));
@@ -888,6 +938,7 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
       results.push({
         id: attachmentId,
         name: attachmentName,
+        contentType,
         body,
         originalPath: path,
         errors,
@@ -961,20 +1012,23 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
   }
 }
 
-interface CreateOmniscriptSavedSessionResult {
-  id: string;
-  createOmniscriptSavedSessionSuccess: boolean;
-  errors: string[];
+interface PreparedSession {
+  osInstanceId: string;
+  osInstanceName: string;
+  osType: string;
+  osSubType: string;
+  osLanguage: string;
+  savedSessionData: AnyJson;
 }
 
-interface MigrateUploadAttachmentsResult {
-  attachmentUploadSuccess: boolean;
-  errors: string[];
+interface CreatedSession extends PreparedSession {
+  recordId: string;
 }
 
 interface AttachmentDownloadResult {
   id: string;
   name: string;
+  contentType: string;
   body: string;
   originalPath: string;
   errors: string[];

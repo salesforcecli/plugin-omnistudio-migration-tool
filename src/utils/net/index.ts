@@ -191,10 +191,13 @@ class NetUtils {
 }
 
 enum RequestMethod {
-  POST = 'post',
-  GET = 'get',
-  PATCH = 'patch',
-  DELETE = 'delete',
+  // Must be uppercase: jsforce 3.10.17+ uses undici fetch, which does not
+  // normalize method casing (unlike node-fetch v2). Lowercase 'patch' is sent
+  // as-is and Salesforce Edge rejects it with an HTML HTTP 400.
+  POST = 'POST',
+  GET = 'GET',
+  PATCH = 'PATCH',
+  DELETE = 'DELETE',
 }
 
 interface TreeResult {

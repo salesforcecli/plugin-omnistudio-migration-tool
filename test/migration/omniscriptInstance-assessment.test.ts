@@ -814,7 +814,12 @@ describe('OmniScriptInstanceMigrationTool - Assessment', () => {
       connectionRequestStub.resolves('base64encodedcontent');
 
       const attachments = [
-        { Id: '00P001', Name: 'OmniscriptFullJSON.json', Body: '/services/data/v67.0/sobjects/Attachment/00P001/Body' },
+        {
+          Id: '00P001',
+          Name: 'OmniscriptFullJSON.json',
+          Body: '/services/data/v67.0/sobjects/Attachment/00P001/Body',
+          ContentType: 'application/json',
+        },
       ];
 
       const result = await (migrationTool as any).downloadAttachments(attachments);
@@ -822,13 +827,15 @@ describe('OmniScriptInstanceMigrationTool - Assessment', () => {
       expect(result).to.have.length(1);
       expect(result[0].id).to.equal('00P001');
       expect(result[0].name).to.equal('OmniscriptFullJSON.json');
-      expect(result[0].body).to.equal('base64encodedcontent');
+      expect(result[0].body).to.equal(Buffer.from('base64encodedcontent', 'utf8').toString('base64'));
+      expect(result[0].contentType).to.equal('application/json');
       expect(result[0].errors).to.be.empty;
       expect(connectionRequestStub.calledOnce).to.be.true;
     });
 
-    it('should download attachments successfully with object response', async () => {
-      connectionRequestStub.resolves({ data: 'some data' });
+    it('should preserve arbitrary bytes from a Buffer response', async () => {
+      const source = Buffer.from([0x00, 0xff, 0x80, 0xc3, 0x28]);
+      connectionRequestStub.resolves(source);
 
       const attachments = [
         { Id: '00P002', Name: 'file.json', Body: '/services/data/v67.0/sobjects/Attachment/00P002/Body' },
@@ -838,7 +845,7 @@ describe('OmniScriptInstanceMigrationTool - Assessment', () => {
 
       expect(result).to.have.length(1);
       expect(result[0].id).to.equal('00P002');
-      expect(result[0].body).to.equal('{"data":"some data"}');
+      expect(Buffer.from(result[0].body, 'base64')).to.deep.equal(source);
     });
 
     it('should handle download errors gracefully', async () => {
@@ -898,8 +905,8 @@ describe('OmniScriptInstanceMigrationTool - Assessment', () => {
       const file1 = result.find((r: any) => r.id === '00P004');
       const file2 = result.find((r: any) => r.id === '00P005');
 
-      expect(file1.body).to.equal('content1');
-      expect(file2.body).to.equal('content2');
+      expect(file1.body).to.equal(Buffer.from('content1', 'utf8').toString('base64'));
+      expect(file2.body).to.equal(Buffer.from('content2', 'utf8').toString('base64'));
       expect(connectionRequestStub.calledTwice).to.be.true;
     });
   });

@@ -2,6 +2,8 @@ import { expect } from 'chai';
 import * as sinon from 'sinon';
 import { Messages } from '@salesforce/core';
 import { Logger } from '../../../../src/utils/logger';
+import Migrate from '../../../../src/commands/omnistudio/migration/migrate';
+import { MigratedObject } from '../../../../src/utils/interfaces';
 
 Messages.importMessagesDirectory(__dirname);
 const messages = Messages.loadMessages('@salesforce/plugin-omnistudio-migration-tool', 'migrate');
@@ -75,5 +77,42 @@ describe('Migrate command flags validation', () => {
 
     expect(loggerErrorStub.called).to.be.false;
     expect(processExitStub.called).to.be.false;
+  });
+
+  describe('component migration result handling', () => {
+    const hasFailedComponentMigration = Object.getOwnPropertyDescriptor(
+      Migrate.prototype,
+      'hasFailedComponentMigration'
+    )?.value as (this: Migrate, results: MigratedObject[]) => boolean;
+
+    it('should allow metadata enablement for an empty migration result', () => {
+      expect(hasFailedComponentMigration.call(Migrate.prototype, [])).to.be.false;
+      expect(hasFailedComponentMigration.call(Migrate.prototype, [{ name: 'OmniScript', data: [], errors: [] }])).to.be
+        .false;
+    });
+
+    it('should block metadata enablement when a migration has failed', () => {
+      expect(
+        hasFailedComponentMigration.call(Migrate.prototype, [
+          {
+            name: 'OmniScript',
+            data: [
+              {
+                id: '1',
+                name: 'Failed script',
+                status: 'Failed',
+                errors: ['migration failed'],
+                warnings: [],
+              },
+            ],
+          },
+        ])
+      ).to.be.true;
+      expect(
+        hasFailedComponentMigration.call(Migrate.prototype, [
+          { name: 'OmniScript', data: [], errors: ['migration failed'] },
+        ])
+      ).to.be.true;
+    });
   });
 });

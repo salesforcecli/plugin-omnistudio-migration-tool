@@ -177,7 +177,9 @@ export class PostMigrate extends BaseMigrationTool {
         }
         if (attempts === maxAttempts) {
           if (settingEnabled) {
-            Logger.log(this.messages.getMessage('omniStudioSettingsMetadataEnabledSettingOnly'));
+            const message = this.messages.getMessage('omniStudioSettingsMetadataEnabledSettingOnly');
+            Logger.log(message);
+            userActionMessage.push(message);
           } else {
             Logger.error(
               this.messages.getMessage('timeoutEnablingOmniStudioSettingsMetadata', [

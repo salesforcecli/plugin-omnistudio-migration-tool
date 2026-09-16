@@ -190,6 +190,8 @@ class NetUtils {
   }
 }
 
+// Keep verbs uppercase: jsforce's undici-backed fetch does not normalize lowercase methods,
+// and Salesforce Edge rejects a lowercase PATCH request with an HTTP 400 response.
 enum RequestMethod {
   POST = 'POST',
   GET = 'GET',

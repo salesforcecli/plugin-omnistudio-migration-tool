@@ -16,6 +16,9 @@ import { AnonymousApexRunner } from '../../src/utils/apex/executor/AnonymousApex
 import { OrgPreferences } from '../../src/utils/orgPreferences';
 import { Deployer } from '../../src/migration/deployer';
 import { OmniscriptPackageDeploymentError } from '../../src/error/deploymentErrors';
+import { initializeDataModelService } from '../../src/utils/dataModelService';
+import { OmnistudioOrgDetails } from '../../src/utils/orgUtils';
+import { OmniStudioMetadataCleanupService } from '../../src/utils/config/OmniStudioMetadataCleanupService';
 
 describe('PostMigrate', () => {
   let postMigrate: PostMigrate;
@@ -27,6 +30,7 @@ describe('PostMigrate', () => {
   let sandbox: sinon.SinonSandbox;
   let getMessageStub: sinon.SinonStub;
   let logErrorStub: sinon.SinonStub;
+  let logStub: sinon.SinonStub;
 
   const testNamespace = 'test_namespace';
   const testRelatedObjectsToProcess = ['Flexipage', 'expsites'];
@@ -137,9 +141,29 @@ describe('PostMigrate', () => {
     getMessageStub.withArgs('checkingStandardDesignerStatus', [testNamespace]).returns('Checking designer status');
     getMessageStub.withArgs('standardDesignerAlreadyEnabled', [testNamespace]).returns('Designer already enabled');
     getMessageStub.withArgs('skipStandardRuntimeDueToFailure').returns('Skip runtime due to failure');
+    getMessageStub
+      .withArgs('skipOmniStudioSettingsMetadataDueToMigrationFailure')
+      .returns(
+        'Skipping Omnistudio Metadata setting enablement because no Omnistudio components were migrated successfully.'
+      );
+    getMessageStub
+      .withArgs('manuallyEnableOmniStudioSettingsMetadata')
+      .returns('Manually enable the Omnistudio Metadata setting');
+    getMessageStub
+      .withArgs('omniStudioSettingsMetadataEnabledSettingOnly')
+      .returns('The Omnistudio Metadata setting is enabled, but configuration tables are still empty.');
 
     // Mock Logger static methods
+    initializeDataModelService({
+      hasValidNamespace: true,
+      isFoundationPackage: true,
+      packageDetails: { namespace: testNamespace, version: '1.0' },
+      omniStudioOrgPermissionEnabled: true,
+      isOmnistudioMetadataAPIEnabled: false,
+    } as OmnistudioOrgDetails);
+
     sandbox.stub(Logger, 'logVerbose');
+    logStub = sandbox.stub(Logger, 'log');
     logErrorStub = sandbox.stub(Logger, 'error');
 
     // Mock fs.existsSync to return true for any package.xml path
@@ -417,6 +441,47 @@ describe('PostMigrate', () => {
       expect(enableDesignerStub.calledOnce).to.be.true;
       expect(enableRuntimeSpy.calledOnce).to.be.true;
       expect(res).to.equal(actionItems);
+    });
+
+    it('should skip metadata enablement when component migration failed', async () => {
+      sandbox.stub(postMigrate as any, 'enableDesignersToUseStandardDataModelIfNeeded').resolves(true);
+      sandbox.stub(postMigrate as any, 'enableStandardRuntimeIfNeeded').resolves();
+      const enableMetadataSpy = sandbox.spy(postMigrate as any, 'enableOmniStudioSettingsMetadataIfNeeded');
+      const enableSettingsSpy = sandbox.stub(
+        (postMigrate as any).settingsPrefManager,
+        'enableOmniStudioSettingsMetadata'
+      );
+      const actionItems: string[] = [];
+
+      await (postMigrate as any).executeTasks(testNamespace, actionItems, false);
+
+      expect(enableMetadataSpy.calledOnce).to.be.true;
+      expect(enableSettingsSpy.called).to.be.false;
+      expect(actionItems).to.include('Manually enable the Omnistudio Metadata setting');
+      expect(logErrorStub.called).to.be.true;
+    });
+
+    it('should report enabled settings with empty configuration tables', async () => {
+      const clock = sandbox.useFakeTimers();
+      const actionItems: string[] = [];
+      const settingsManager = (postMigrate as any).settingsPrefManager;
+      sandbox.stub(settingsManager, 'enableOmniStudioSettingsMetadata').resolves({ success: true });
+      sandbox.stub(settingsManager, 'isOmniStudioSettingsMetadataEnabled').resolves(true);
+      sandbox.stub(OmniStudioMetadataCleanupService.prototype, 'hasCleanOmniStudioMetadataTables').resolves(true);
+
+      const enablement = (postMigrate as any).enableOmniStudioSettingsMetadataIfNeeded(actionItems, true);
+      for (let attempt = 0; attempt < 6; attempt++) {
+        await clock.tickAsync(20000);
+      }
+      await enablement;
+
+      expect(actionItems).to.include(
+        'The Omnistudio Metadata setting is enabled, but configuration tables are still empty.'
+      );
+      expect(actionItems).not.to.include('Manually enable the Omnistudio Metadata setting');
+      expect(
+        logStub.calledWith('The Omnistudio Metadata setting is enabled, but configuration tables are still empty.')
+      ).to.be.true;
     });
 
     it('should not enable runtime when designer step fails', async () => {

@@ -23,7 +23,7 @@ import { Logger } from '../../../utils/logger';
 import OmnistudioRelatedObjectMigrationFacade from '../../../migration/related/OmnistudioRelatedObjectMigrationFacade';
 import { generatePackageXml } from '../../../utils/generatePackageXml';
 import { OmnistudioOrgDetails, OrgUtils } from '../../../utils/orgUtils';
-import { Constants } from '../../../utils/constants/stringContants';
+import { Constants, Status } from '../../../utils/constants/stringContants';
 import { OrgPreferences } from '../../../utils/orgPreferences';
 import { ProjectPathUtil } from '../../../utils/projectPathUtil';
 import { PromptUtil, askQuestion } from '../../../utils/promptUtil';
@@ -267,7 +267,7 @@ export default class Migrate extends SfCommand<MigrateResult> {
     );
 
     if (!migrateOnly) {
-      await postMigrate.executeTasks(namespace, actionItems);
+      await postMigrate.executeTasks(namespace, actionItems, !this.hasFailedComponentMigration(objectMigrationResults));
     }
 
     const migrationActionItems = this.collectActionItems(objectMigrationResults);
@@ -398,6 +398,13 @@ export default class Migrate extends SfCommand<MigrateResult> {
     }
 
     return consent;
+  }
+
+  private hasFailedComponentMigration(objectMigrationResults: MigratedObject[]): boolean {
+    return objectMigrationResults.some(
+      (result) =>
+        (result.errors?.length ?? 0) > 0 || (result.data ?? []).some((record) => record.status === Status.Failed)
+    );
   }
 
   private collectActionItems(objectMigrationResults: MigratedObject[]): string[] {

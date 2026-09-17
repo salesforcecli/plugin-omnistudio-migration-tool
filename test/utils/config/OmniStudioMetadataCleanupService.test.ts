@@ -5,6 +5,8 @@ import { OmniStudioMetadataCleanupService } from '../../../src/utils/config/Omni
 import { Logger } from '../../../src/utils/logger';
 import { QueryTools } from '../../../src/utils/query';
 import { NetUtils } from '../../../src/utils/net';
+import { initializeDataModelService } from '../../../src/utils/dataModelService';
+import { OmnistudioOrgDetails } from '../../../src/utils/orgUtils';
 
 describe('OmniStudioMetadataCleanupService', () => {
   let connection: Connection;
@@ -17,6 +19,13 @@ describe('OmniStudioMetadataCleanupService', () => {
 
   beforeEach(() => {
     sandbox = sinon.createSandbox();
+    initializeDataModelService({
+      hasValidNamespace: true,
+      isFoundationPackage: true,
+      packageDetails: { namespace: 'omnistudio', version: '1.0' },
+      omniStudioOrgPermissionEnabled: true,
+      isOmnistudioMetadataAPIEnabled: false,
+    } as OmnistudioOrgDetails);
 
     // Mock Connection
     connection = {

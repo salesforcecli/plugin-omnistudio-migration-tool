@@ -337,6 +337,121 @@ describe('DataRaptor Standard Data Model (Metadata API Disabled) - Assessment an
     });
   });
 
+  describe('Object Path Separator Conversion (Colon to Dot)', () => {
+    it('should convert a colon-separated Extract Object path to dot notation (Standard Data Model)', () => {
+      const mockDataRaptorItemRecord = {
+        Id: 'dri-extract-1',
+        Name: 'AccountExtract',
+        InputObjectName: 'Acc:AccountInfo',
+        InputFieldName: 'Id',
+        OutputFieldName: 'AccountId',
+      };
+
+      const result = (dataRaptorTool as any).mapDataRaptorItemData(mockDataRaptorItemRecord, 'parent-id');
+
+      // Colon must become a dot so the Data Mapper works on the standard (Core Designer) runtime
+      expect(result.InputObjectName).to.equal('Acc.AccountInfo');
+      // Plain field-name fields are untouched
+      expect(result.InputFieldName).to.equal('Id');
+      expect(result.OutputFieldName).to.equal('AccountId');
+    });
+
+    it('should convert a colon-separated output object path (OutputObjectName) to dot notation', () => {
+      const mockDataRaptorItemRecord = {
+        Id: 'dri-output-1',
+        Name: 'AccountLoad',
+        OutputObjectName: 'Acc:AccountInfo',
+        OutputFieldName: 'Name',
+      };
+
+      const result = (dataRaptorTool as any).mapDataRaptorItemData(mockDataRaptorItemRecord, 'parent-id');
+
+      expect(result.OutputObjectName).to.equal('Acc.AccountInfo');
+      // Plain field-name field is untouched
+      expect(result.OutputFieldName).to.equal('Name');
+    });
+
+    it('should not convert colons in non-path fields (formula / filter value)', () => {
+      const mockDataRaptorItemRecord = {
+        Id: 'dri-nonpath-1',
+        Name: 'FormulaItem',
+        FormulaExpression: 'IF(x, "a:b", "c:d")',
+        FilterValue: '12:30',
+      };
+
+      const result = (dataRaptorTool as any).mapDataRaptorItemData(mockDataRaptorItemRecord, 'parent-id');
+
+      // Colons in value/formula fields must be preserved
+      expect(result.FormulaExpression).to.equal('IF(x, "a:b", "c:d")');
+      expect(result.FilterValue).to.equal('12:30');
+    });
+
+    it('should convert every colon in a multi-level Extract Object path', () => {
+      const mockDataRaptorItemRecord = {
+        Id: 'dri-extract-2',
+        Name: 'NestedExtract',
+        InputObjectName: 'Acc:AccountInfo:Contacts',
+      };
+
+      const result = (dataRaptorTool as any).mapDataRaptorItemData(mockDataRaptorItemRecord, 'parent-id');
+
+      expect(result.InputObjectName).to.equal('Acc.AccountInfo.Contacts');
+    });
+
+    it('should leave an Extract Object path that already uses dot notation unchanged', () => {
+      const mockDataRaptorItemRecord = {
+        Id: 'dri-extract-3',
+        Name: 'AlreadyDotted',
+        InputObjectName: 'Acc.AccountInfo',
+      };
+
+      const result = (dataRaptorTool as any).mapDataRaptorItemData(mockDataRaptorItemRecord, 'parent-id');
+
+      expect(result.InputObjectName).to.equal('Acc.AccountInfo');
+    });
+
+    it('should not fail when the Extract Object path is missing', () => {
+      const mockDataRaptorItemRecord = {
+        Id: 'dri-extract-4',
+        Name: 'NoInputObject',
+        InputFieldName: 'Id',
+      };
+
+      const result = (dataRaptorTool as any).mapDataRaptorItemData(mockDataRaptorItemRecord, 'parent-id');
+
+      expect(result.InputObjectName).to.be.undefined;
+      expect(result.InputFieldName).to.equal('Id');
+    });
+
+    it('should convert the colon-separated path for the Custom (managed package) Data Model', () => {
+      // Rebuild the tool with the custom (managed package) data model so namespaced
+      // fields (vlocity) are mapped to the standard InputObjectName field.
+      sinon.restore();
+      sinon.replace(dataModelService, 'isStandardDataModel', sinon.stub().returns(false));
+      const customModelTool = new DataRaptorMigrationTool(
+        'testNamespace',
+        mockConnection,
+        mockLogger,
+        mockMessages,
+        mockUx
+      );
+
+      /* eslint-disable camelcase */
+      const mockDataRaptorItemRecord = {
+        Id: 'dri-extract-5',
+        Name: 'AccountExtract',
+        testNamespace__InterfaceObjectName__c: 'Acc:AccountInfo',
+        testNamespace__InterfaceFieldAPIName__c: 'Id',
+      };
+      /* eslint-enable camelcase */
+
+      const result = (customModelTool as any).mapDataRaptorItemData(mockDataRaptorItemRecord, 'parent-id');
+
+      expect(result.InputObjectName).to.equal('Acc.AccountInfo');
+      expect(result.InputFieldName).to.equal('Id');
+    });
+  });
+
   describe('Standard Data Model - Complex Scenarios with Multiple Items and Dependencies', () => {
     it('should handle DataRaptor with multiple items and mixed dependencies', async () => {
       const mockDataRaptor = {

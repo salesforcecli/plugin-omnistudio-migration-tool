@@ -594,6 +594,12 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
     mappedObject['OmniDataTransformationId'] = omniDataTransformationId;
     mappedObject['Name'] = this.cleanName(mappedObject['Name']);
 
+    // The managed-package (Package Designer) runtime accepts a colon separator in the
+    // Data Mapper object path (e.g. "Acc:AccountInfo"), but the standard (Core Designer)
+    // runtime expects a dot separator (e.g. "Acc.AccountInfo"). Convert ":" -> "." so migrated
+    // Data Mappers work on the standard runtime.
+    this.convertObjectPathSeparators(mappedObject);
+
     // BATCH framework requires that each record has an "attributes" property
     mappedObject['attributes'] = {
       type: DataRaptorMigrationTool.OMNIDATATRANSFORMITEM_NAME,
@@ -601,6 +607,39 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
     };
 
     return mappedObject;
+  }
+
+  /**
+   * The Data Mapper object-path fields that can hold an alias:node JSON path (e.g. "Acc:AccountInfo").
+   * These are the input/output object-path fields on OmniDataTransformItem. Plain field-name fields
+   * (InputFieldName / OutputFieldName), lookups, formulas, filter values and names are intentionally
+   * excluded: those never use the alias:node convention and may legitimately contain a colon.
+   */
+  private static readonly OBJECT_PATH_FIELDS: string[] = [
+    DRMapItemMappings.InterfaceObjectName__c, // InputObjectName  (e.g. Extract Object path)
+    DRMapItemMappings.DomainObjectAPIName__c, // OutputObjectName (e.g. Load/Transform output path)
+  ];
+
+  /**
+   * Converts the colon separator in a Data Mapper item's object paths to a dot separator.
+   *
+   * The managed-package runtime historically accepted a colon (e.g. "Acc:AccountInfo"), while the
+   * standard runtime requires a dot ("Acc.AccountInfo"). This mutates the mapped record in place.
+   * It is a no-op when no colon is present, so records that already use dot notation (e.g. those
+   * authored in the standard data model) and plain SObject/field API names are left unchanged.
+   *
+   * @param mappedObject The already-mapped OmniDataTransformItem record.
+   */
+  private convertObjectPathSeparators(mappedObject: AnyJson): void {
+    for (const fieldKey of DataRaptorMigrationTool.OBJECT_PATH_FIELDS) {
+      const value = mappedObject[fieldKey];
+
+      if (typeof value === 'string' && value.includes(':')) {
+        const convertedValue = value.replace(/:/g, '.');
+        mappedObject[fieldKey] = convertedValue;
+        Logger.logVerbose(this.messages.getMessage('extractObjectPathSeparatorConverted', [value, convertedValue]));
+      }
+    }
   }
 
   private getDRBundleFields(): string[] {

@@ -438,6 +438,24 @@ describe('DataRaptor Standard Data Model (Metadata API Disabled) - Assessment an
       expect(result.InputFieldName).to.equal('Acc.a.b:id');
     });
 
+    it('should keep the lookup field accessor on a deep path (a:b:c:d -> a.b.c:d)', () => {
+      // A mapping/lookup always reads a value, so the reference always ends in the field accessor:
+      // "a:b:c:d" is node "a.b.c" plus lookup field "d". Applies to the lookup fields too.
+      const lookupRow = {
+        Id: 'dri-deep-lookup',
+        Name: 'DeepLookup',
+        InputFieldName: 'a:b:c:d',
+        LookupObjectName: 'a:b:c:d',
+        LookupByFieldName: 'a:b:c:d',
+        LookupReturnedFieldName: 'a:b:c:d',
+      };
+      const result = (dataRaptorTool as any).mapDataRaptorItemData(lookupRow, 'parent-id');
+      expect(result.InputFieldName).to.equal('a.b.c:d');
+      expect(result.LookupObjectName).to.equal('a.b.c:d');
+      expect(result.LookupByFieldName).to.equal('a.b.c:d');
+      expect(result.LookupReturnedFieldName).to.equal('a.b.c:d');
+    });
+
     it('should convert a colon-separated output object path (OutputObjectName) to dot notation', () => {
       const mockDataRaptorItemRecord = {
         Id: 'dri-output-1',

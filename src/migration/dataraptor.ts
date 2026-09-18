@@ -630,10 +630,12 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
 
   /**
    * Reference fields whose value points at a *field on a node*, in the form "nodePath:field"
-   * (e.g. the mapping source "Acc:test:id" or a lookup key). Only the node-path portion uses the
-   * hierarchy separator; the final colon is the field accessor and must be preserved on the standard
-   * runtime. So "Acc:test:id" -> "Acc.test:id" (node "Acc.test", field "id"), and a value with a single
-   * colon such as "Acc:id" is left untouched (bare node "Acc", field "id").
+   * (e.g. the mapping source "Acc:test:id" or a lookup key). A mapping/lookup always reads a value, so
+   * the value always ends in a field accessor -- even a deep path "a:b:c:d" is node "a.b.c" plus lookup
+   * field "d". Only the node-path portion uses the hierarchy separator; the final colon is the field
+   * accessor and must be preserved on the standard runtime. So "Acc:test:id" -> "Acc.test:id" (node
+   * "Acc.test", field "id"), "a:b:c:d" -> "a.b.c:d", and a single colon such as "Acc:id" is left
+   * untouched (bare node "Acc", field "id").
    */
   private static readonly REFERENCE_PATH_FIELDS: string[] = [
     DRMapItemMappings.InterfaceFieldAPIName__c, // InputFieldName          (mapping source path, e.g. "Acc:test:id")

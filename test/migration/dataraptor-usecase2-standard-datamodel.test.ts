@@ -359,10 +359,11 @@ describe('DataRaptor Standard Data Model (Metadata API Disabled) - Assessment an
     it('should convert the reported Extract-on-Case scenario across its actual fields', () => {
       // Real field layout (confirmed against a foundation-package org): the Extraction Object "Case"
       // sits in InputObjectName, the "Extract Object path" "Acc:info" sits in OutputFieldName, and the
-      // mapping row references it via InputFieldName "Acc:info:id". Both colon paths must become dots,
-      // otherwise the migrated node is "Acc.info" while the row still reads the stale "Acc:info:id".
+      // mapping row references it via InputFieldName "Acc:info:id". The node definition dots out fully,
+      // while the reference keeps its trailing field-accessor colon so the migrated node "Acc.info"
+      // and the row "Acc.info:id" stay in sync on the standard runtime.
 
-      // Extract-step row: Case + Extract Object path "Acc:info" in OutputFieldName.
+      // Extract-step row: Case + Extract Object path "Acc:info" in OutputFieldName (node definition).
       const extractStepRow = {
         Id: 'dri-usage-step',
         Name: 'CaseExtract',
@@ -371,7 +372,7 @@ describe('DataRaptor Standard Data Model (Metadata API Disabled) - Assessment an
       };
       const stepResult = (dataRaptorTool as any).mapDataRaptorItemData(extractStepRow, 'parent-id');
       expect(stepResult.InputObjectName).to.equal('Case'); // plain SObject name, no separator
-      expect(stepResult.OutputFieldName).to.equal('Acc.info'); // Extract Object path converted
+      expect(stepResult.OutputFieldName).to.equal('Acc.info'); // node path converts every colon
 
       // Mapping row: reads "Acc:info:id" from the node into "IdValue"; filter literal "123" untouched.
       const mappingRow = {
@@ -382,9 +383,59 @@ describe('DataRaptor Standard Data Model (Metadata API Disabled) - Assessment an
         FilterValue: '123',
       };
       const mapResult = (dataRaptorTool as any).mapDataRaptorItemData(mappingRow, 'parent-id');
-      expect(mapResult.InputFieldName).to.equal('Acc.info.id'); // reference to the node converted
+      // Reference keeps the final field-accessor colon: node "Acc.info", field "id".
+      expect(mapResult.InputFieldName).to.equal('Acc.info:id');
       expect(mapResult.OutputFieldName).to.equal('IdValue'); // plain target field, no separator
       expect(mapResult.FilterValue).to.equal('123'); // value literal preserved
+    });
+
+    it('should keep the field-accessor colon on a lookup reference (Acc:test:id -> Acc.test:id)', () => {
+      // Reported case: the Extract JSON Path node is "Acc:test" (a definition, dots out fully), while a
+      // lookup against it is stored as the reference "Acc:test:id" (node "Acc.test", looked-up field
+      // "id"). The lookup fields keep the trailing colon; only the node-path portion converts.
+      const extractStepRow = {
+        Id: 'dri-lookup-step',
+        Name: 'LookupExtract',
+        OutputFieldName: 'Acc:test',
+      };
+      const stepResult = (dataRaptorTool as any).mapDataRaptorItemData(extractStepRow, 'parent-id');
+      expect(stepResult.OutputFieldName).to.equal('Acc.test'); // node definition dots out fully
+
+      const lookupRow = {
+        Id: 'dri-lookup-map',
+        Name: 'LookupExtract',
+        InputFieldName: 'Acc:test:id',
+        LookupObjectName: 'Acc:test:id',
+        LookupByFieldName: 'Acc:test:id',
+        LookupReturnedFieldName: 'Acc:test:id',
+      };
+      const lookupResult = (dataRaptorTool as any).mapDataRaptorItemData(lookupRow, 'parent-id');
+      expect(lookupResult.InputFieldName).to.equal('Acc.test:id');
+      expect(lookupResult.LookupObjectName).to.equal('Acc.test:id');
+      expect(lookupResult.LookupByFieldName).to.equal('Acc.test:id');
+      expect(lookupResult.LookupReturnedFieldName).to.equal('Acc.test:id');
+    });
+
+    it('should leave a single-colon reference (bare node + field) unchanged', () => {
+      // "Acc:id" is a bare node "Acc" plus field "id"; there is no node-path hierarchy to convert, so
+      // the lone field-accessor colon stays.
+      const mappingRow = {
+        Id: 'dri-single-colon',
+        Name: 'SingleColon',
+        InputFieldName: 'Acc:id',
+      };
+      const result = (dataRaptorTool as any).mapDataRaptorItemData(mappingRow, 'parent-id');
+      expect(result.InputFieldName).to.equal('Acc:id');
+    });
+
+    it('should convert a multi-level reference but keep the last colon (Acc:a:b:id -> Acc.a.b:id)', () => {
+      const mappingRow = {
+        Id: 'dri-multi-ref',
+        Name: 'MultiLevelRef',
+        InputFieldName: 'Acc:a:b:id',
+      };
+      const result = (dataRaptorTool as any).mapDataRaptorItemData(mappingRow, 'parent-id');
+      expect(result.InputFieldName).to.equal('Acc.a.b:id');
     });
 
     it('should convert a colon-separated output object path (OutputObjectName) to dot notation', () => {
@@ -421,14 +472,15 @@ describe('DataRaptor Standard Data Model (Metadata API Disabled) - Assessment an
       const mockDataRaptorItemRecord = {
         Id: 'dri-formula-1',
         Name: 'FormulaWithPaths',
-        // References the extract node "Acc:info", a merge-field wrapped reference, plus a quoted
-        // literal and an unquoted time-like token that must NOT change.
+        // References the field "active" on node "Acc:info", a merge-field wrapped reference, plus a
+        // quoted literal and an unquoted time-like token that must NOT change. Each reference keeps its
+        // trailing field-accessor colon: "Acc:info:active" -> "Acc.info:active".
         FormulaExpression: 'IF(Acc:info:active, %Acc:info:id%, "n/a at 12:30")',
       };
 
       const result = (dataRaptorTool as any).mapDataRaptorItemData(mockDataRaptorItemRecord, 'parent-id');
 
-      expect(result.FormulaExpression).to.equal('IF(Acc.info.active, %Acc.info.id%, "n/a at 12:30")');
+      expect(result.FormulaExpression).to.equal('IF(Acc.info:active, %Acc.info:id%, "n/a at 12:30")');
     });
 
     it('should convert a colon-separated FormulaResultPath (output path of a formula)', () => {
@@ -504,9 +556,10 @@ describe('DataRaptor Standard Data Model (Metadata API Disabled) - Assessment an
 
       const result = (customModelTool as any).mapDataRaptorItemData(mockDataRaptorItemRecord, 'parent-id');
 
-      // Both the object path and its mapping reference convert on the managed data model too
+      // Both the object path and its mapping reference convert on the managed data model too. The
+      // object path dots out fully; the reference keeps its trailing field-accessor colon.
       expect(result.InputObjectName).to.equal('Acc.AccountInfo');
-      expect(result.InputFieldName).to.equal('Acc.AccountInfo.Id');
+      expect(result.InputFieldName).to.equal('Acc.AccountInfo:Id');
     });
   });
 

@@ -59,6 +59,7 @@
   "migrationCompleted": "Migration completed: %s",
   "migrationFailed": "Migration failed: %s",
   "formulaSyntaxError": "We couldn't update the syntax of this formula. Verify the syntax and try again: %s",
+  "extractObjectPathSeparatorConverted": "Converted the Extract Object path separator from colon to dot: '%s' -> '%s'.",
   "foundDataRaptorsToMigrate": "Found %s Data Mappers to migrate.",
   "foundFlexCardsToMigrate": "Found %s Flexcards to migrate.",
   "foundOmniScriptsToMigrate": "Found %s %s to migrate.",

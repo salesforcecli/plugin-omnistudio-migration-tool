@@ -516,20 +516,27 @@ describe('DataRaptor Standard Data Model (Metadata API Disabled) - Assessment an
       expect(result.FilterValue).to.equal('Acc.test:id');
     });
 
-    it('should leave a literal (id/time) filter value untouched', () => {
-      // Literals must survive: an id has no colon, and a time literal starts with a digit so it never
-      // matches the node-path pattern.
+    it('should leave a quoted constant filter value untouched', () => {
+      // A constant is stored in quotes; a node reference is not. Quoted values are literals and must
+      // survive verbatim, even a quoted colon like a time "12:30" or a word "Draft:Pending".
+      const timeRow = (dataRaptorTool as any).mapDataRaptorItemData(
+        { Id: 'dri-filter-time', Name: 'FilterTime', FilterValue: '"12:30"' },
+        'parent-id'
+      );
+      expect(timeRow.FilterValue).to.equal('"12:30"');
+
+      const wordRow = (dataRaptorTool as any).mapDataRaptorItemData(
+        { Id: 'dri-filter-word', Name: 'FilterWord', FilterValue: '"Draft:Pending"' },
+        'parent-id'
+      );
+      expect(wordRow.FilterValue).to.equal('"Draft:Pending"');
+
+      // A plain id constant has no colon, so it is unaffected regardless of quoting.
       const idRow = (dataRaptorTool as any).mapDataRaptorItemData(
         { Id: 'dri-filter-id', Name: 'FilterId', FilterValue: '123' },
         'parent-id'
       );
       expect(idRow.FilterValue).to.equal('123');
-
-      const timeRow = (dataRaptorTool as any).mapDataRaptorItemData(
-        { Id: 'dri-filter-time', Name: 'FilterTime', FilterValue: '12:30' },
-        'parent-id'
-      );
-      expect(timeRow.FilterValue).to.equal('12:30');
     });
 
     it('should convert a colon-separated FormulaResultPath (output path of a formula)', () => {

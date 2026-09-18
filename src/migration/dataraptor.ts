@@ -647,12 +647,15 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
   /**
    * Expression-like fields that mix free text/literals with embedded node-path references. Unlike the
    * reference fields above, the whole value is NOT a path, so we can only rewrite the tokens that look
-   * like a node-path reference and must leave everything else (numbers, quoted strings, time literals
-   * like "12:30") untouched -- see convertColonPathsInExpression.
+   * like a node-path reference and must leave everything else untouched -- see
+   * convertColonPathsInExpression.
    *
-   * FilterValue can hold a literal (an id "123", a time "12:30") OR a reference to another extract's
-   * output when a later extract filters on an earlier extract's node with a lookup (e.g. "Acc:test:id").
-   * The formula expression is the same shape. Both convert their embedded references with keep-last-colon.
+   * FilterValue can hold a constant OR a reference to another extract's output when a later extract
+   * filters on an earlier extract's node with a lookup (e.g. "Acc:test:id"). A constant is stored in
+   * quotes ("12:30", "Draft:Pending") while a node reference is unquoted, and convertColonPathsInExpression
+   * only rewrites unquoted identifier paths -- so quoted constants (including quoted colons) survive
+   * verbatim and only the unquoted references convert (keep-last-colon). The formula expression is the
+   * same shape.
    */
   private static readonly EXPRESSION_REFERENCE_FIELDS: string[] = [
     DRMapItemMappings.Formula__c, // FormulaExpression
@@ -698,9 +701,10 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
       }
     }
 
-    // 3) Expression-like fields (formula expression, filter value): convert only alias:node[:field]
-    //    references (e.g. "Acc:test:id" -> "Acc.test:id"), leaving quoted string literals and
-    //    time/id-like values ("12:30", "123") untouched so we don't corrupt free text or data.
+    // 3) Expression-like fields (formula expression, filter value): convert only unquoted
+    //    alias:node[:field] references (e.g. "Acc:test:id" -> "Acc.test:id"). Constants are stored in
+    //    quotes ("12:30", "Draft:Pending"), so quoted values -- including quoted colons -- are left
+    //    untouched and we don't corrupt free text or data.
     for (const fieldKey of DataRaptorMigrationTool.EXPRESSION_REFERENCE_FIELDS) {
       const value = mappedObject[fieldKey];
 

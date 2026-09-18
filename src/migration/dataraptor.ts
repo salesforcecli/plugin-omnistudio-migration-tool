@@ -645,14 +645,30 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
   ];
 
   /**
+   * Expression-like fields that mix free text/literals with embedded node-path references. Unlike the
+   * reference fields above, the whole value is NOT a path, so we can only rewrite the tokens that look
+   * like a node-path reference and must leave everything else (numbers, quoted strings, time literals
+   * like "12:30") untouched -- see convertColonPathsInExpression.
+   *
+   * FilterValue can hold a literal (an id "123", a time "12:30") OR a reference to another extract's
+   * output when a later extract filters on an earlier extract's node with a lookup (e.g. "Acc:test:id").
+   * The formula expression is the same shape. Both convert their embedded references with keep-last-colon.
+   */
+  private static readonly EXPRESSION_REFERENCE_FIELDS: string[] = [
+    DRMapItemMappings.Formula__c, // FormulaExpression
+    DRMapItemMappings.FilterValue__c, // FilterValue (may reference an earlier extract's output node)
+  ];
+
+  /**
    * Converts the colon separator in a Data Mapper item's object/field JSON paths to a dot separator.
    *
    * The managed-package runtime historically accepted a colon (e.g. "Acc:info"), while the standard
    * runtime requires a dot ("Acc.info"). Object/node-path fields convert every colon; reference fields
    * (mapping source, lookups) convert only the node-path portion and keep the trailing field-accessor
-   * colon so a reference like "Acc:test:id" becomes "Acc.test:id". This mutates the mapped record in
-   * place and is a no-op when no colon is present, so records already using dot notation and plain
-   * SObject/field API names are left unchanged.
+   * colon so a reference like "Acc:test:id" becomes "Acc.test:id"; expression-like fields (formula,
+   * filter value) rewrite only their embedded node-path references and leave literals intact. This
+   * mutates the mapped record in place and is a no-op when no colon is present, so records already using
+   * dot notation and plain SObject/field API names are left unchanged.
    *
    * @param mappedObject The already-mapped OmniDataTransformItem record.
    */
@@ -682,17 +698,18 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
       }
     }
 
-    // 3) Formula expression: convert only alias:node[:field] references (e.g. "Acc:test:id"), leaving
-    //    quoted string literals and time-like values untouched so we don't corrupt the formula.
-    const formulaKey = DRMapItemMappings.Formula__c; // 'FormulaExpression'
-    const formula = mappedObject[formulaKey];
-    if (typeof formula === 'string' && formula.includes(':')) {
-      const convertedFormula = this.convertColonPathsInExpression(formula);
-      if (convertedFormula !== formula) {
-        mappedObject[formulaKey] = convertedFormula;
-        Logger.logVerbose(
-          this.messages.getMessage('extractObjectPathSeparatorConverted', [formula, convertedFormula])
-        );
+    // 3) Expression-like fields (formula expression, filter value): convert only alias:node[:field]
+    //    references (e.g. "Acc:test:id" -> "Acc.test:id"), leaving quoted string literals and
+    //    time/id-like values ("12:30", "123") untouched so we don't corrupt free text or data.
+    for (const fieldKey of DataRaptorMigrationTool.EXPRESSION_REFERENCE_FIELDS) {
+      const value = mappedObject[fieldKey];
+
+      if (typeof value === 'string' && value.includes(':')) {
+        const convertedValue = this.convertColonPathsInExpression(value);
+        if (convertedValue !== value) {
+          mappedObject[fieldKey] = convertedValue;
+          Logger.logVerbose(this.messages.getMessage('extractObjectPathSeparatorConverted', [value, convertedValue]));
+        }
       }
     }
   }

@@ -501,6 +501,37 @@ describe('DataRaptor Standard Data Model (Metadata API Disabled) - Assessment an
       expect(result.FormulaExpression).to.equal('IF(Acc.info:active, %Acc.info:id%, "n/a at 12:30")');
     });
 
+    it('should convert a node-path reference in a filter value but keep the field accessor', () => {
+      // Second extract filters on the first extract's output via a lookup: the FilterValue holds the
+      // bare reference "Acc:test:id". It must convert like any reference (keep-last-colon) so the filter
+      // still points at the migrated node "Acc.test".
+      const mockDataRaptorItemRecord = {
+        Id: 'dri-filter-ref',
+        Name: 'SecondExtractFilter',
+        FilterValue: 'Acc:test:id',
+      };
+
+      const result = (dataRaptorTool as any).mapDataRaptorItemData(mockDataRaptorItemRecord, 'parent-id');
+
+      expect(result.FilterValue).to.equal('Acc.test:id');
+    });
+
+    it('should leave a literal (id/time) filter value untouched', () => {
+      // Literals must survive: an id has no colon, and a time literal starts with a digit so it never
+      // matches the node-path pattern.
+      const idRow = (dataRaptorTool as any).mapDataRaptorItemData(
+        { Id: 'dri-filter-id', Name: 'FilterId', FilterValue: '123' },
+        'parent-id'
+      );
+      expect(idRow.FilterValue).to.equal('123');
+
+      const timeRow = (dataRaptorTool as any).mapDataRaptorItemData(
+        { Id: 'dri-filter-time', Name: 'FilterTime', FilterValue: '12:30' },
+        'parent-id'
+      );
+      expect(timeRow.FilterValue).to.equal('12:30');
+    });
+
     it('should convert a colon-separated FormulaResultPath (output path of a formula)', () => {
       const mockDataRaptorItemRecord = {
         Id: 'dri-formula-2',

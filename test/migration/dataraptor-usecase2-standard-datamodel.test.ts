@@ -338,7 +338,7 @@ describe('DataRaptor Standard Data Model (Metadata API Disabled) - Assessment an
   });
 
   describe('Object Path Separator Conversion (Colon to Dot)', () => {
-    it('should convert a colon-separated Extract Object path to dot notation (Standard Data Model)', () => {
+    it('should convert a colon-separated InputObjectName path to dot notation (Standard Data Model)', () => {
       const mockDataRaptorItemRecord = {
         Id: 'dri-extract-1',
         Name: 'AccountExtract',
@@ -351,9 +351,40 @@ describe('DataRaptor Standard Data Model (Metadata API Disabled) - Assessment an
 
       // Colon must become a dot so the Data Mapper works on the standard (Core Designer) runtime
       expect(result.InputObjectName).to.equal('Acc.AccountInfo');
-      // Plain field-name fields are untouched
+      // Plain field API names have no separator, so they are left as-is
       expect(result.InputFieldName).to.equal('Id');
       expect(result.OutputFieldName).to.equal('AccountId');
+    });
+
+    it('should convert the reported Extract-on-Case scenario across its actual fields', () => {
+      // Real field layout (confirmed against a foundation-package org): the Extraction Object "Case"
+      // sits in InputObjectName, the "Extract Object path" "Acc:info" sits in OutputFieldName, and the
+      // mapping row references it via InputFieldName "Acc:info:id". Both colon paths must become dots,
+      // otherwise the migrated node is "Acc.info" while the row still reads the stale "Acc:info:id".
+
+      // Extract-step row: Case + Extract Object path "Acc:info" in OutputFieldName.
+      const extractStepRow = {
+        Id: 'dri-usage-step',
+        Name: 'CaseExtract',
+        InputObjectName: 'Case',
+        OutputFieldName: 'Acc:info',
+      };
+      const stepResult = (dataRaptorTool as any).mapDataRaptorItemData(extractStepRow, 'parent-id');
+      expect(stepResult.InputObjectName).to.equal('Case'); // plain SObject name, no separator
+      expect(stepResult.OutputFieldName).to.equal('Acc.info'); // Extract Object path converted
+
+      // Mapping row: reads "Acc:info:id" from the node into "IdValue"; filter literal "123" untouched.
+      const mappingRow = {
+        Id: 'dri-usage-map',
+        Name: 'CaseExtract',
+        InputFieldName: 'Acc:info:id',
+        OutputFieldName: 'IdValue',
+        FilterValue: '123',
+      };
+      const mapResult = (dataRaptorTool as any).mapDataRaptorItemData(mappingRow, 'parent-id');
+      expect(mapResult.InputFieldName).to.equal('Acc.info.id'); // reference to the node converted
+      expect(mapResult.OutputFieldName).to.equal('IdValue'); // plain target field, no separator
+      expect(mapResult.FilterValue).to.equal('123'); // value literal preserved
     });
 
     it('should convert a colon-separated output object path (OutputObjectName) to dot notation', () => {
@@ -371,7 +402,7 @@ describe('DataRaptor Standard Data Model (Metadata API Disabled) - Assessment an
       expect(result.OutputFieldName).to.equal('Name');
     });
 
-    it('should not convert colons in non-path fields (formula / filter value)', () => {
+    it('should preserve quoted colons in a formula and colons in filter values', () => {
       const mockDataRaptorItemRecord = {
         Id: 'dri-nonpath-1',
         Name: 'FormulaItem',
@@ -381,9 +412,35 @@ describe('DataRaptor Standard Data Model (Metadata API Disabled) - Assessment an
 
       const result = (dataRaptorTool as any).mapDataRaptorItemData(mockDataRaptorItemRecord, 'parent-id');
 
-      // Colons in value/formula fields must be preserved
+      // Colons inside quoted string literals and in value fields must be preserved
       expect(result.FormulaExpression).to.equal('IF(x, "a:b", "c:d")');
       expect(result.FilterValue).to.equal('12:30');
+    });
+
+    it('should convert node-path references inside a formula but leave literals intact', () => {
+      const mockDataRaptorItemRecord = {
+        Id: 'dri-formula-1',
+        Name: 'FormulaWithPaths',
+        // References the extract node "Acc:info", a merge-field wrapped reference, plus a quoted
+        // literal and an unquoted time-like token that must NOT change.
+        FormulaExpression: 'IF(Acc:info:active, %Acc:info:id%, "n/a at 12:30")',
+      };
+
+      const result = (dataRaptorTool as any).mapDataRaptorItemData(mockDataRaptorItemRecord, 'parent-id');
+
+      expect(result.FormulaExpression).to.equal('IF(Acc.info.active, %Acc.info.id%, "n/a at 12:30")');
+    });
+
+    it('should convert a colon-separated FormulaResultPath (output path of a formula)', () => {
+      const mockDataRaptorItemRecord = {
+        Id: 'dri-formula-2',
+        Name: 'FormulaResultPathItem',
+        FormulaResultPath: 'Acc:info:computed',
+      };
+
+      const result = (dataRaptorTool as any).mapDataRaptorItemData(mockDataRaptorItemRecord, 'parent-id');
+
+      expect(result.FormulaResultPath).to.equal('Acc.info.computed');
     });
 
     it('should convert every colon in a multi-level Extract Object path', () => {
@@ -441,14 +498,15 @@ describe('DataRaptor Standard Data Model (Metadata API Disabled) - Assessment an
         Id: 'dri-extract-5',
         Name: 'AccountExtract',
         testNamespace__InterfaceObjectName__c: 'Acc:AccountInfo',
-        testNamespace__InterfaceFieldAPIName__c: 'Id',
+        testNamespace__InterfaceFieldAPIName__c: 'Acc:AccountInfo:Id',
       };
       /* eslint-enable camelcase */
 
       const result = (customModelTool as any).mapDataRaptorItemData(mockDataRaptorItemRecord, 'parent-id');
 
+      // Both the object path and its mapping reference convert on the managed data model too
       expect(result.InputObjectName).to.equal('Acc.AccountInfo');
-      expect(result.InputFieldName).to.equal('Id');
+      expect(result.InputFieldName).to.equal('Acc.AccountInfo.Id');
     });
   });
 

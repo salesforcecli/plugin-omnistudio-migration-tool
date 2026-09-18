@@ -594,10 +594,11 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
     mappedObject['OmniDataTransformationId'] = omniDataTransformationId;
     mappedObject['Name'] = this.cleanName(mappedObject['Name']);
 
-    // The managed-package (Package Designer) runtime accepts a colon separator in the
-    // Data Mapper object path (e.g. "Acc:AccountInfo"), but the standard (Core Designer)
-    // runtime expects a dot separator (e.g. "Acc.AccountInfo"). Convert ":" -> "." so migrated
-    // Data Mappers work on the standard runtime.
+    // The managed-package (Package Designer) runtime accepts a colon separator in the Data Mapper
+    // JSON paths (Extract Object path "Acc:info" in OutputFieldName and its mapping reference
+    // "Acc:info:id" in InputFieldName), but the standard (Core Designer) runtime expects a dot
+    // ("Acc.info" / "Acc.info.id"). Convert ":" -> "." across the path fields so the node definition
+    // and every reference to it stay in sync on the standard runtime.
     this.convertObjectPathSeparators(mappedObject);
 
     // BATCH framework requires that each record has an "attributes" property
@@ -610,28 +611,45 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
   }
 
   /**
-   * The Data Mapper object-path fields that can hold an alias:node JSON path (e.g. "Acc:AccountInfo").
-   * These are the input/output object-path fields on OmniDataTransformItem. Plain field-name fields
-   * (InputFieldName / OutputFieldName), lookups, formulas, filter values and names are intentionally
-   * excluded: those never use the alias:node convention and may legitimately contain a colon.
+   * The Data Mapper JSON-path fields that can hold an alias:node[:field] path. In the managed runtime
+   * these use ":" as the hierarchy separator; the standard (Core Designer) runtime requires ".".
+   *
+   * For a DataRaptor Extract the "Extract Object path" node is stored in OutputFieldName
+   * (DomainObjectFieldAPIName__c), e.g. "Acc:info", and the field-mapping rows *reference* that node
+   * in InputFieldName (InterfaceFieldAPIName__c), e.g. "Acc:info:id". Both must convert, otherwise the
+   * migrated Data Mapper defines a node "Acc.info" while the row still reads the stale "Acc:info:id".
+   * The input/output *object* fields (InputObjectName/OutputObjectName) normally hold plain SObject
+   * names (e.g. "Case") and are colon-free, but are included so any path variant is covered.
+   * FormulaResultPath is the JSON output location of a formula result and follows the same path
+   * convention, so it is safe to convert wholesale as well.
+   *
+   * Value fields (FilterValue, DefaultValue, TransformValuesMap, lookup values) are intentionally
+   * excluded: a colon there is data (e.g. a time literal "12:30"), not a separator. The formula
+   * *expression* (FormulaExpression) is handled separately by convertColonPathsInExpression, which
+   * only rewrites node-path references and leaves quoted literals intact.
    */
-  private static readonly OBJECT_PATH_FIELDS: string[] = [
-    DRMapItemMappings.InterfaceObjectName__c, // InputObjectName  (e.g. Extract Object path)
-    DRMapItemMappings.DomainObjectAPIName__c, // OutputObjectName (e.g. Load/Transform output path)
+  private static readonly PATH_FIELDS: string[] = [
+    DRMapItemMappings.InterfaceObjectName__c, // InputObjectName   (input/extraction object, e.g. SObject "Case")
+    DRMapItemMappings.DomainObjectAPIName__c, // OutputObjectName  (Load/Transform output object)
+    DRMapItemMappings.InterfaceFieldAPIName__c, // InputFieldName   (mapping source path, e.g. "Acc:info:id")
+    DRMapItemMappings.DomainObjectFieldAPIName__c, // OutputFieldName  (Extract Object path / output node, e.g. "Acc:info")
+    DRMapItemMappings.FormulaResultPath__c, // FormulaResultPath (JSON output path where a formula result is written)
   ];
 
   /**
-   * Converts the colon separator in a Data Mapper item's object paths to a dot separator.
+   * Converts the colon separator in a Data Mapper item's object/field JSON paths to a dot separator.
    *
-   * The managed-package runtime historically accepted a colon (e.g. "Acc:AccountInfo"), while the
-   * standard runtime requires a dot ("Acc.AccountInfo"). This mutates the mapped record in place.
-   * It is a no-op when no colon is present, so records that already use dot notation (e.g. those
-   * authored in the standard data model) and plain SObject/field API names are left unchanged.
+   * The managed-package runtime historically accepted a colon (e.g. "Acc:info"), while the standard
+   * runtime requires a dot ("Acc.info"). Both the extract/output object path and the mapping-row
+   * references to it (e.g. "Acc:info:id") are converted so the migrated Data Mapper stays consistent.
+   * This mutates the mapped record in place. It is a no-op when no colon is present, so records that
+   * already use dot notation and plain SObject/field API names are left unchanged.
    *
    * @param mappedObject The already-mapped OmniDataTransformItem record.
    */
   private convertObjectPathSeparators(mappedObject: AnyJson): void {
-    for (const fieldKey of DataRaptorMigrationTool.OBJECT_PATH_FIELDS) {
+    // 1) Pure path fields: a colon is always a hierarchy separator here, so convert every occurrence.
+    for (const fieldKey of DataRaptorMigrationTool.PATH_FIELDS) {
       const value = mappedObject[fieldKey];
 
       if (typeof value === 'string' && value.includes(':')) {
@@ -640,6 +658,48 @@ export class DataRaptorMigrationTool extends BaseMigrationTool implements Migrat
         Logger.logVerbose(this.messages.getMessage('extractObjectPathSeparatorConverted', [value, convertedValue]));
       }
     }
+
+    // 2) Formula expression: convert only alias:node[:field] references (e.g. "Acc:info:id"), leaving
+    //    quoted string literals and time-like values untouched so we don't corrupt the formula.
+    const formulaKey = DRMapItemMappings.Formula__c; // 'FormulaExpression'
+    const formula = mappedObject[formulaKey];
+    if (typeof formula === 'string' && formula.includes(':')) {
+      const convertedFormula = this.convertColonPathsInExpression(formula);
+      if (convertedFormula !== formula) {
+        mappedObject[formulaKey] = convertedFormula;
+        Logger.logVerbose(
+          this.messages.getMessage('extractObjectPathSeparatorConverted', [formula, convertedFormula])
+        );
+      }
+    }
+  }
+
+  /**
+   * Rewrites colon-separated node-path references (e.g. "Acc:info:id" -> "Acc.info.id") inside a Data
+   * Mapper formula expression, while preserving anything that is not a path.
+   *
+   * Quoted string literals ('...' or "...") are left verbatim, so a colon that is genuine text
+   * (e.g. "Time: 12:30") survives. In the unquoted parts, only a sequence of identifiers joined by
+   * colons is converted; a path must start with a letter or underscore, so numeric/time-like tokens
+   * such as "12:30" are never matched. Merge-field wrappers (e.g. "%Acc:info:id%") are handled too
+   * because the surrounding "%" are non-identifier characters that bound the path token.
+   *
+   * Known limitation: escaped quotes inside string literals are not tracked; such formulas are rare
+   * in Data Mappers and would only mean an embedded literal is treated as unquoted.
+   *
+   * @param expression The formula expression to convert.
+   * @returns The expression with colon-separated node paths rewritten to dot notation.
+   */
+  private convertColonPathsInExpression(expression: string): string {
+    const pathReference = /[A-Za-z_]\w*(?::[A-Za-z_]\w*)+/g;
+    return expression
+      .split(/('[^']*'|"[^"]*")/)
+      .map((segment) =>
+        segment.startsWith("'") || segment.startsWith('"')
+          ? segment
+          : segment.replace(pathReference, (match) => match.replace(/:/g, '.'))
+      )
+      .join('');
   }
 
   private getDRBundleFields(): string[] {

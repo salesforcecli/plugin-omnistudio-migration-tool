@@ -74,14 +74,6 @@ sf omnistudio:migration:assess -u YOUR_ORG_USERNAME@DOMAIN.COM
 sf omnistudio:migration:migrate -u YOUR_ORG_USERNAME@DOMAIN.COM
 
 
-// To migrate/assess specific components: Flexcards, Data Mappers, Integration Procedures, Omniscripts, Omni Global Auto Numbers or Custom Labels, add the following parameters:
---only=dm           // Data Mappers
---only=ip           // Integration Procedures
---only=os           // Omniscripts
---only=fc           // Flexcards
---only=autonumber   // Omni Global Auto Numbers
---only=cl           // Custom Labels
-
 // To migrate all versions of the components and not just the active ones:
 --allversions
 
@@ -230,20 +222,12 @@ OPTIONS
 
 ```
 USAGE
-  $ sf omnistudio:migration:assess -u <username> [--only <component>] [--allversions]
+  $ sf omnistudio:migration:assess -u <username> [--allversions]
     [--relatedobjects <objects>] [--verbose]
 
 OPTIONS
   -u, --target-org=<username>                       (required) username or alias for the target org
                                                     (alias: --targetusername - deprecated)
-
-  -o, --only=<component>                            specify a single component to assess:
-                                                    dm (Data Mappers),
-                                                    ip (Integration Procedures),
-                                                    os (Omniscripts),
-                                                    fc (Flexcards),
-                                                    autonumber (Omni Global Auto Numbers),
-                                                    cl (Custom Labels)
 
   -a, --allversions                                 assess all versions, not just the active ones
 
@@ -262,20 +246,12 @@ OPTIONS
 
 ```
 USAGE
-  $ sf omnistudio:migration:migrate -u <username> [--only <component>] [--allversions]
+  $ sf omnistudio:migration:migrate -u <username> [--allversions]
     [--relatedobjects <objects>] [--verbose]
 
 OPTIONS
   -u, --target-org=<username>                       (required) username or alias for the target org
                                                     (aliases: --targetusername - deprecated)
-
-  -o, --only=<component>                            specify a single component to migrate:
-                                                    dm (Data Mappers),
-                                                    ip (Integration Procedures),
-                                                    os (Omniscripts),
-                                                    fc (Flexcards),
-                                                    autonumber (Omni Global Auto Numbers),
-                                                    cl (Custom Labels)
 
   -a, --allversions                                 migrate all versions, not just the active ones
 

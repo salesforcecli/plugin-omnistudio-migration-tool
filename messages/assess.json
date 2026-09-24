@@ -199,6 +199,7 @@
   "customCssInlineNamespaceWarning": "Custom CSS has namespace references. Styles may break after migration.",
   "dataMapperMigrationFailed": "DataMapper migration failed for: %s",
   "dataMapperNameStartsWithNumber": "DataMapper name '%s' starts with a number which causes migration issues. Proposed new name: %s",
+  "objectPathSeparatorChange": "The Data Mapper object path '%s' will be updated to '%s' during migration to use the standard runtime's dot separator.",
   "integrationProcedureTypeEmptyAfterCleaning": "Integration Procedure Type '%s' becomes empty after name cleaning. Please provide a valid Type value.",
   "integrationProcedureSubtypeEmptyAfterCleaning": "Integration Procedure SubType '%s' becomes empty after name cleaning. Please provide a valid SubType value.",
   "apexFileAlreadyHasCallMethod": "File %s already has call method, thus keeping the existing call method intact",

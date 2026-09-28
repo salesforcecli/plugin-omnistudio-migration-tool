@@ -18,7 +18,7 @@ import { Deployer } from '../../src/migration/deployer';
 import { OmniscriptPackageDeploymentError } from '../../src/error/deploymentErrors';
 import { initializeDataModelService } from '../../src/utils/dataModelService';
 import { OmnistudioOrgDetails } from '../../src/utils/orgUtils';
-import { OmniStudioMetadataCleanupService } from '../../src/utils/config/OmniStudioMetadataCleanupService';
+import { QueryTools } from '../../src/utils/query';
 
 describe('PostMigrate', () => {
   let postMigrate: PostMigrate;
@@ -467,7 +467,7 @@ describe('PostMigrate', () => {
       const settingsManager = (postMigrate as any).settingsPrefManager;
       sandbox.stub(settingsManager, 'enableOmniStudioSettingsMetadata').resolves({ success: true });
       sandbox.stub(settingsManager, 'isOmniStudioSettingsMetadataEnabled').resolves(true);
-      sandbox.stub(OmniStudioMetadataCleanupService.prototype, 'hasCleanOmniStudioMetadataTables').resolves(true);
+      sandbox.stub(QueryTools, 'queryIds').resolves([]);
 
       const enablement = (postMigrate as any).enableOmniStudioSettingsMetadataIfNeeded(actionItems, true);
       for (let attempt = 0; attempt < 6; attempt++) {
@@ -482,6 +482,22 @@ describe('PostMigrate', () => {
       expect(
         logStub.calledWith('The Omnistudio Metadata setting is enabled, but configuration tables are still empty.')
       ).to.be.true;
+    });
+
+    it('should require manual action when metadata table inspection fails', async () => {
+      const clock = sandbox.useFakeTimers();
+      const actionItems: string[] = [];
+      const settingsManager = (postMigrate as any).settingsPrefManager;
+      sandbox.stub(settingsManager, 'enableOmniStudioSettingsMetadata').resolves({ success: true });
+      sandbox.stub(settingsManager, 'isOmniStudioSettingsMetadataEnabled').resolves(true);
+      sandbox.stub(QueryTools, 'queryIds').rejects(new Error('Query failed'));
+
+      const enablement = (postMigrate as any).enableOmniStudioSettingsMetadataIfNeeded(actionItems, true);
+      await clock.tickAsync(20000);
+      await enablement;
+
+      expect(actionItems).to.include('Manually enable the Omnistudio Metadata setting');
+      expect(logStub.calledWith('The Omnistudio Metadata setting is enabled with standard data model.')).to.be.false;
     });
 
     it('should not enable runtime when designer step fails', async () => {

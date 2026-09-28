@@ -6,6 +6,11 @@ import { getMigrationHeading } from '../stringUtils';
 import { isStandardDataModelWithMetadataAPIEnabled } from '../dataModelService';
 import { Constants } from '../constants/stringContants';
 
+export type OmniStudioMetadataTableInspection =
+  | { readonly kind: 'clean' }
+  | { readonly kind: 'populated' }
+  | { readonly kind: 'error' };
+
 /**
  * OmniStudioMetadataCleanupService
  *
@@ -45,17 +50,22 @@ export class OmniStudioMetadataCleanupService {
    * @returns Promise<boolean> - true if all tables are empty, false if any table has records
    */
   public async hasCleanOmniStudioMetadataTables(): Promise<boolean> {
+    const inspection = await this.inspectOmniStudioMetadataTables();
+    return inspection.kind === 'clean';
+  }
+
+  public async inspectOmniStudioMetadataTables(): Promise<OmniStudioMetadataTableInspection> {
     try {
       for (const tableName of OmniStudioMetadataCleanupService.CONFIG_TABLES) {
         const recordIds = await QueryTools.queryIds(this.connection, tableName);
         if (recordIds.length > 0) {
-          return false;
+          return { kind: 'populated' };
         }
       }
-      return true;
+      return { kind: 'clean' };
     } catch (error) {
       Logger.error(this.messages.getMessage('errorCheckingMetadataTables', [String(error)]));
-      return false;
+      return { kind: 'error' };
     }
   }
 

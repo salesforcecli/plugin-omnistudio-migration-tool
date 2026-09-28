@@ -168,10 +168,17 @@ export class PostMigrate extends BaseMigrationTool {
         while (attempts < maxAttempts) {
           await new Promise((resolve) => setTimeout(resolve, 20000));
           settingEnabled = await this.settingsPrefManager.isOmniStudioSettingsMetadataEnabled();
-          tablesPopulated = settingEnabled && !(await metadataService.hasCleanOmniStudioMetadataTables());
-          if (settingEnabled && tablesPopulated) {
-            Logger.log(this.messages.getMessage('omniStudioSettingsMetadataEnabled'));
-            break;
+          if (settingEnabled) {
+            const tableInspection = await metadataService.inspectOmniStudioMetadataTables();
+            if (tableInspection.kind === 'error') {
+              userActionMessage.push(this.messages.getMessage('manuallyEnableOmniStudioSettingsMetadata'));
+              return;
+            }
+            tablesPopulated = tableInspection.kind === 'populated';
+            if (tablesPopulated) {
+              Logger.log(this.messages.getMessage('omniStudioSettingsMetadataEnabled'));
+              break;
+            }
           }
           attempts++;
         }

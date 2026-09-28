@@ -2,9 +2,83 @@
 import { Connection } from '@salesforce/core';
 import chunk = require('lodash.chunk');
 import { UploadRecordResult } from '../../migration/interfaces';
+import { Logger } from '../logger';
 
 class NetUtils {
   private static readonly CHUNK_SIZE = 200;
+
+  /**
+   * Salesforce REST errors carry the useful detail (which field was rejected, the
+   * error code, the human-readable message) on the thrown error object, not in its
+   * `.message` (which is often just "Bad Request"). This flattens whatever shape the
+   * error arrives in into an array of readable strings so callers/reports can show the
+   * real cause instead of a bare "ERROR_HTTP_400".
+   */
+  public static extractErrorMessages(err: any): string[] {
+    if (err == null) return ['Unknown error'];
+
+    // Salesforce REST responses are frequently an array of { message, errorCode, fields }.
+    const fromRecord = (rec: any): string | undefined => {
+      if (rec == null || typeof rec !== 'object') return undefined;
+      const code = rec.errorCode ?? rec.statusCode;
+      const message = rec.message;
+      const fields = Array.isArray(rec.fields) && rec.fields.length > 0 ? ` [fields: ${rec.fields.join(', ')}]` : '';
+      if (code || message) {
+        return `${code ? code + ': ' : ''}${message ?? ''}${fields}`.trim();
+      }
+      return undefined;
+    };
+
+    // Parse a value that may already be an object/array, or a JSON string carrying the
+    // structured Salesforce error body (jsforce often leaves the raw body on err.content).
+    const coerce = (val: any): any => {
+      if (typeof val !== 'string') return val;
+      const trimmed = val.trim();
+      if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        try {
+          return JSON.parse(trimmed);
+        } catch {
+          return val;
+        }
+      }
+      return val;
+    };
+
+    // The detailed body can live in several places depending on how deep in the stack the
+    // error was thrown. Low-level connection.request() (what NetUtils uses) tends to leave
+    // it on err.content / err.body; higher-level calls use err.data / err.response.data.
+    const candidates = [err?.data, err?.response?.data, err?.content, err?.body, err].map(coerce);
+
+    for (const body of candidates) {
+      if (Array.isArray(body)) {
+        const msgs = body.map(fromRecord).filter((m): m is string => Boolean(m));
+        if (msgs.length > 0) return msgs;
+      }
+      const single = fromRecord(body);
+      if (single) return [single];
+    }
+
+    if (typeof err === 'string') return [err];
+
+    // Last resort: combine the generic code/message (e.g. "ERROR_HTTP_400: Bad Request")
+    // with any raw content so we never silently drop diagnostic detail.
+    const code = err?.errorCode ?? err?.name;
+    const base = `${code && code !== 'Error' ? code + ': ' : ''}${err?.message ?? ''}`.trim();
+    const raw = err?.content ?? err?.body;
+    const rawStr = raw != null ? (typeof raw === 'string' ? raw : this.safeStringify(raw)) : '';
+    const combined = [base, rawStr].filter(Boolean).join(' | ');
+    if (combined) return [combined];
+
+    return [this.safeStringify(err)];
+  }
+
+  private static safeStringify(val: any): string {
+    try {
+      return JSON.stringify(val);
+    } catch {
+      return String(val);
+    }
+  }
 
   public static async create(
     connection: Connection,
@@ -45,11 +119,13 @@ class NetUtils {
       const response = await this.request<UploadRecordResult>(connection, url, data, RequestMethod.POST);
       return { ...response, referenceId, hasErrors: response.errors.length > 0 };
     } catch (err) {
+      const errors = this.extractErrorMessages(err);
+      Logger.logVerbose(`Failed to create ${objectName} (referenceId: ${referenceId}): ${errors.join('; ')}`);
       return {
         referenceId,
         hasErrors: true,
         success: false,
-        errors: err,
+        errors,
         warnings: [],
       };
     }
@@ -75,11 +151,17 @@ class NetUtils {
         warnings: [],
       };
     } catch (err) {
+      const errors = this.extractErrorMessages(err);
+      Logger.logVerbose(
+        `Failed to update ${objectName} (id: ${recordId}): ${errors.join('; ')}\nPayload fields: ${Object.keys(
+          data ?? {}
+        ).join(', ')}`
+      );
       return {
         referenceId,
         hasErrors: true,
         success: false,
-        errors: err,
+        errors,
         warnings: [],
       };
     }

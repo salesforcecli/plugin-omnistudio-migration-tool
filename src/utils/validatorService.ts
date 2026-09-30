@@ -1,7 +1,7 @@
 import { Connection, Messages } from '@salesforce/core';
 import { Logger } from '../utils/logger';
 import { OmnistudioOrgDetails } from './orgUtils';
-import { isStandardDataModel } from './dataModelService';
+import { isStandardDataModel, isOmnistudioMetadataAPIEnabled } from './dataModelService';
 import { OrgPreferences } from './orgPreferences';
 import { Constants } from './constants/stringContants';
 
@@ -21,9 +21,13 @@ export class ValidatorService {
       return false;
     }
 
-    const isDRVersioningDisabled = await this.validateDrVersioningDisabled();
-    if (!isDRVersioningDisabled) {
-      return false;
+    // Enforce the Data Mapper versioning check only when OmniStudio metadata is disabled.
+    // When OmniStudio metadata is enabled, skip the versioning gate.
+    if (!isOmnistudioMetadataAPIEnabled()) {
+      const isDRVersioningDisabled = await this.validateDrVersioningDisabled();
+      if (!isDRVersioningDisabled) {
+        return false;
+      }
     }
 
     // If data model is standard no need to check for the licences

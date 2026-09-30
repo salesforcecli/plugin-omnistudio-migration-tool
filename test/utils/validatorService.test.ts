@@ -14,6 +14,7 @@ describe('ValidatorService', () => {
   let loggerWarnStub: sinon.SinonStub;
   let loggerErrorStub: sinon.SinonStub;
   let isStandardDataModelStub: sinon.SinonStub;
+  let isOmnistudioMetadataAPIEnabledStub: sinon.SinonStub;
   let loggerLogVerboseStub: sinon.SinonStub;
 
   beforeEach(() => {
@@ -36,6 +37,10 @@ describe('ValidatorService', () => {
 
     // Mock dataModelService
     isStandardDataModelStub = sandbox.stub(dataModelService, 'isStandardDataModel');
+    // Default: OmniStudio metadata disabled, so the DR versioning check is enforced.
+    isOmnistudioMetadataAPIEnabledStub = sandbox
+      .stub(dataModelService, 'isOmnistudioMetadataAPIEnabled')
+      .returns(false);
   });
 
   afterEach(() => {
@@ -1143,6 +1148,34 @@ describe('ValidatorService', () => {
       expect(loggerErrorStub.calledOnce).to.be.true;
       expect(loggerErrorStub.firstCall.args[0]).to.equal('DR versioning is enabled');
     });
+
+    it('should skip the DR versioning check and proceed when OmniStudio metadata is enabled', async () => {
+      // Arrange: OmniStudio metadata enabled means the DR versioning gate is bypassed,
+      // so an enabled Data Mapper versioning setting must not block validation.
+      const orgs: OmnistudioOrgDetails = {
+        hasValidNamespace: true,
+        packageDetails: { namespace: 'TestNamespace' },
+        omniStudioOrgPermissionEnabled: false,
+        isFoundationPackage: false,
+      } as OmnistudioOrgDetails;
+      const queryResult = {
+        records: [{ total: '5' }],
+      };
+      (connection.query as sinon.SinonStub).resolves(queryResult);
+      const checkDRVersioningStub = sandbox.stub(OrgPreferences, 'checkDRVersioning').resolves(true);
+      (messages.getMessage as sinon.SinonStub).withArgs('drVersioningEnabled').returns('DR versioning is enabled');
+      isOmnistudioMetadataAPIEnabledStub.returns(true); // OmniStudio metadata enabled
+      isStandardDataModelStub.returns(false); // Custom data model
+      const validator = new ValidatorService(orgs, messages, connection);
+
+      // Act
+      const result = await validator.validate();
+
+      // Assert
+      expect(result).to.be.true;
+      expect(checkDRVersioningStub.called).to.be.false; // versioning is not consulted when metadata is enabled
+      expect(loggerErrorStub.calledWith('DR versioning is enabled')).to.be.false;
+    });
   });
 
   describe('validate with isAssessment parameter', () => {
@@ -1369,6 +1402,32 @@ describe('ValidatorService', () => {
       expect(result).to.be.false; // Should fail DR versioning check
       expect(loggerErrorStub.calledOnce).to.be.true;
       expect(loggerErrorStub.firstCall.args[0]).to.equal('DR versioning is enabled');
+    });
+
+    it('should skip the DR versioning check in assessment mode when OmniStudio metadata is enabled', async () => {
+      // Arrange: assessment with OmniStudio metadata enabled must proceed even if versioning is enabled.
+      const orgs: OmnistudioOrgDetails = {
+        hasValidNamespace: true,
+        packageDetails: { namespace: 'TestNamespace' },
+        omniStudioOrgPermissionEnabled: false,
+        isFoundationPackage: false,
+      } as OmnistudioOrgDetails;
+      const checkDRVersioningStub = sandbox.stub(OrgPreferences, 'checkDRVersioning').resolves(true); // DR versioning enabled
+      (messages.getMessage as sinon.SinonStub).withArgs('drVersioningEnabled').returns('DR versioning is enabled');
+      (messages.getMessage as sinon.SinonStub)
+        .withArgs('skippingLicenseCheckForAssessment')
+        .returns('Skipping OmniStudio license check for assessment');
+      isOmnistudioMetadataAPIEnabledStub.returns(true); // OmniStudio metadata enabled
+      isStandardDataModelStub.returns(false); // Custom data model
+      const validator = new ValidatorService(orgs, messages, connection);
+
+      // Act
+      const result = await validator.validate(true); // isAssessment = true
+
+      // Assert
+      expect(result).to.be.true; // Assessment proceeds because metadata is enabled
+      expect(checkDRVersioningStub.called).to.be.false; // versioning is not consulted when metadata is enabled
+      expect(loggerErrorStub.calledWith('DR versioning is enabled')).to.be.false;
     });
   });
 

@@ -62,7 +62,7 @@ describe('DataRaptor Standard Data Model (Metadata API Disabled) - Assessment an
         const messages: Record<string, string> = {
           changeMessage: `The ${params?.[0]} ${params?.[1]} will be changed from ${params?.[2]} to ${params?.[3]}`,
           dataMapperNameStartsWithNumber: `DataMapper name '${params?.[0]}' starts with a number, suggested name: '${params?.[1]}'`,
-          objectPathSeparatorChange: `The Data Mapper object path '${params?.[0]}' will be updated to '${params?.[1]}' during migration to use the standard runtime's dot separator.`,
+          objectPathSeparatorChange: `During migration, the Data Mapper object path '${params?.[0]}' will change to '${params?.[1]}' to use the standard runtime's dot (.) separator.`,
           duplicatedName: 'Duplicated name found',
           unexpectedError: 'An unexpected error occurred',
           componentMappingNotFound: `No registry mapping found for ${params?.[0]} component: ${params?.[1]}, using fallback cleaning`,

@@ -130,12 +130,19 @@ export class ValidatorService {
       if (result?.totalSize === 1) {
         Logger.logVerbose(this.messages.getMessage('queryResultSize', [1]));
         const records = result.records as Array<{ DeveloperName: string; Value: string }>;
-        if (
-          records[0].DeveloperName === 'TheFirstInstalledOmniPackage' &&
-          records[0].Value === Constants.FoundationPackageName
-        ) {
-          Logger.logVerbose(this.messages.getMessage('packageDetails'));
-          return true;
+        if (records[0].DeveloperName === 'TheFirstInstalledOmniPackage') {
+          if (records[0].Value === Constants.FoundationPackageName) {
+            Logger.logVerbose(this.messages.getMessage('packageDetails'));
+            return true;
+          }
+
+          // Managed package orgs don't always have an InstalledIndustryPackage record; core falls back to
+          // TheFirstInstalledOmniPackage in that case. Accept it when it matches the org's installed package.
+          const orgNamespace = this.orgs.packageDetails?.namespace;
+          if (orgNamespace && records[0].Value === orgNamespace) {
+            Logger.logVerbose(this.messages.getMessage('firstInstalledPackageMatchesNamespace', [orgNamespace]));
+            return true;
+          }
         }
         return false;
       } else if (result?.totalSize === 2) {

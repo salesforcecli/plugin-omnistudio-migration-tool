@@ -339,6 +339,7 @@
   "failedToCheckPackagesValue": "Failed to check the value of packages in Omni Interaction Configuration.",
   "omniStudioPermissionsNotEnabled": "The org doesn’t have Omnistudio permissions enabled. These permissions are required to migrate components. You can still run the assessment.",
   "packageDetails": "Your org contains only the TheFirstInstalledOmniPackage Omni Interaction Configuration.",
+  "firstInstalledPackageMatchesNamespace": "TheFirstInstalledOmniPackage matches the installed package namespace: %s.",
   "globalAutoNumberUnSupportedInOmnistudioPackage": "Feature not supported - Omni Global Auto Number is not supported in Omnistudio Foundation package orgs.",
   "orgUsecaseDetails": "The org is on %s data model with %s and the Omnistudio Metadata setting turned %s",
   "preparingStorageForMetadataEnabledOrg": "Preparing storage for %s org on standard data model with the Omnistudio Metadata setting turned on.",

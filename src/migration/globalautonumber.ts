@@ -7,7 +7,13 @@ import GlobalAutoNumberMappings from '../mappings/GlobalAutoNumber';
 import { DebugTimer, QueryTools } from '../utils';
 import { NetUtils } from '../utils/net';
 import { BaseMigrationTool } from './base';
-import { MigrationResult, MigrationTool, ObjectMapping, UploadRecordResult } from './interfaces';
+import {
+  InvalidEntityTypeError,
+  MigrationResult,
+  MigrationTool,
+  ObjectMapping,
+  UploadRecordResult,
+} from './interfaces';
 import { GlobalAutoNumberAssessmentInfo } from '../utils/interfaces';
 import { Logger } from '../utils/logger';
 import { createProgressBar } from './base';
@@ -306,6 +312,9 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
       const globalAutoNumberAssessmentInfos = await this.processGlobalAutoNumberComponents(globalAutoNumbers);
       return globalAutoNumberAssessmentInfos;
     } catch (err) {
+      if (err instanceof InvalidEntityTypeError) {
+        throw err;
+      }
       Logger.logVerbose(err.stack);
       return [];
     }
@@ -365,12 +374,23 @@ export class GlobalAutoNumberMigrationTool extends BaseMigrationTool implements 
   }
 
   private async getAllGlobalAutoNumberSettings(): Promise<AnyJson[]> {
-    return await QueryTools.queryAll(
-      this.connection,
-      this.namespace,
-      GlobalAutoNumberMigrationTool.GLOBAL_AUTO_NUMBER_SETTING_NAME,
-      Object.keys(GlobalAutoNumberMappings)
-    );
+    try {
+      return await QueryTools.queryAll(
+        this.connection,
+        this.namespace,
+        GlobalAutoNumberMigrationTool.GLOBAL_AUTO_NUMBER_SETTING_NAME,
+        Object.keys(GlobalAutoNumberMappings)
+      );
+    } catch (err) {
+      // The source object isn't in this namespace (e.g. an extension package was selected) - surface it the same
+      // way as the other components so the user is asked to select the correct namespace
+      if (err?.errorCode === 'INVALID_TYPE') {
+        throw new InvalidEntityTypeError(
+          `${this.namespacePrefix}${GlobalAutoNumberMigrationTool.GLOBAL_AUTO_NUMBER_SETTING_NAME} type is not found under this namespace`
+        );
+      }
+      throw err;
+    }
   }
 
   private mapGlobalAutoNumberRecord(globalAutoNumberRecord: AnyJson): AnyJson {

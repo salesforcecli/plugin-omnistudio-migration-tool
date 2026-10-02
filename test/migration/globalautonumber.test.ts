@@ -14,6 +14,7 @@ import { NetUtils } from '../../src/utils/net';
 import { QueryTools } from '../../src/utils';
 import { DebugTimer } from '../../src/utils/logging/debugtimer';
 import * as dataModelService from '../../src/utils/dataModelService';
+import { InvalidEntityTypeError } from '../../src/migration/interfaces';
 
 describe('GlobalAutoNumberMigrationTool', () => {
   let globalAutoNumberMigrationTool: GlobalAutoNumberMigrationTool;
@@ -458,6 +459,74 @@ describe('GlobalAutoNumberMigrationTool', () => {
       expect(queryAllStub.firstCall.args[0]).to.equal(connection);
       expect(queryAllStub.firstCall.args[1]).to.equal(namespace);
       expect(queryAllStub.firstCall.args[2]).to.equal('GlobalAutoNumberSetting__c');
+    });
+
+    // W-24296247: extension packages such as vlocity_ins_fsc don't contain GlobalAutoNumberSetting__c
+    it('should throw InvalidEntityTypeError when the setting object does not exist in the namespace', async () => {
+      const invalidTypeError = Object.assign(new Error("sObject type 'x' is not supported"), {
+        errorCode: 'INVALID_TYPE',
+      });
+      sandbox.stub(QueryTools, 'queryAll').rejects(invalidTypeError);
+
+      let thrown: unknown;
+      try {
+        await (globalAutoNumberMigrationTool as any).getAllGlobalAutoNumberSettings();
+      } catch (e) {
+        thrown = e;
+      }
+
+      expect(thrown).to.be.instanceOf(InvalidEntityTypeError);
+      expect((thrown as Error).message).to.include('test_namespace__GlobalAutoNumberSetting__c');
+    });
+
+    it('should rethrow other query errors unchanged', async () => {
+      const otherError = Object.assign(new Error('Request timed out'), { errorCode: 'REQUEST_LIMIT_EXCEEDED' });
+      sandbox.stub(QueryTools, 'queryAll').rejects(otherError);
+
+      let thrown: unknown;
+      try {
+        await (globalAutoNumberMigrationTool as any).getAllGlobalAutoNumberSettings();
+      } catch (e) {
+        thrown = e;
+      }
+
+      expect(thrown).to.equal(otherError);
+    });
+  });
+
+  describe('wrong namespace selected (W-24296247)', () => {
+    const invalidTypeError = (): Error =>
+      Object.assign(new Error("sObject type 'x' is not supported"), { errorCode: 'INVALID_TYPE' });
+
+    beforeEach(() => {
+      sandbox.stub(dataModelService, 'isFoundationPackage').returns(false);
+    });
+
+    it('assess should rethrow InvalidEntityTypeError so the user is asked to select the correct namespace', async () => {
+      sandbox.stub(QueryTools, 'queryAll').rejects(invalidTypeError());
+
+      let thrown: unknown;
+      try {
+        await globalAutoNumberMigrationTool.assess();
+      } catch (e) {
+        thrown = e;
+      }
+
+      expect(thrown).to.be.instanceOf(InvalidEntityTypeError);
+    });
+
+    it('truncate should throw InvalidEntityTypeError instead of a raw query error', async () => {
+      sandbox.stub(globalAutoNumberMigrationTool as any, 'performPreMigrationChecks').resolves();
+      sandbox.stub(QueryTools, 'queryAll').rejects(invalidTypeError());
+
+      let thrown: unknown;
+      try {
+        await globalAutoNumberMigrationTool.truncate();
+      } catch (e) {
+        thrown = e;
+      }
+
+      expect(thrown).to.be.instanceOf(InvalidEntityTypeError);
     });
   });
 

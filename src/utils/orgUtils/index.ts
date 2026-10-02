@@ -271,6 +271,24 @@ export class OrgUtils {
     'vlocityins19',
   ]);
 
+  // Namespaces that contain OmniStudio components. When several allow-listed packages are installed,
+  // only these are offered for selection.
+  private static readonly primaryNamespaces = new Set<string>([
+    'vlocity_ins',
+    'vlocity_cmt',
+    'omnistudio',
+    'devopsimpkg11',
+    'devopsimpkg12',
+    'devopsimpkg15',
+    'devopsimpkg16',
+    'devopsimpkg19',
+    'devops001gs0',
+    'devopsimpkg21',
+    'devops002gs0',
+    'devopsimpkg23',
+    'vlocity_ps',
+  ]);
+
   // Define the fields to retrieve from the Publisher object
   private static readonly fields = ['MajorVersion', 'MinorVersion', 'NamespacePrefix', 'Name'];
 
@@ -319,11 +337,17 @@ export class OrgUtils {
 
     let isOrgOwnedNamespace = false;
 
-    const installedOmniPackages = [];
+    let installedOmniPackages: InstalledPackage[] = [];
     for (const pkg of allInstalledPackages) {
       if (this.namespaces.has(pkg.NamespacePrefix)) {
         installedOmniPackages.push(pkg);
       }
+    }
+
+    // Drop extension packages (e.g. vlocity_ins_fsc on top of vlocity_ins) that aren't primary OmniStudio namespaces,
+    // so the user isn't offered a namespace that can't be migrated
+    if (installedOmniPackages.length > 1) {
+      installedOmniPackages = this.filterPrimaryPackages(installedOmniPackages);
     }
 
     // Handle multiple packages by prompting user to select one
@@ -416,6 +440,22 @@ export class OrgUtils {
       isOmnistudioMetadataAPIEnabled: isOmnistudioMetadataAPIEnabled,
       isOrgOwnedNamespace: isOrgOwnedNamespace,
     };
+  }
+
+  /**
+   * When several allow-listed packages are installed, keeps only the ones in the primary namespace list.
+   * Extension packages (e.g. vlocity_ins_fsc on top of vlocity_ins) are dropped.
+   * Falls back to the unfiltered list if none of the installed packages are primary.
+   */
+  private static filterPrimaryPackages(packages: InstalledPackage[]): InstalledPackage[] {
+    const filtered = packages.filter((pkg) => this.primaryNamespaces.has(pkg.NamespacePrefix));
+    if (filtered.length === 0) {
+      return packages;
+    }
+    for (const pkg of packages.filter((p) => !this.primaryNamespaces.has(p.NamespacePrefix))) {
+      Logger.log(messages.getMessage('skippingNonPrimaryPackage', [pkg.NamespacePrefix]));
+    }
+    return filtered;
   }
 
   /**     *

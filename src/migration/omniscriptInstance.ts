@@ -75,9 +75,13 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
         return [];
       }
 
-      // verify custom field PackageSavedSessionId__c exists in OmniScriptSavedSession
-      const hasStandardField = await this.hasStandardFieldPackageSavedSessionId();
-      if (!hasStandardField) {
+      // verify standard field ManagedPkgSessKey exists in OmniScriptSavedSession and is accessible
+      const managedPkgSessKeyStatus = await this.getManagedPkgSessKeyStatus();
+      if (managedPkgSessKeyStatus === 'noAccess') {
+        Logger.error(this.messages.getMessage('ossManagedPkgSessKeyNoAccess'));
+        return [];
+      }
+      if (managedPkgSessKeyStatus === 'missing') {
         Logger.log(this.messages.getMessage('ossMissingStandardField'));
         return [];
       }
@@ -148,9 +152,21 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
     const osInstanceUploadInfo = new Map<string, UploadRecordResult>();
 
     try {
-      // verify custom field PackageSavedSessionId__c exists in OmniScriptSavedSession
-      const hasStandardField = await this.hasStandardFieldPackageSavedSessionId();
-      if (!hasStandardField) {
+      // verify standard field ManagedPkgSessKey exists in OmniScriptSavedSession and is accessible
+      const managedPkgSessKeyStatus = await this.getManagedPkgSessKeyStatus();
+      if (managedPkgSessKeyStatus === 'noAccess') {
+        const errorMessage = this.messages.getMessage('ossManagedPkgSessKeyNoAccess');
+        Logger.error(errorMessage);
+        return [
+          {
+            name: this.getName(),
+            results: osInstanceUploadInfo,
+            records: originalOsInstanceRecords,
+            errors: [errorMessage],
+          },
+        ];
+      }
+      if (managedPkgSessKeyStatus === 'missing') {
         Logger.log(this.messages.getMessage('ossMissingStandardField'));
         return [];
       }
@@ -448,9 +464,8 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
     delete savedSessionData['OmniScriptLanguage'];
     savedSessionData['Name'] = osInstanceName;
     savedSessionData['OmniScriptId'] = targetOmniProcessId;
-    if (savedSessionData['ManagedPkgSessKey']) {
-      savedSessionData['ManagedPkgSessKey'] = osInstanceId;
-    }
+    // Link the migrated session back to the package session (field availability is checked before migration)
+    savedSessionData['ManagedPkgSessKey'] = osInstanceId;
 
     savedSessionData['attributes'] = {
       type: Constants.OmniScriptSavedSessionObjectName,
@@ -880,7 +895,7 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
    * @returns true or false
    */
   private async hasStandardFieldPackageSavedSessionId(): Promise<boolean> {
-    const fields = ['Name', '	ManagedPkgSessKey'];
+    const fields = ['Name', 'ManagedPkgSessKey'];
     /**
      * SELECT Name, ManagedPkgSessKey FROM OmniscriptSavedSession LIMIT 1
      */
@@ -892,6 +907,35 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
       await QueryTools.queryCustom(this.connection, queryString);
       return true;
     } catch (err: unknown) {
+      return false;
+    }
+  }
+
+  /**
+   * Works out whether ManagedPkgSessKey can be used:
+   * - 'available': the running user can query the field
+   * - 'noAccess': the field exists in the org (264+) but the user has no field-level security on it
+   * - 'missing': the field doesn't exist (org is on 262 or earlier)
+   */
+  private async getManagedPkgSessKeyStatus(): Promise<'available' | 'noAccess' | 'missing'> {
+    if (await this.hasStandardFieldPackageSavedSessionId()) {
+      return 'available';
+    }
+    return (await this.isManagedPkgSessKeyDefinedInOrg()) ? 'noAccess' : 'missing';
+  }
+
+  /**
+   * Checks the field definition through the Tooling API, which (unlike describe or SOQL) still returns the field
+   * when the running user has no field-level security on it
+   */
+  private async isManagedPkgSessKeyDefinedInOrg(): Promise<boolean> {
+    try {
+      const result = await this.connection.tooling.query(
+        `SELECT QualifiedApiName FROM FieldDefinition WHERE EntityDefinition.QualifiedApiName = '${Constants.OmniScriptSavedSessionObjectName}' AND QualifiedApiName = 'ManagedPkgSessKey'`
+      );
+      return (result?.totalSize ?? 0) > 0;
+    } catch (err: unknown) {
+      Logger.logVerbose(err instanceof Error ? err.message : String(err));
       return false;
     }
   }

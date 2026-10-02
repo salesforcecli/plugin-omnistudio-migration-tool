@@ -558,7 +558,7 @@ describe('ValidatorService', () => {
       expect(loggerLogVerboseStub.calledWith('Query returned 1 result')).to.be.true;
     });
 
-    it('should return false when totalSize is 1 but Value is not foundation package', async () => {
+    it('should return false when totalSize is 1 and Value is neither foundation package nor the org package namespace', async () => {
       // Arrange
       const orgs: OmnistudioOrgDetails = {
         hasValidNamespace: true,
@@ -588,6 +588,166 @@ describe('ValidatorService', () => {
       // Assert
       expect(result).to.be.false;
       expect(loggerLogVerboseStub.calledWith('Validating OmniInteractionConfig')).to.be.true;
+    });
+
+    // W-24367516: managed package orgs on the standard data model may only have TheFirstInstalledOmniPackage
+    ['devopsimpkg11', 'vlocity_ins'].forEach((namespace) => {
+      it(`should return true when totalSize is 1 and TheFirstInstalledOmniPackage matches the org package namespace (${namespace})`, async () => {
+        // Arrange
+        const orgs: OmnistudioOrgDetails = {
+          hasValidNamespace: true,
+          packageDetails: { namespace },
+          omniStudioOrgPermissionEnabled: true,
+          isFoundationPackage: false,
+        } as OmnistudioOrgDetails;
+        (connection.query as sinon.SinonStub).resolves({
+          totalSize: 1,
+          records: [{ DeveloperName: 'TheFirstInstalledOmniPackage', Value: namespace }],
+        });
+        (messages.getMessage as sinon.SinonStub)
+          .withArgs('firstInstalledPackageMatchesNamespace', [namespace])
+          .returns(`Matches namespace ${namespace}`);
+        const validator = new ValidatorService(orgs, messages, connection);
+
+        // Act
+        const result = await validator.validateOmniInteractionConfig();
+
+        // Assert
+        expect(result).to.be.true;
+        expect(loggerLogVerboseStub.calledWith(`Matches namespace ${namespace}`)).to.be.true;
+        expect(loggerErrorStub.called).to.be.false;
+      });
+    });
+
+    it('should return false when totalSize is 1 and only InstalledIndustryPackage matches the org package namespace', async () => {
+      // Arrange
+      const orgs: OmnistudioOrgDetails = {
+        hasValidNamespace: true,
+        packageDetails: { namespace: 'vlocity_ins' },
+        omniStudioOrgPermissionEnabled: true,
+        isFoundationPackage: false,
+      } as OmnistudioOrgDetails;
+      (connection.query as sinon.SinonStub).resolves({
+        totalSize: 1,
+        records: [{ DeveloperName: 'InstalledIndustryPackage', Value: 'vlocity_ins' }],
+      });
+      const validator = new ValidatorService(orgs, messages, connection);
+
+      // Act
+      const result = await validator.validateOmniInteractionConfig();
+
+      // Assert
+      expect(result).to.be.false;
+    });
+
+    it('should return false when totalSize is 1 and namespace match is case-sensitive', async () => {
+      // Arrange
+      const orgs: OmnistudioOrgDetails = {
+        hasValidNamespace: true,
+        packageDetails: { namespace: 'vlocity_ins' },
+        omniStudioOrgPermissionEnabled: true,
+        isFoundationPackage: false,
+      } as OmnistudioOrgDetails;
+      (connection.query as sinon.SinonStub).resolves({
+        totalSize: 1,
+        records: [{ DeveloperName: 'TheFirstInstalledOmniPackage', Value: 'Vlocity_Ins' }],
+      });
+      const validator = new ValidatorService(orgs, messages, connection);
+
+      // Act
+      const result = await validator.validateOmniInteractionConfig();
+
+      // Assert
+      expect(result).to.be.false;
+    });
+
+    it('should return false when totalSize is 1 and the org package namespace is empty', async () => {
+      // Arrange - guards against '' === '' matching
+      const orgs: OmnistudioOrgDetails = {
+        hasValidNamespace: true,
+        packageDetails: { namespace: '' },
+        omniStudioOrgPermissionEnabled: true,
+        isFoundationPackage: false,
+      } as OmnistudioOrgDetails;
+      (connection.query as sinon.SinonStub).resolves({
+        totalSize: 1,
+        records: [{ DeveloperName: 'TheFirstInstalledOmniPackage', Value: '' }],
+      });
+      const validator = new ValidatorService(orgs, messages, connection);
+
+      // Act
+      const result = await validator.validateOmniInteractionConfig();
+
+      // Assert
+      expect(result).to.be.false;
+    });
+
+    it('should return false when totalSize is 1 and packageDetails is missing', async () => {
+      // Arrange
+      const orgs = {
+        hasValidNamespace: true,
+        packageDetails: undefined,
+        omniStudioOrgPermissionEnabled: true,
+        isFoundationPackage: false,
+      } as unknown as OmnistudioOrgDetails;
+      (connection.query as sinon.SinonStub).resolves({
+        totalSize: 1,
+        records: [{ DeveloperName: 'TheFirstInstalledOmniPackage', Value: 'vlocity_ins' }],
+      });
+      const validator = new ValidatorService(orgs, messages, connection);
+
+      // Act
+      const result = await validator.validateOmniInteractionConfig();
+
+      // Assert
+      expect(result).to.be.false;
+    });
+
+    it('should return false when totalSize is 2 with a foundation + managed package mix, even though one record matches the org package namespace', async () => {
+      // Arrange - this exercises the pre-existing totalSize === 2 branch, which rejects whenever either
+      // record is the Foundation package value, regardless of namespace matching.
+      const orgs: OmnistudioOrgDetails = {
+        hasValidNamespace: true,
+        packageDetails: { namespace: 'vlocity_ins' },
+        omniStudioOrgPermissionEnabled: true,
+        isFoundationPackage: true,
+      } as OmnistudioOrgDetails;
+      (connection.query as sinon.SinonStub).resolves({
+        totalSize: 2,
+        records: [
+          { DeveloperName: 'TheFirstInstalledOmniPackage', Value: 'omnistudio' },
+          { DeveloperName: 'InstalledIndustryPackage', Value: 'vlocity_ins' },
+        ],
+      });
+      const validator = new ValidatorService(orgs, messages, connection);
+
+      // Act
+      const result = await validator.validateOmniInteractionConfig();
+
+      // Assert
+      expect(result).to.be.false;
+    });
+
+    it('should return true when totalSize is 1, isFoundationPackage is true, and TheFirstInstalledOmniPackage matches the org package namespace', async () => {
+      // Arrange - pins down the new namespace-match branch's behavior for a single record: it matches on
+      // the namespace value alone and does not additionally consult orgs.isFoundationPackage.
+      const orgs: OmnistudioOrgDetails = {
+        hasValidNamespace: true,
+        packageDetails: { namespace: 'vlocity_ins' },
+        omniStudioOrgPermissionEnabled: true,
+        isFoundationPackage: true,
+      } as OmnistudioOrgDetails;
+      (connection.query as sinon.SinonStub).resolves({
+        totalSize: 1,
+        records: [{ DeveloperName: 'TheFirstInstalledOmniPackage', Value: 'vlocity_ins' }],
+      });
+      const validator = new ValidatorService(orgs, messages, connection);
+
+      // Act
+      const result = await validator.validateOmniInteractionConfig();
+
+      // Assert
+      expect(result).to.be.true;
     });
 
     it('should return false when totalSize is 2 and first record has foundation package value', async () => {
@@ -1023,6 +1183,65 @@ describe('ValidatorService', () => {
       // Assert
       expect(result).to.be.true;
       expect((connection.query as sinon.SinonStub).calledOnce).to.be.true; // OmniInteractionConfig query is called
+    });
+
+    // W-24367516: standard data model + managed package with only TheFirstInstalledOmniPackage = org namespace
+    [true, false].forEach((isAssessment) => {
+      it(`should not block ${
+        isAssessment ? 'assessment' : 'migration'
+      } for a managed package org with only TheFirstInstalledOmniPackage set to its namespace`, async () => {
+        // Arrange
+        const orgs: OmnistudioOrgDetails = {
+          hasValidNamespace: true,
+          packageDetails: { version: '1.0', namespace: 'devopsimpkg11' },
+          omniStudioOrgPermissionEnabled: true,
+          isFoundationPackage: false,
+        } as OmnistudioOrgDetails;
+        isStandardDataModelStub.returns(true);
+        sandbox.stub(OrgPreferences, 'checkDRVersioning').resolves(false);
+        (connection.query as sinon.SinonStub).resolves({
+          totalSize: 1,
+          records: [{ DeveloperName: 'TheFirstInstalledOmniPackage', Value: 'devopsimpkg11' }],
+        });
+        (messages.getMessage as sinon.SinonStub)
+          .withArgs('omniInteractionConfigInvalid')
+          .returns('unsupported Omni Interaction Configuration settings');
+        const validator = new ValidatorService(orgs, messages, connection);
+
+        // Act
+        const result = await validator.validate(isAssessment);
+
+        // Assert
+        expect(result).to.be.true;
+        expect(loggerErrorStub.calledWith('unsupported Omni Interaction Configuration settings')).to.be.false;
+      });
+    });
+
+    it('should still block a standard data model org whose TheFirstInstalledOmniPackage does not match its package namespace', async () => {
+      // Arrange
+      const orgs: OmnistudioOrgDetails = {
+        hasValidNamespace: true,
+        packageDetails: { version: '1.0', namespace: 'devopsimpkg11' },
+        omniStudioOrgPermissionEnabled: true,
+        isFoundationPackage: false,
+      } as OmnistudioOrgDetails;
+      isStandardDataModelStub.returns(true);
+      sandbox.stub(OrgPreferences, 'checkDRVersioning').resolves(false);
+      (connection.query as sinon.SinonStub).resolves({
+        totalSize: 1,
+        records: [{ DeveloperName: 'TheFirstInstalledOmniPackage', Value: 'vlocity_ins' }],
+      });
+      (messages.getMessage as sinon.SinonStub)
+        .withArgs('omniInteractionConfigInvalid')
+        .returns('unsupported Omni Interaction Configuration settings');
+      const validator = new ValidatorService(orgs, messages, connection);
+
+      // Act
+      const result = await validator.validate(true);
+
+      // Assert
+      expect(result).to.be.false;
+      expect(loggerErrorStub.calledWith('unsupported Omni Interaction Configuration settings')).to.be.true;
     });
 
     it('should return false when package validation fails', async () => {

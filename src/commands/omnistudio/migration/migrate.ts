@@ -231,7 +231,7 @@ export default class Migrate extends SfCommand<MigrateResult> {
     // We need to truncate the standard objects first (in reverse order for cleanup)
     let objectMigrationResults;
 
-    objectMigrationResults = await this.truncateObjects([...migrationObjects].reverse(), debugTimer);
+    objectMigrationResults = await this.truncateObjects([...migrationObjects].reverse(), debugTimer, namespace);
     const allTruncateComplete = objectMigrationResults.length === 0;
 
     // Log truncation errors if any exist
@@ -419,7 +419,11 @@ export default class Migrate extends SfCommand<MigrateResult> {
     return actionItems;
   }
 
-  private async truncateObjects(migrationObjects: MigrationTool[], debugTimer: DebugTimer): Promise<MigratedObject[]> {
+  private async truncateObjects(
+    migrationObjects: MigrationTool[],
+    debugTimer: DebugTimer,
+    namespace: string
+  ): Promise<MigratedObject[]> {
     const objectMigrationResults: MigratedObject[] = [];
     // Truncate in reverse order (highest dependencies first) - this is correct for cleanup
     for (const cls of migrationObjects) {
@@ -430,6 +434,10 @@ export default class Migrate extends SfCommand<MigrateResult> {
         await cls.truncate();
         this.logTruncationComplete(componentName);
       } catch (ex: any) {
+        if (ex instanceof InvalidEntityTypeError) {
+          Logger.error(messages.getMessage('invalidTypeMigrateErrorMessage', [namespace]));
+          process.exit(1);
+        }
         objectMigrationResults.push({
           name: cls.getName(),
           data: [],

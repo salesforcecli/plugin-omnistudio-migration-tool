@@ -74,6 +74,64 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
 
   afterEach(() => sandbox.restore());
 
+  const successfulCreate = (_connection: Connection, objectName: string, records: any[]): Promise<Map<string, any>> => {
+    if (objectName === 'Attachment') return Promise.resolve(new Map());
+    return Promise.resolve(
+      new Map(
+        records.map((record) => [
+          record.attributes.referenceId,
+          {
+            referenceId: record.attributes.referenceId,
+            id: `created-${record.attributes.referenceId}`,
+            success: true,
+            hasErrors: false,
+            errors: [],
+            warnings: [],
+          },
+        ])
+      )
+    );
+  };
+
+  // W-24296247: ManagedPkgSessKey links the migrated session back to the package session
+  it('sets ManagedPkgSessKey to the source OmniScriptInstance Id on every migrated saved session', async () => {
+    sandbox.stub(tool as any, 'queryOmniscriptInstance').resolves([instance(0), instance(1)]);
+    createStub.callsFake(successfulCreate);
+
+    await tool.migrate();
+
+    const savedSessionCall = createStub.getCalls().find((call) => call.args[1] === 'OmniScriptSavedSession');
+    expect(savedSessionCall.args[2].map((record: any) => record.ManagedPkgSessKey)).to.deep.equal([
+      'legacy-0',
+      'legacy-1',
+    ]);
+  });
+
+  // W-24296247: the field exists in 264+, but the running user may have no field-level security on it
+  it('reports an error instead of silently skipping when ManagedPkgSessKey exists but is not accessible', async () => {
+    (tool as any).hasStandardFieldPackageSavedSessionId.resolves(false);
+    sandbox.stub(tool as any, 'isManagedPkgSessKeyDefinedInOrg').resolves(true);
+    const queryStub = sandbox.stub(tool as any, 'queryOmniscriptInstance').resolves([instance(0)]);
+
+    const results = await tool.migrate();
+
+    expect(results).to.have.length(1);
+    expect(results[0].errors).to.deep.equal(['ossManagedPkgSessKeyNoAccess']);
+    expect(queryStub.called).to.be.false;
+    expect(createStub.called).to.be.false;
+  });
+
+  it('skips quietly when ManagedPkgSessKey does not exist in the org (262 and earlier)', async () => {
+    (tool as any).hasStandardFieldPackageSavedSessionId.resolves(false);
+    sandbox.stub(tool as any, 'isManagedPkgSessKeyDefinedInOrg').resolves(false);
+    const queryStub = sandbox.stub(tool as any, 'queryOmniscriptInstance').resolves([instance(0)]);
+
+    const results = await tool.migrate();
+
+    expect(results).to.deep.equal([]);
+    expect(queryStub.called).to.be.false;
+  });
+
   it('processes source records in bounded chunks of 200', async () => {
     sandbox.stub(tool as any, 'queryOmniscriptInstance').resolves(Array.from({ length: 201 }, (_, i) => instance(i)));
     createStub.callsFake((_connection: Connection, objectName: string, records: any[]) => {

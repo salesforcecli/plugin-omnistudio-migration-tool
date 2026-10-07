@@ -491,8 +491,11 @@ describe('OmniScriptInstanceMigrationTool - Assessment', () => {
         ];
         queryWithFilterStub.resolves(mockInstances);
         queryCustomStub.rejects(new Error("No such column 'ManagedPkgSessKey' on entity 'OmniScriptSavedSession'."));
+        // The field isn't defined in the org either (262 and earlier)
+        (connection as any).tooling = { query: sandbox.stub().resolves({ totalSize: 0, records: [] }) };
         const result = await migrationTool.assess();
         expect(result).to.have.length(0);
+        expect(queryWithFilterStub.called).to.be.false;
       });
     });
   });
@@ -800,6 +803,63 @@ describe('OmniScriptInstanceMigrationTool - Assessment', () => {
       const result = await (migrationTool as any).hasStandardFieldPackageSavedSessionId();
 
       expect(result).to.be.false;
+    });
+  });
+
+  // W-24296247: tell "field missing" (pre-264) apart from "no field-level security"
+  describe('getManagedPkgSessKeyStatus', () => {
+    let queryCustomStub: sinon.SinonStub;
+    let toolingQueryStub: sinon.SinonStub;
+
+    beforeEach(() => {
+      queryCustomStub = sandbox.stub(QueryTools, 'queryCustom');
+      toolingQueryStub = sandbox.stub();
+      (connection as any).tooling = { query: toolingQueryStub };
+    });
+
+    it('should return available when the field can be queried', async () => {
+      queryCustomStub.resolves([]);
+
+      expect(await (migrationTool as any).getManagedPkgSessKeyStatus()).to.equal('available');
+      expect(toolingQueryStub.called).to.be.false;
+    });
+
+    it('should return noAccess when the query fails but the field is defined in the org', async () => {
+      queryCustomStub.rejects(new Error("No such column 'ManagedPkgSessKey' on entity 'OmniScriptSavedSession'."));
+      toolingQueryStub.resolves({ totalSize: 1, records: [{ QualifiedApiName: 'ManagedPkgSessKey' }] });
+
+      expect(await (migrationTool as any).getManagedPkgSessKeyStatus()).to.equal('noAccess');
+      const toolingQuery = toolingQueryStub.getCall(0).args[0];
+      expect(toolingQuery).to.include('FROM FieldDefinition');
+      expect(toolingQuery).to.include("EntityDefinition.QualifiedApiName = 'OmniScriptSavedSession'");
+      expect(toolingQuery).to.include("QualifiedApiName = 'ManagedPkgSessKey'");
+    });
+
+    it('should return missing when the field is not defined in the org', async () => {
+      queryCustomStub.rejects(new Error("No such column 'ManagedPkgSessKey' on entity 'OmniScriptSavedSession'."));
+      toolingQueryStub.resolves({ totalSize: 0, records: [] });
+
+      expect(await (migrationTool as any).getManagedPkgSessKeyStatus()).to.equal('missing');
+    });
+
+    it('should return missing when the field definition lookup fails', async () => {
+      queryCustomStub.rejects(new Error("No such column 'ManagedPkgSessKey' on entity 'OmniScriptSavedSession'."));
+      toolingQueryStub.rejects(new Error('Tooling API unavailable'));
+
+      expect(await (migrationTool as any).getManagedPkgSessKeyStatus()).to.equal('missing');
+    });
+
+    it('assess should log the field-access error and return no assessments when the field is not accessible', async () => {
+      queryCustomStub.rejects(new Error("No such column 'ManagedPkgSessKey' on entity 'OmniScriptSavedSession'."));
+      toolingQueryStub.resolves({ totalSize: 1, records: [{ QualifiedApiName: 'ManagedPkgSessKey' }] });
+      getMessageStub.withArgs('ossManagedPkgSessKeyNoAccess').returns('Grant access to ManagedPkgSessKey');
+      const queryWithFilterStub = sandbox.stub(QueryTools, 'queryWithFilter').resolves([]);
+
+      const result = await migrationTool.assess();
+
+      expect(result).to.deep.equal([]);
+      expect((Logger.error as sinon.SinonStub).calledWith('Grant access to ManagedPkgSessKey')).to.be.true;
+      expect(queryWithFilterStub.called).to.be.false;
     });
   });
 

@@ -256,5 +256,6 @@
   "prePostHookAutoEnabled": "PreHook/PostHook will be auto-enabled on Remote Action step(s): %s. A hook implementation is registered for the remote class used by these steps.",
   "flexipageOsWrapperSummary": "OmniScript component will migrate from vlocityLWCOmniWrapper to runtime_omnistudio:omniscript",
   "flexipageFcWrapperSummary": "FlexCard component will migrate from vlocityLWCOmniWrapper to runtime_omnistudio:flexcard",
-  "ossMissingStandardField": "The field ManagedPkgSessKey is missing from OmniscriptSavedSession. This field is only available in 264."
+  "ossMissingStandardField": "The field ManagedPkgSessKey is missing from OmniscriptSavedSession. This field is only available in 264.",
+  "ossManagedPkgSessKeyNoAccess": "The ManagedPkgSessKey field on OmniscriptSavedSession exists, but you don't have access to it. Grant Read and Edit field-level security on OmniscriptSavedSession.ManagedPkgSessKey to your profile or permission set, and try again."
 }

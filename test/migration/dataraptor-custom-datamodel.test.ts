@@ -53,7 +53,7 @@ describe('DataRaptor Custom Data Model - colon->dot object-path conversion', () 
     mockMessages = {
       getMessage: (key: string, params?: string[]) => {
         const messages: Record<string, string> = {
-          objectPathSeparatorChange: `The Data Mapper object path '${params?.[0]}' will be updated to '${params?.[1]}' during migration to use the standard runtime's dot separator.`,
+          objectPathSeparatorChange: `During migration, the Data Mapper object path '${params?.[0]}' will change to '${params?.[1]}' to use the standard runtime's dot (.) separator.`,
         };
         return messages[key] || 'Mock message for testing';
       },

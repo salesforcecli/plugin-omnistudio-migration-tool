@@ -233,6 +233,7 @@
   "omniStudioPermissionsNotEnabled": "The org doesn’t have Omnistudio permissions enabled. These permissions are required to migrate components. You can still run the assessment.",
   "skippingLicenseCheckForAssessment": "Skipping OmniStudio license check for assessment",
   "packageDetails": "Your org contains only the TheFirstInstalledOmniPackage Omni Interaction Configuration.",
+  "firstInstalledPackageMatchesNamespace": "TheFirstInstalledOmniPackage matches the installed package namespace: %s.",
   "orgUsecaseDetails": "The org is on %s data model with %s and the Omnistudio Metadata setting turned %s",
   "globalAutoNumberUnSupportedInOmnistudioPackage": "Feature not supported - Omni Global Auto Number is not supported in Omnistudio Foundation package orgs.",
   "omniStudioAllVersionsProcessingConsent": "Org uses the standard data model. All versions of Omnistudio components such as Omniscripts, Data Mappers, Integration Procedures, and Flexcards must be assessed. But you’ve not specified -a  or allversions flag in the command.  Proceed to assess all versions of the Omnistudio components? [y/n]",

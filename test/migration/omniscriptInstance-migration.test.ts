@@ -74,6 +74,17 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
 
   afterEach(() => sandbox.restore());
 
+  // Mirrors jsforce: raw bytes as base64 only when requested, otherwise a JSON content type is parsed into an
+  // object and any other body is decoded as UTF-8 text.
+  const stubAttachmentBody = (bytes: Buffer, contentType = 'application/octet-stream'): void => {
+    (tool as any).connection.request.callsFake((_request: unknown, options?: { encoding?: string }) => {
+      if (options?.encoding === 'base64') return Promise.resolve(bytes.toString('base64'));
+      if (contentType === 'application/json' && bytes.length > 0)
+        return Promise.resolve(JSON.parse(bytes.toString('utf8')));
+      return Promise.resolve(bytes.toString('utf8'));
+    });
+  };
+
   const successfulCreate = (_connection: Connection, objectName: string, records: any[]): Promise<Map<string, any>> => {
     if (objectName === 'Attachment') return Promise.resolve(new Map());
     return Promise.resolve(
@@ -178,7 +189,7 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
     (tool as any).queryAttachments.resolves([
       { Id: 'attachment-1', Name: 'one.json', Body: '/body/1', ContentType: 'application/json' },
     ]);
-    (tool as any).connection.request.resolves('body');
+    stubAttachmentBody(Buffer.from('body', 'utf8'));
     createStub.callsFake((_connection: Connection, objectName: string) =>
       Promise.resolve(
         objectName === 'OmniScriptSavedSession'
@@ -234,7 +245,7 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
         Body: `/body/${index + 1}`,
       }))
     );
-    (tool as any).connection.request.resolves('body');
+    stubAttachmentBody(Buffer.from('body', 'utf8'));
     createStub.callsFake((_connection: Connection, objectName: string) =>
       Promise.resolve(
         objectName === 'OmniScriptSavedSession'
@@ -271,7 +282,7 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
       { Id: 'attachment-1', Name: 'one.json', Body: '/body/1' },
       { Id: 'attachment-2', Name: 'two.json', Body: '/body/2' },
     ]);
-    (tool as any).connection.request.resolves('body');
+    stubAttachmentBody(Buffer.from('body', 'utf8'));
 
     createStub.callsFake((_connection: Connection, objectName: string, records: any[]) => {
       if (objectName === 'OmniScriptSavedSession') {
@@ -352,7 +363,7 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
       { Id: 'attachment-1', Name: 'one.json', Body: '/body/1' },
       { Id: 'attachment-2', Name: 'two.json', Body: '/body/2' },
     ]);
-    (tool as any).connection.request.resolves('x'.repeat(3_000_000));
+    stubAttachmentBody(Buffer.from('x'.repeat(3_000_000), 'utf8'));
     createStub.callsFake((_connection: Connection, objectName: string, records: any[]) =>
       Promise.resolve(
         new Map(
@@ -394,7 +405,7 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
         Body: `/body/${index}`,
       }))
     );
-    (tool as any).connection.request.resolves('body');
+    stubAttachmentBody(Buffer.from('body', 'utf8'));
     createStub.callsFake((_connection: Connection, _objectName: string, records: any[]) =>
       Promise.resolve(
         new Map(
@@ -424,7 +435,7 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
     (tool as any).queryAttachments.callsFake((parentId: string) =>
       Promise.resolve([{ Id: `attachment-${parentId}`, Name: `${parentId}.json`, Body: `/body/${parentId}` }])
     );
-    (tool as any).connection.request.resolves('x'.repeat(3_000_000));
+    stubAttachmentBody(Buffer.from('x'.repeat(3_000_000), 'utf8'));
     createStub.callsFake((_connection: Connection, objectName: string, records: any[]) => {
       if (objectName === 'OmniScriptSavedSession') {
         return Promise.resolve(
@@ -477,7 +488,7 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
     (tool as any).queryAttachments.resolves([
       { Id: 'oversized-attachment', Name: 'oversized.json', Body: '/body/oversized' },
     ]);
-    (tool as any).connection.request.resolves('x'.repeat(5 * 1024 * 1024));
+    stubAttachmentBody(Buffer.from('x'.repeat(5 * 1024 * 1024), 'utf8'));
     createStub.callsFake((_connection: Connection, objectName: string) => {
       expect(objectName).to.equal('OmniScriptSavedSession');
       return Promise.resolve(
@@ -528,7 +539,7 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
         parentId === 'legacy-2' ? [{ Id: 'oversized-attachment', Name: 'oversized.json', Body: '/body/oversized' }] : []
       )
     );
-    (tool as any).connection.request.resolves('x'.repeat(5 * 1024 * 1024));
+    stubAttachmentBody(Buffer.from('x'.repeat(5 * 1024 * 1024), 'utf8'));
     createStub.callsFake((_connection: Connection, _objectName: string, records: any[]) =>
       Promise.resolve(
         new Map(
@@ -558,5 +569,144 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
 
     expect(migration.results.get('legacy-1')?.success).to.be.true;
     expect(migration.results.get('legacy-2')?.errors.join(' ')).to.include('ossAttachmentUploadFailed');
+  });
+
+  describe('attachment download', () => {
+    type SourceAttachment = {
+      id: string;
+      name: string;
+      bytes: Buffer;
+      contentType: string | null;
+      bodyLength?: number | null;
+    };
+
+    const uploadedAttachments = (): any[] =>
+      createStub
+        .getCalls()
+        .filter((call) => call.args[1] === 'Attachment')
+        .flatMap((call) => call.args[2]);
+
+    const uploadedBytes = (name: string): Buffer => {
+      const record = uploadedAttachments().find((attachment) => attachment.Name === name);
+      expect(record, `${name} was not uploaded`).to.exist;
+      return Buffer.from(record.Body, 'base64');
+    };
+
+    // Serves each attachment the way jsforce does: base64 of the raw bytes only when asked for it, otherwise
+    // JSON bodies come back parsed into objects and everything else is decoded as UTF-8 text.
+    const givenAttachments = (attachments: SourceAttachment[]): void => {
+      (tool as any).queryAttachments.resolves(
+        attachments.map((attachment) => ({
+          Id: attachment.id,
+          Name: attachment.name,
+          Body: `/sobjects/Attachment/${attachment.id}/Body`,
+          BodyLength: attachment.bodyLength === undefined ? attachment.bytes.length : attachment.bodyLength,
+          ContentType: attachment.contentType,
+        }))
+      );
+      (tool as any).connection.request.callsFake((request: { url: string }, options?: { encoding?: string }) => {
+        const attachment = attachments.find((candidate) => request.url.includes(candidate.id));
+        if (!attachment) return Promise.reject(new Error(`unexpected request ${request.url}`));
+        if (options?.encoding === 'base64') return Promise.resolve(attachment.bytes.toString('base64'));
+        if (attachment.contentType === 'application/json') {
+          return Promise.resolve(JSON.parse(attachment.bytes.toString('utf8')));
+        }
+        return Promise.resolve(attachment.bytes.toString('utf8'));
+      });
+    };
+
+    beforeEach(() => {
+      sandbox.stub(tool as any, 'queryOmniscriptInstance').resolves([instance(1)]);
+      createStub.callsFake((_connection: Connection, _objectName: string, records: any[]) =>
+        Promise.resolve(
+          new Map(
+            records.map((record) => [
+              record.attributes.referenceId,
+              {
+                referenceId: record.attributes.referenceId,
+                id: `created-${record.attributes.referenceId}`,
+                success: true,
+              },
+            ])
+          )
+        )
+      );
+    });
+
+    it('carries the saved answers and files map over to the new session', async () => {
+      const dataJson = Buffer.from(JSON.stringify({ Step1: { Text1: 'another saved session' } }));
+      const filesMap = Buffer.from(JSON.stringify({ File1: [{ data: '069000000000001', filename: 'id.pdf' }] }));
+      givenAttachments([
+        { id: '00P000000000001', name: 'OmniScriptDataJSON.json', bytes: dataJson, contentType: 'application/json' },
+        { id: '00P000000000002', name: 'OmniScriptFilesMap.json', bytes: filesMap, contentType: 'application/json' },
+      ]);
+
+      const [migration] = await tool.migrate();
+
+      expect(migration.results.get('legacy-1')?.errors).to.deep.equal([]);
+      expect(uploadedBytes('OmniScriptDataJSON.json').equals(dataJson)).to.be.true;
+      expect(uploadedBytes('OmniScriptFilesMap.json').equals(filesMap)).to.be.true;
+      expect(uploadedAttachments().every((attachment) => attachment.ContentType === 'application/json')).to.be.true;
+    });
+
+    it('holds back a truncated download but still uploads the rest of the session', async () => {
+      const fullJson = Buffer.from(JSON.stringify({ sInstanceId: 'legacy-1', lwcName: 'c:sflSflEnglish' }));
+      const dataJson = Buffer.from(JSON.stringify({ Step1: { Text1: 'kept' } }));
+      givenAttachments([
+        {
+          id: '00P000000000001',
+          name: 'OmniScriptFullJSON.json',
+          bytes: fullJson.subarray(0, 10),
+          contentType: 'application/octet-stream',
+          bodyLength: fullJson.length,
+        },
+        { id: '00P000000000002', name: 'OmniScriptDataJSON.json', bytes: dataJson, contentType: 'application/json' },
+      ]);
+
+      const [migration] = await tool.migrate();
+
+      expect(uploadedAttachments().map((attachment) => attachment.Name)).to.deep.equal(['OmniScriptDataJSON.json']);
+      expect(uploadedBytes('OmniScriptDataJSON.json').equals(dataJson)).to.be.true;
+      const errors = migration.results.get('legacy-1')?.errors ?? [];
+      expect(errors).to.have.lengthOf(1);
+      expect(errors[0]).to.include('ossAttachmentSizeMismatch');
+    });
+
+    it('uploads an attachment with no ContentType or BodyLength without inventing either', async () => {
+      const upload = Buffer.from('scanned driver licence');
+      givenAttachments([
+        { id: '069000000000001', name: '069000000000001', bytes: upload, contentType: null, bodyLength: null },
+      ]);
+
+      const [migration] = await tool.migrate();
+
+      expect(migration.results.get('legacy-1')?.errors).to.deep.equal([]);
+      expect(uploadedBytes('069000000000001').equals(upload)).to.be.true;
+      expect(uploadedAttachments()[0]).to.not.have.property('ContentType');
+    });
+
+    it('keeps bytes that are not valid UTF-8 intact', async () => {
+      // PNG signature followed by bytes that a UTF-8 round trip would replace with U+FFFD
+      const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0xff, 0xfe, 0x80, 0xc3, 0x28]);
+      givenAttachments([{ id: '069000000000001', name: 'photo.png', bytes: png, contentType: 'image/png' }]);
+
+      const [migration] = await tool.migrate();
+
+      expect(migration.results.get('legacy-1')?.errors).to.deep.equal([]);
+      expect(uploadedBytes('photo.png').equals(png)).to.be.true;
+    });
+
+    it('compares sizes in bytes, so accented and emoji answers are not flagged as truncated', async () => {
+      const dataJson = Buffer.from(JSON.stringify({ Step1: { Name: 'José Müller', City: '東京', Note: '👍' } }));
+      expect(dataJson.length).to.be.greaterThan(dataJson.toString('utf8').length);
+      givenAttachments([
+        { id: '00P000000000001', name: 'OmniScriptDataJSON.json', bytes: dataJson, contentType: 'application/json' },
+      ]);
+
+      const [migration] = await tool.migrate();
+
+      expect(migration.results.get('legacy-1')?.errors).to.deep.equal([]);
+      expect(uploadedBytes('OmniScriptDataJSON.json').toString('utf8')).to.equal(dataJson.toString('utf8'));
+    });
   });
 });

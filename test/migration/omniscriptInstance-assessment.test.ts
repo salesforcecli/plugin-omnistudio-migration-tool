@@ -760,7 +760,7 @@ describe('OmniScriptInstanceMigrationTool - Assessment', () => {
 
       expect(queryCustomStub.calledOnce).to.be.true;
       const query = queryCustomStub.getCall(0).args[1];
-      expect(query).to.include('SELECT Id,Name,Body,ContentType');
+      expect(query).to.include('SELECT Id,Name,Body,BodyLength,ContentType');
       expect(query).to.include('FROM Attachment');
       expect(query).to.include("WHERE ParentId = 'a0D001'");
       expect(result).to.have.length(1);
@@ -870,14 +870,16 @@ describe('OmniScriptInstanceMigrationTool - Assessment', () => {
       connectionRequestStub = connection.request as sinon.SinonStub;
     });
 
-    it('should download attachments successfully with string response', async () => {
-      connectionRequestStub.resolves('base64encodedcontent');
+    it('should download attachments as raw base64 bytes', async () => {
+      const content = Buffer.from('{"Step1":{"Text1":"saved"}}', 'utf8');
+      connectionRequestStub.resolves(content.toString('base64'));
 
       const attachments = [
         {
           Id: '00P001',
           Name: 'OmniscriptFullJSON.json',
           Body: '/services/data/v67.0/sobjects/Attachment/00P001/Body',
+          BodyLength: content.length,
           ContentType: 'application/json',
         },
       ];
@@ -887,15 +889,20 @@ describe('OmniScriptInstanceMigrationTool - Assessment', () => {
       expect(result).to.have.length(1);
       expect(result[0].id).to.equal('00P001');
       expect(result[0].name).to.equal('OmniscriptFullJSON.json');
-      expect(result[0].body).to.equal(Buffer.from('base64encodedcontent', 'utf8').toString('base64'));
+      expect(result[0].body).to.equal(content.toString('base64'));
       expect(result[0].contentType).to.equal('application/json');
       expect(result[0].errors).to.be.empty;
       expect(connectionRequestStub.calledOnce).to.be.true;
+      // Without these options jsforce parses JSON bodies into objects and the copy ends up empty
+      expect(connectionRequestStub.getCall(0).args[1]).to.deep.equal({
+        responseType: 'application/octet-stream',
+        encoding: 'base64',
+      });
     });
 
-    it('should preserve arbitrary bytes from a Buffer response', async () => {
+    it('should preserve arbitrary bytes', async () => {
       const source = Buffer.from([0x00, 0xff, 0x80, 0xc3, 0x28]);
-      connectionRequestStub.resolves(source);
+      connectionRequestStub.resolves(source.toString('base64'));
 
       const attachments = [
         { Id: '00P002', Name: 'file.json', Body: '/services/data/v67.0/sobjects/Attachment/00P002/Body' },
@@ -948,10 +955,10 @@ describe('OmniScriptInstanceMigrationTool - Assessment', () => {
       // Match the request object structure: { method: 'GET', url: path }
       connectionRequestStub
         .withArgs(sinon.match({ url: '/services/data/v67.0/sobjects/Attachment/00P004/Body' }))
-        .resolves('content1');
+        .resolves(Buffer.from('content1', 'utf8').toString('base64'));
       connectionRequestStub
         .withArgs(sinon.match({ url: '/services/data/v67.0/sobjects/Attachment/00P005/Body' }))
-        .resolves('content2');
+        .resolves(Buffer.from('content2', 'utf8').toString('base64'));
 
       const attachments = [
         { Id: '00P004', Name: 'file1.json', Body: '/services/data/v67.0/sobjects/Attachment/00P004/Body' },

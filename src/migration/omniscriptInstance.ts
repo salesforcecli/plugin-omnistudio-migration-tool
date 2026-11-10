@@ -869,10 +869,10 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
    */
 
   private async queryAttachments(attachmentParentId: string): Promise<AnyJson[]> {
-    const fields = ['Id', 'Name', 'Body', 'ContentType'];
+    const fields = ['Id', 'Name', 'Body', 'BodyLength', 'ContentType'];
     const filterStr = `WHERE ParentId = '${attachmentParentId}'`;
     /**
-     * SELECT Id, Name, Body, ContentType FROM Attachment WHERE ParentId = a3eSB000000DI0jYAG)
+     * SELECT Id, Name, Body, BodyLength, ContentType FROM Attachment WHERE ParentId)
      */
     const queryString = `SELECT ${fields.join(',')} 
                         FROM ${Constants.AttachmentObjectName} 
@@ -959,19 +959,23 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
       let body = '';
 
       try {
-        const raw = await this.connection.request<string | Buffer>({
-          method: 'GET',
-          url: path,
-        });
+        // Read the raw bytes as base64. Otherwise jsforce parses JSON bodies into objects and decodes everything
+        // else as UTF-8, which loses the session data and corrupts binary files.
+        const raw = await this.connection.request<string>(
+          { method: 'GET', url: path },
+          { responseType: 'application/octet-stream', encoding: 'base64' }
+        );
+        body = typeof raw === 'string' ? raw : '';
 
-        if (Buffer.isBuffer(raw)) {
-          body = raw.toString('base64');
-        } else if (typeof raw === 'string') {
-          // jsforce exposes binary response strings using the binary (latin1) encoding.
-          body = Buffer.from(raw, 'binary').toString('base64');
+        const size = Buffer.byteLength(body, 'base64');
+        const expectedSize: unknown = attachment['BodyLength'];
+        if (typeof expectedSize === 'number' && size !== expectedSize) {
+          const msg = this.messages.getMessage('ossAttachmentSizeMismatch', [attachmentId, expectedSize, size]);
+          Logger.error(msg);
+          errors.push(msg);
+        } else {
+          Logger.logVerbose(this.messages.getMessage('ossAttachmentDownloadSuccess', [attachmentId, size]));
         }
-
-        Logger.logVerbose(this.messages.getMessage('ossAttachmentDownloadSuccess', [attachmentId, body.length]));
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
         const msg = this.messages.getMessage('ossAttachmentDownloadFailed', [path, JSON.stringify(errorMsg)]);

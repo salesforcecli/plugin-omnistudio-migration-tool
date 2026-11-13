@@ -869,10 +869,10 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
    */
 
   private async queryAttachments(attachmentParentId: string): Promise<AnyJson[]> {
-    const fields = ['Id', 'Name', 'Body', 'ContentType'];
+    const fields = ['Id', 'Name', 'Body', 'BodyLength', 'ContentType'];
     const filterStr = `WHERE ParentId = '${attachmentParentId}'`;
     /**
-     * SELECT Id, Name, Body, ContentType FROM Attachment WHERE ParentId = a3eSB000000DI0jYAG)
+     * SELECT Id, Name, Body, BodyLength, ContentType FROM Attachment WHERE ParentId = '<parent id>'
      */
     const queryString = `SELECT ${fields.join(',')} 
                         FROM ${Constants.AttachmentObjectName} 
@@ -943,9 +943,10 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
   /**
    * Download attachment bodies from Salesforce
    *
-   * @param connection - Salesforce connection instance
-   * @param attachmentBodyPaths - Array of attachment body URLs (e.g., /services/data/v67.0/sobjects/Attachment/00PSB000003DJG12AO/Body)
-   * @returns Array of downloaded attachment data with bodies and any errors
+   * @param attachments - Attachment records from queryAttachments. Body holds the body URL, for example
+   * /services/data/v67.0/sobjects/Attachment/00PSB000003DJG12AO/Body
+   * @returns Array of downloaded attachment data with base64 bodies and any errors. The body is empty when
+   * there are errors.
    */
   private async downloadAttachments(attachments: AnyJson[]): Promise<AttachmentDownloadResult[]> {
     const results: AttachmentDownloadResult[] = [];
@@ -959,21 +960,49 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
       let body = '';
 
       try {
-        const raw = await this.connection.request<string | Buffer>({
-          method: 'GET',
-          url: path,
-        });
-
-        if (Buffer.isBuffer(raw)) {
-          body = raw.toString('base64');
-        } else if (typeof raw === 'string') {
-          // jsforce exposes binary response strings using the binary (latin1) encoding.
-          body = Buffer.from(raw, 'binary').toString('base64');
+        // Read the raw bytes as base64. Otherwise jsforce parses JSON bodies into objects and decodes everything
+        // else as UTF-8, which loses the session data and corrupts binary files.
+        const raw = await this.connection.request<string>(
+          { method: 'GET', url: path },
+          { responseType: 'application/octet-stream', encoding: 'base64' }
+        );
+        // Keep the body only when the download is complete, so a failed attachment can never be uploaded empty
+        // or truncated, whatever the caller does with the errors.
+        const expectedSize: unknown = attachment['BodyLength'];
+        if (typeof expectedSize !== 'number') {
+          // Without the source size a truncated download can't be told apart from a complete one
+          const msg = this.messages.getMessage('ossAttachmentSizeUnverified', [attachmentName, attachmentId]);
+          Logger.error(msg);
+          errors.push(msg);
+        } else if (raw == null && expectedSize === 0) {
+          // An empty body can come back as no content at all (jsforce returns undefined for a 204)
+          Logger.logVerbose(this.messages.getMessage('ossAttachmentDownloadSuccess', [attachmentId, 0]));
+        } else if (typeof raw !== 'string') {
+          const msg = this.messages.getMessage('ossAttachmentUnexpectedResponse', [
+            attachmentName,
+            attachmentId,
+            typeof raw,
+          ]);
+          Logger.error(msg);
+          errors.push(msg);
+        } else {
+          const size = Buffer.byteLength(raw, 'base64');
+          if (size !== expectedSize) {
+            const msg = this.messages.getMessage('ossAttachmentSizeMismatch', [
+              attachmentName,
+              attachmentId,
+              expectedSize,
+              size,
+            ]);
+            Logger.error(msg);
+            errors.push(msg);
+          } else {
+            body = raw;
+            Logger.logVerbose(this.messages.getMessage('ossAttachmentDownloadSuccess', [attachmentId, size]));
+          }
         }
-
-        Logger.logVerbose(this.messages.getMessage('ossAttachmentDownloadSuccess', [attachmentId, body.length]));
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
+        const errorMsg = this.getDownloadErrorMessage(error);
         const msg = this.messages.getMessage('ossAttachmentDownloadFailed', [path, JSON.stringify(errorMsg)]);
         Logger.error(msg);
         errors.push(msg);
@@ -990,6 +1019,36 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
     }
 
     return results;
+  }
+
+  /**
+   * Gets a readable message from a failed attachment download. The download reads every response as base64,
+   * error responses included, so jsforce reports a Salesforce error such as NOT_FOUND as base64 text.
+   */
+  private getDownloadErrorMessage(error: unknown): string {
+    const message = error instanceof Error ? error.message : String(error);
+    const errorCode = String((error as { errorCode?: unknown })?.errorCode ?? '');
+    if (!errorCode.startsWith('ERROR_HTTP_')) {
+      return message;
+    }
+    // The message is Node's own canonical base64 (no line breaks, always padded), so a round trip tells it apart
+    // from plain text. A character check can't: a message such as "Forbidden" only uses base64 characters.
+    const text = Buffer.from(message, 'base64').toString('utf8');
+    if (Buffer.from(text, 'utf8').toString('base64') !== message) {
+      // Not base64, for example the message jsforce builds for HTML error pages
+      return message;
+    }
+    try {
+      const parsed: unknown = JSON.parse(text);
+      const first: unknown = Array.isArray(parsed) ? parsed[0] : parsed;
+      const details = first as { errorCode?: unknown; message?: unknown } | null;
+      if (typeof details?.message === 'string') {
+        return typeof details.errorCode === 'string' ? `${details.errorCode}: ${details.message}` : details.message;
+      }
+    } catch {
+      // Not JSON, so show the text as it is
+    }
+    return `${errorCode}: ${text}`;
   }
 
   /**

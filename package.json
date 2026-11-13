@@ -28,6 +28,7 @@
     "tslib": "^2"
   },
   "devDependencies": {
+    "@jsforce/jsforce-node": "3.10.25",
     "@oclif/dev-cli": "^1",
     "@oclif/plugin-command-snapshot": "^5.3.30",
     "@oclif/plugin-help": "^3",

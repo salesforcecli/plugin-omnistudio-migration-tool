@@ -872,7 +872,7 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
     const fields = ['Id', 'Name', 'Body', 'BodyLength', 'ContentType'];
     const filterStr = `WHERE ParentId = '${attachmentParentId}'`;
     /**
-     * SELECT Id, Name, Body, BodyLength, ContentType FROM Attachment WHERE ParentId)
+     * SELECT Id, Name, Body, BodyLength, ContentType FROM Attachment WHERE ParentId = '<parent id>'
      */
     const queryString = `SELECT ${fields.join(',')} 
                         FROM ${Constants.AttachmentObjectName} 
@@ -943,9 +943,10 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
   /**
    * Download attachment bodies from Salesforce
    *
-   * @param connection - Salesforce connection instance
-   * @param attachmentBodyPaths - Array of attachment body URLs (e.g., /services/data/v67.0/sobjects/Attachment/00PSB000003DJG12AO/Body)
-   * @returns Array of downloaded attachment data with bodies and any errors
+   * @param attachments - Attachment records from queryAttachments. Body holds the body URL, for example
+   * /services/data/v67.0/sobjects/Attachment/00PSB000003DJG12AO/Body
+   * @returns Array of downloaded attachment data with base64 bodies and any errors. The body is empty when
+   * there are errors.
    */
   private async downloadAttachments(attachments: AnyJson[]): Promise<AttachmentDownloadResult[]> {
     const results: AttachmentDownloadResult[] = [];
@@ -965,19 +966,38 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
           { method: 'GET', url: path },
           { responseType: 'application/octet-stream', encoding: 'base64' }
         );
-        body = typeof raw === 'string' ? raw : '';
-
-        const size = Buffer.byteLength(body, 'base64');
+        // Keep the body only when the download is complete, so a failed attachment can never be uploaded empty
+        // or truncated, whatever the caller does with the errors.
         const expectedSize: unknown = attachment['BodyLength'];
-        if (typeof expectedSize === 'number' && size !== expectedSize) {
-          const msg = this.messages.getMessage('ossAttachmentSizeMismatch', [attachmentId, expectedSize, size]);
+        if (raw === undefined && expectedSize === 0) {
+          // An empty body can come back as no content at all
+          Logger.logVerbose(this.messages.getMessage('ossAttachmentDownloadSuccess', [attachmentId, 0]));
+        } else if (typeof raw !== 'string') {
+          const msg = this.messages.getMessage('ossAttachmentUnexpectedResponse', [
+            attachmentName,
+            attachmentId,
+            typeof raw,
+          ]);
           Logger.error(msg);
           errors.push(msg);
         } else {
-          Logger.logVerbose(this.messages.getMessage('ossAttachmentDownloadSuccess', [attachmentId, size]));
+          const size = Buffer.byteLength(raw, 'base64');
+          if (typeof expectedSize === 'number' && size !== expectedSize) {
+            const msg = this.messages.getMessage('ossAttachmentSizeMismatch', [
+              attachmentName,
+              attachmentId,
+              expectedSize,
+              size,
+            ]);
+            Logger.error(msg);
+            errors.push(msg);
+          } else {
+            body = raw;
+            Logger.logVerbose(this.messages.getMessage('ossAttachmentDownloadSuccess', [attachmentId, size]));
+          }
         }
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
+        const errorMsg = this.getDownloadErrorMessage(error);
         const msg = this.messages.getMessage('ossAttachmentDownloadFailed', [path, JSON.stringify(errorMsg)]);
         Logger.error(msg);
         errors.push(msg);
@@ -994,6 +1014,34 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
     }
 
     return results;
+  }
+
+  /**
+   * Gets a readable message from a failed attachment download. The download reads every response as base64,
+   * error responses included, so jsforce reports a Salesforce error such as NOT_FOUND as base64 text.
+   */
+  private getDownloadErrorMessage(error: unknown): string {
+    const message = error instanceof Error ? error.message : String(error);
+    const errorCode = String((error as { errorCode?: unknown })?.errorCode ?? '');
+    if (!errorCode.startsWith('ERROR_HTTP_')) {
+      return message;
+    }
+    const text = Buffer.from(message, 'base64').toString('utf8');
+    if (Buffer.from(text, 'utf8').toString('base64') !== message) {
+      // Not base64, for example the message jsforce builds for HTML error pages
+      return message;
+    }
+    try {
+      const parsed: unknown = JSON.parse(text);
+      const first: unknown = Array.isArray(parsed) ? parsed[0] : parsed;
+      const details = first as { errorCode?: unknown; message?: unknown } | null;
+      if (typeof details?.message === 'string') {
+        return typeof details.errorCode === 'string' ? `${details.errorCode}: ${details.message}` : details.message;
+      }
+    } catch {
+      // Not JSON, so show the text as it is
+    }
+    return `${errorCode}: ${text}`;
   }
 
   /**

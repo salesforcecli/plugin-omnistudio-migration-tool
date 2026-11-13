@@ -5,7 +5,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
 /* eslint-disable camelcase */
+import * as http from 'http';
+import { AddressInfo } from 'net';
 import { expect } from 'chai';
+import { Connection as JsforceConnection } from '@jsforce/jsforce-node';
+import { setDefaults as setJsforceRequestDefaults } from '@jsforce/jsforce-node/lib/request';
 import { Connection, Messages } from '@salesforce/core';
 import { Ux } from '@salesforce/sf-plugins-core';
 import sinon = require('sinon');
@@ -76,13 +80,16 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
 
   // Mirrors jsforce: raw bytes as base64 only when requested, otherwise a JSON content type is parsed into an
   // object and any other body is decoded as UTF-8 text.
+  const jsforceBody = (bytes: Buffer, contentType: string | null, options?: { encoding?: string }): unknown => {
+    if (options?.encoding === 'base64') return bytes.toString('base64');
+    if (contentType === 'application/json' && bytes.length > 0) return JSON.parse(bytes.toString('utf8'));
+    return bytes.toString('utf8');
+  };
+
   const stubAttachmentBody = (bytes: Buffer, contentType = 'application/octet-stream'): void => {
-    (tool as any).connection.request.callsFake((_request: unknown, options?: { encoding?: string }) => {
-      if (options?.encoding === 'base64') return Promise.resolve(bytes.toString('base64'));
-      if (contentType === 'application/json' && bytes.length > 0)
-        return Promise.resolve(JSON.parse(bytes.toString('utf8')));
-      return Promise.resolve(bytes.toString('utf8'));
-    });
+    (tool as any).connection.request.callsFake((_request: unknown, options?: { encoding?: string }) =>
+      Promise.resolve(jsforceBody(bytes, contentType, options))
+    );
   };
 
   const successfulCreate = (_connection: Connection, objectName: string, records: any[]): Promise<Map<string, any>> => {
@@ -592,8 +599,7 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
       return Buffer.from(record.Body, 'base64');
     };
 
-    // Serves each attachment the way jsforce does: base64 of the raw bytes only when asked for it, otherwise
-    // JSON bodies come back parsed into objects and everything else is decoded as UTF-8 text.
+    // Serves each attachment the way jsforce does (see jsforceBody)
     const givenAttachments = (attachments: SourceAttachment[]): void => {
       (tool as any).queryAttachments.resolves(
         attachments.map((attachment) => ({
@@ -607,11 +613,7 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
       (tool as any).connection.request.callsFake((request: { url: string }, options?: { encoding?: string }) => {
         const attachment = attachments.find((candidate) => request.url.includes(candidate.id));
         if (!attachment) return Promise.reject(new Error(`unexpected request ${request.url}`));
-        if (options?.encoding === 'base64') return Promise.resolve(attachment.bytes.toString('base64'));
-        if (attachment.contentType === 'application/json') {
-          return Promise.resolve(JSON.parse(attachment.bytes.toString('utf8')));
-        }
-        return Promise.resolve(attachment.bytes.toString('utf8'));
+        return Promise.resolve(jsforceBody(attachment.bytes, attachment.contentType, options));
       });
     };
 
@@ -670,6 +672,63 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
       const errors = migration.results.get('legacy-1')?.errors ?? [];
       expect(errors).to.have.lengthOf(1);
       expect(errors[0]).to.include('ossAttachmentSizeMismatch');
+      expect(
+        (tool as any).messages.getMessage.calledWith('ossAttachmentSizeMismatch', [
+          'OmniScriptFullJSON.json',
+          '00P000000000001',
+          fullJson.length,
+          10,
+        ])
+      ).to.be.true;
+    });
+
+    it('holds back a download with more bytes than its source', async () => {
+      const dataJson = Buffer.from(JSON.stringify({ Step1: { Text1: 'saved answer' } }));
+      givenAttachments([
+        {
+          id: '00P000000000001',
+          name: 'OmniScriptDataJSON.json',
+          bytes: dataJson,
+          contentType: 'application/json',
+          bodyLength: 5,
+        },
+      ]);
+
+      const [migration] = await tool.migrate();
+
+      expect(uploadedAttachments()).to.be.empty;
+      const errors = migration.results.get('legacy-1')?.errors ?? [];
+      expect(errors).to.have.lengthOf(1);
+      expect(errors[0]).to.include('ossAttachmentSizeMismatch');
+    });
+
+    it('uploads an empty attachment as an empty body', async () => {
+      givenAttachments([
+        { id: '00P000000000001', name: 'empty.txt', bytes: Buffer.alloc(0), contentType: 'text/plain', bodyLength: 0 },
+      ]);
+
+      const [migration] = await tool.migrate();
+
+      expect(migration.results.get('legacy-1')?.errors).to.deep.equal([]);
+      expect(uploadedAttachments().map((attachment) => attachment.Body)).to.deep.equal(['']);
+    });
+
+    it('treats no content as an empty body only when the source attachment is empty', async () => {
+      givenAttachments([
+        { id: '00P000000000001', name: 'empty.txt', bytes: Buffer.alloc(0), contentType: 'text/plain', bodyLength: 0 },
+        { id: '00P000000000002', name: 'notes.txt', bytes: Buffer.from('notes'), contentType: 'text/plain' },
+      ]);
+      (tool as any).connection.request.resolves(undefined);
+
+      const [download, missing] = await (tool as any).downloadAttachments(
+        await (tool as any).queryAttachments('legacy-1')
+      );
+
+      expect(download).to.include({ body: '' });
+      expect(download.errors).to.deep.equal([]);
+      expect(missing.body).to.equal('');
+      expect(missing.errors).to.have.lengthOf(1);
+      expect(missing.errors[0]).to.include('ossAttachmentUnexpectedResponse');
     });
 
     it('uploads an attachment with no ContentType or BodyLength without inventing either', async () => {
@@ -708,5 +767,185 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
       expect(migration.results.get('legacy-1')?.errors).to.deep.equal([]);
       expect(uploadedBytes('OmniScriptDataJSON.json').toString('utf8')).to.equal(dataJson.toString('utf8'));
     });
+
+    it('reports an error instead of uploading an empty body when the response is not base64 text', async () => {
+      // As if jsforce ignored the encoding option and parsed the JSON, with no BodyLength to catch it
+      const dataJson = Buffer.from(JSON.stringify({ Step1: { Text1: 'saved answer' } }));
+      givenAttachments([
+        {
+          id: '00P000000000001',
+          name: 'OmniScriptDataJSON.json',
+          bytes: dataJson,
+          contentType: 'application/json',
+          bodyLength: null,
+        },
+      ]);
+      (tool as any).connection.request.resolves(JSON.parse(dataJson.toString('utf8')));
+
+      const [migration] = await tool.migrate();
+
+      expect(uploadedAttachments()).to.be.empty;
+      const errors = migration.results.get('legacy-1')?.errors ?? [];
+      expect(errors).to.have.lengthOf(1);
+      expect(errors[0]).to.include('ossAttachmentUnexpectedResponse');
+    });
+
+    it('never returns a body for an attachment that failed its checks', async () => {
+      const fullJson = Buffer.from(JSON.stringify({ sInstanceId: 'legacy-1' }));
+      givenAttachments([
+        {
+          id: '00P000000000001',
+          name: 'OmniScriptFullJSON.json',
+          bytes: fullJson.subarray(0, 10),
+          contentType: 'application/octet-stream',
+          bodyLength: fullJson.length,
+        },
+      ]);
+
+      const [download] = await (tool as any).downloadAttachments(await (tool as any).queryAttachments('legacy-1'));
+
+      expect(download.errors).to.have.lengthOf(1);
+      expect(download.body).to.equal('');
+    });
+
+    it('never returns a body for a response that is not base64 text or a failed request', async () => {
+      const dataJson = Buffer.from(JSON.stringify({ Step1: { Text1: 'saved answer' } }));
+      givenAttachments([
+        { id: '00P000000000001', name: 'OmniScriptDataJSON.json', bytes: dataJson, contentType: 'application/json' },
+      ]);
+      const attachments = await (tool as any).queryAttachments('legacy-1');
+
+      (tool as any).connection.request.resolves(JSON.parse(dataJson.toString('utf8')));
+      const [unexpected] = await (tool as any).downloadAttachments(attachments);
+      (tool as any).connection.request.rejects(new Error('socket hang up'));
+      const [failed] = await (tool as any).downloadAttachments(attachments);
+
+      expect(unexpected.body).to.equal('');
+      expect(unexpected.errors).to.have.lengthOf(1);
+      expect(failed.body).to.equal('');
+      expect(failed.errors).to.have.lengthOf(1);
+      expect(failed.errors[0]).to.include('ossAttachmentDownloadFailed');
+    });
+  });
+});
+
+// Sends real requests through the installed jsforce to a local server, so a jsforce version that stops honouring
+// the responseType or encoding options fails here, unlike the stubbed tests above.
+describe('OmniScriptInstanceMigrationTool - attachment download through jsforce', () => {
+  let sandbox: sinon.SinonSandbox;
+  let server: http.Server;
+  let tool: OmniScriptInstanceMigrationTool;
+  const served = new Map<string, { bytes: Buffer; contentType: string; status?: number }>();
+  const notFound = Buffer.from(
+    JSON.stringify([{ errorCode: 'NOT_FOUND', message: 'The requested resource does not exist' }])
+  );
+
+  // jsforce sends every request through the proxy from the environment, which would not reach this local server
+  const jsforceRequestDefaults = (httpProxy?: string): void =>
+    setJsforceRequestDefaults({
+      httpProxy,
+      timeout: process.env.HTTP_TIMEOUT ? parseInt(process.env.HTTP_TIMEOUT, 10) : undefined,
+      followRedirect: true,
+    });
+
+  before(async () => {
+    jsforceRequestDefaults(undefined);
+    server = http.createServer((request, response) => {
+      const body = served.get(request.url ?? '') ?? { bytes: notFound, contentType: 'application/json', status: 404 };
+      response.writeHead(body.status ?? 200, { 'Content-Type': body.contentType }).end(body.bytes);
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  });
+
+  after(async () => {
+    jsforceRequestDefaults(
+      process.env.https_proxy ?? process.env.http_proxy ?? process.env.HTTPS_PROXY ?? process.env.HTTP_PROXY
+    );
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+
+  beforeEach(() => {
+    sandbox = sinon.createSandbox();
+    sandbox.stub(dataModelService, 'isStandardDataModel').returns(false);
+    sandbox.stub(dataModelService, 'isStandardDataModelWithMetadataAPIEnabled').returns(false);
+    sandbox.stub(Logger, 'logVerbose');
+    sandbox.stub(Logger, 'error');
+    served.clear();
+
+    const { port } = server.address() as AddressInfo;
+    const connection = new JsforceConnection({
+      instanceUrl: `http://127.0.0.1:${port}`,
+      accessToken: 'test-token',
+      version: '62.0',
+    });
+    const messages = {
+      getMessage: (key: string, tokens: unknown[] = []) => `${key} ${JSON.stringify(tokens)}`,
+    } as unknown as Messages<string>;
+    tool = new OmniScriptInstanceMigrationTool(
+      'vlocity_ins',
+      connection as unknown as Connection,
+      {} as Logger,
+      messages,
+      {} as Ux
+    );
+  });
+
+  afterEach(() => sandbox.restore());
+
+  const attachment = (id: string, bytes: Buffer, contentType: string): any => {
+    const path = `/services/data/v62.0/sobjects/Attachment/${id}/Body`;
+    served.set(path, { bytes, contentType });
+    return { Id: id, Name: id, Body: path, BodyLength: bytes.length, ContentType: contentType };
+  };
+
+  it('returns the exact bytes of JSON, text and binary attachments', async () => {
+    const dataJson = Buffer.from(JSON.stringify({ Step1: { Name: 'José Müller', Note: '👍' } }));
+    const text = Buffer.from('069000000000001AAA');
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0xff, 0xfe, 0x80, 0xc3, 0x28]);
+
+    const downloads = await (tool as any).downloadAttachments([
+      attachment('00P000000000001', dataJson, 'application/json;charset=UTF-8'),
+      attachment('00P000000000002', text, 'text/plain'),
+      attachment('00P000000000003', png, 'image/png'),
+    ]);
+
+    expect(downloads.map((download: any) => download.errors)).to.deep.equal([[], [], []]);
+    expect(Buffer.from(downloads[0].body, 'base64').equals(dataJson)).to.be.true;
+    expect(Buffer.from(downloads[1].body, 'base64').equals(text)).to.be.true;
+    expect(Buffer.from(downloads[2].body, 'base64').equals(png)).to.be.true;
+  });
+
+  it('returns the exact bytes of CSV and XML attachments, which jsforce would otherwise parse', async () => {
+    const csv = Buffer.from('Name,City\nJosé,東京\n');
+    const xml = Buffer.from('<?xml version="1.0"?><answers><Text1>saved</Text1></answers>');
+    const bodies = [csv, xml, xml];
+
+    const downloads = await (tool as any).downloadAttachments([
+      attachment('00P000000000001', csv, 'text/csv'),
+      attachment('00P000000000002', xml, 'application/xml'),
+      attachment('00P000000000003', xml, 'text/xml; charset=utf-8'),
+    ]);
+
+    expect(downloads.map((download: any) => download.errors)).to.deep.equal([[], [], []]);
+    downloads.forEach(
+      (download: any, index: number) => expect(Buffer.from(download.body, 'base64').equals(bodies[index])).to.be.true
+    );
+  });
+
+  it('reports the Salesforce error, not base64 text, when an attachment download fails', async () => {
+    const path = '/services/data/v62.0/sobjects/Attachment/00P000000000009/Body';
+
+    const [download] = await (tool as any).downloadAttachments([
+      { Id: '00P000000000009', Name: 'deleted.json', Body: path, BodyLength: 10, ContentType: 'application/json' },
+    ]);
+
+    expect(download.body).to.equal('');
+    expect(download.errors).to.deep.equal([
+      `ossAttachmentDownloadFailed ${JSON.stringify([
+        path,
+        JSON.stringify('NOT_FOUND: The requested resource does not exist'),
+      ])}`,
+    ]);
   });
 });

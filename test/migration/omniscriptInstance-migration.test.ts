@@ -194,7 +194,7 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
   it('accepts an attachment Tree create result that omits success', async () => {
     sandbox.stub(tool as any, 'queryOmniscriptInstance').resolves([instance(1)]);
     (tool as any).queryAttachments.resolves([
-      { Id: 'attachment-1', Name: 'one.json', Body: '/body/1', ContentType: 'application/json' },
+      { Id: 'attachment-1', Name: 'one.json', Body: '/body/1', BodyLength: 4, ContentType: 'application/json' },
     ]);
     stubAttachmentBody(Buffer.from('body', 'utf8'));
     createStub.callsFake((_connection: Connection, objectName: string) =>
@@ -713,6 +713,18 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
       expect(uploadedAttachments().map((attachment) => attachment.Body)).to.deep.equal(['']);
     });
 
+    it('treats a null response as an empty body when the source attachment is empty', async () => {
+      givenAttachments([
+        { id: '00P000000000001', name: 'empty.txt', bytes: Buffer.alloc(0), contentType: 'text/plain', bodyLength: 0 },
+      ]);
+      (tool as any).connection.request.resolves(null);
+
+      const [download] = await (tool as any).downloadAttachments(await (tool as any).queryAttachments('legacy-1'));
+
+      expect(download.body).to.equal('');
+      expect(download.errors).to.deep.equal([]);
+    });
+
     it('treats no content as an empty body only when the source attachment is empty', async () => {
       givenAttachments([
         { id: '00P000000000001', name: 'empty.txt', bytes: Buffer.alloc(0), contentType: 'text/plain', bodyLength: 0 },
@@ -742,6 +754,7 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
       expect(migration.results.get('legacy-1')?.errors).to.deep.equal([]);
       expect(uploadedBytes('069000000000001').equals(upload)).to.be.true;
       expect(uploadedAttachments()[0]).to.not.have.property('ContentType');
+      expect((Logger.warn as sinon.SinonStub).calledWith('ossAttachmentSizeUnverified')).to.be.true;
     });
 
     it('keeps bytes that are not valid UTF-8 intact', async () => {
@@ -840,7 +853,10 @@ describe('OmniScriptInstanceMigrationTool - attachment download through jsforce'
     JSON.stringify([{ errorCode: 'NOT_FOUND', message: 'The requested resource does not exist' }])
   );
 
-  // jsforce sends every request through the proxy from the environment, which would not reach this local server
+  // jsforce sends every request through the proxy from the environment, which would not reach this local server.
+  // jsforce keeps its request defaults private, so they can't be captured. after() restores them with the same
+  // expression jsforce runs when it loads (lib/transport.js). Only one jsforce is installed, and it is the one
+  // @salesforce/core uses, so these tests run the production code path.
   const jsforceRequestDefaults = (httpProxy?: string): void =>
     setJsforceRequestDefaults({
       httpProxy,
@@ -852,6 +868,10 @@ describe('OmniScriptInstanceMigrationTool - attachment download through jsforce'
     jsforceRequestDefaults(undefined);
     server = http.createServer((request, response) => {
       const body = served.get(request.url ?? '') ?? { bytes: notFound, contentType: 'application/json', status: 404 };
+      if (body.status === 204) {
+        response.writeHead(204).end();
+        return;
+      }
       response.writeHead(body.status ?? 200, { 'Content-Type': body.contentType }).end(body.bytes);
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -871,6 +891,7 @@ describe('OmniScriptInstanceMigrationTool - attachment download through jsforce'
     sandbox.stub(dataModelService, 'isStandardDataModelWithMetadataAPIEnabled').returns(false);
     sandbox.stub(Logger, 'logVerbose');
     sandbox.stub(Logger, 'error');
+    sandbox.stub(Logger, 'warn');
     served.clear();
 
     const { port } = server.address() as AddressInfo;
@@ -931,6 +952,24 @@ describe('OmniScriptInstanceMigrationTool - attachment download through jsforce'
     downloads.forEach(
       (download: any, index: number) => expect(Buffer.from(download.body, 'base64').equals(bodies[index])).to.be.true
     );
+  });
+
+  it('copies an empty attachment that comes back as 204 No Content', async () => {
+    const path = '/services/data/v62.0/sobjects/Attachment/00P000000000008/Body';
+    served.set(path, { bytes: Buffer.alloc(0), contentType: 'text/plain', status: 204 });
+
+    const [download] = await (tool as any).downloadAttachments([
+      { Id: '00P000000000008', Name: 'empty.txt', Body: path, BodyLength: 0, ContentType: 'text/plain' },
+    ]);
+
+    expect(download.errors).to.deep.equal([]);
+    expect(download.body).to.equal('');
+  });
+
+  it('does not decode a plain-text error message that only uses base64 characters', () => {
+    const error = Object.assign(new Error('Forbidden'), { errorCode: 'ERROR_HTTP_403' });
+
+    expect((tool as any).getDownloadErrorMessage(error)).to.equal('Forbidden');
   });
 
   it('reports the Salesforce error, not base64 text, when an attachment download fails', async () => {

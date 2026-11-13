@@ -969,8 +969,8 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
         // Keep the body only when the download is complete, so a failed attachment can never be uploaded empty
         // or truncated, whatever the caller does with the errors.
         const expectedSize: unknown = attachment['BodyLength'];
-        if (raw === undefined && expectedSize === 0) {
-          // An empty body can come back as no content at all
+        if (raw == null && expectedSize === 0) {
+          // An empty body can come back as no content at all (jsforce returns undefined for a 204)
           Logger.logVerbose(this.messages.getMessage('ossAttachmentDownloadSuccess', [attachmentId, 0]));
         } else if (typeof raw !== 'string') {
           const msg = this.messages.getMessage('ossAttachmentUnexpectedResponse', [
@@ -993,6 +993,9 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
             errors.push(msg);
           } else {
             body = raw;
+            if (typeof expectedSize !== 'number') {
+              Logger.warn(this.messages.getMessage('ossAttachmentSizeUnverified', [attachmentName, attachmentId]));
+            }
             Logger.logVerbose(this.messages.getMessage('ossAttachmentDownloadSuccess', [attachmentId, size]));
           }
         }
@@ -1026,6 +1029,8 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
     if (!errorCode.startsWith('ERROR_HTTP_')) {
       return message;
     }
+    // The message is Node's own canonical base64 (no line breaks, always padded), so a round trip tells it apart
+    // from plain text. A character check can't: a message such as "Forbidden" only uses base64 characters.
     const text = Buffer.from(message, 'base64').toString('utf8');
     if (Buffer.from(text, 'utf8').toString('base64') !== message) {
       // Not base64, for example the message jsforce builds for HTML error pages

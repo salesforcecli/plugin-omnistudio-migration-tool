@@ -969,7 +969,12 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
         // Keep the body only when the download is complete, so a failed attachment can never be uploaded empty
         // or truncated, whatever the caller does with the errors.
         const expectedSize: unknown = attachment['BodyLength'];
-        if (raw == null && expectedSize === 0) {
+        if (typeof expectedSize !== 'number') {
+          // Without the source size a truncated download can't be told apart from a complete one
+          const msg = this.messages.getMessage('ossAttachmentSizeUnverified', [attachmentName, attachmentId]);
+          Logger.error(msg);
+          errors.push(msg);
+        } else if (raw == null && expectedSize === 0) {
           // An empty body can come back as no content at all (jsforce returns undefined for a 204)
           Logger.logVerbose(this.messages.getMessage('ossAttachmentDownloadSuccess', [attachmentId, 0]));
         } else if (typeof raw !== 'string') {
@@ -982,7 +987,7 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
           errors.push(msg);
         } else {
           const size = Buffer.byteLength(raw, 'base64');
-          if (typeof expectedSize === 'number' && size !== expectedSize) {
+          if (size !== expectedSize) {
             const msg = this.messages.getMessage('ossAttachmentSizeMismatch', [
               attachmentName,
               attachmentId,
@@ -993,9 +998,6 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
             errors.push(msg);
           } else {
             body = raw;
-            if (typeof expectedSize !== 'number') {
-              Logger.warn(this.messages.getMessage('ossAttachmentSizeUnverified', [attachmentName, attachmentId]));
-            }
             Logger.logVerbose(this.messages.getMessage('ossAttachmentDownloadSuccess', [attachmentId, size]));
           }
         }

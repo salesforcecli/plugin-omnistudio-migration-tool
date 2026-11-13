@@ -250,6 +250,7 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
         Id: `attachment-${index + 1}`,
         Name: `${index + 1}.json`,
         Body: `/body/${index + 1}`,
+        BodyLength: 4,
       }))
     );
     stubAttachmentBody(Buffer.from('body', 'utf8'));
@@ -286,8 +287,8 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
   it('correlates partial failures and only updates and uploads attachments for successful creates', async () => {
     sandbox.stub(tool as any, 'queryOmniscriptInstance').resolves([instance(1), instance(2)]);
     (tool as any).queryAttachments.onCall(0).resolves([
-      { Id: 'attachment-1', Name: 'one.json', Body: '/body/1' },
-      { Id: 'attachment-2', Name: 'two.json', Body: '/body/2' },
+      { Id: 'attachment-1', Name: 'one.json', Body: '/body/1', BodyLength: 4 },
+      { Id: 'attachment-2', Name: 'two.json', Body: '/body/2', BodyLength: 4 },
     ]);
     stubAttachmentBody(Buffer.from('body', 'utf8'));
 
@@ -367,8 +368,8 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
   it('splits attachment creates by exact UTF-8 request body bytes before 200 records', async () => {
     sandbox.stub(tool as any, 'queryOmniscriptInstance').resolves([instance(1)]);
     (tool as any).queryAttachments.resolves([
-      { Id: 'attachment-1', Name: 'one.json', Body: '/body/1' },
-      { Id: 'attachment-2', Name: 'two.json', Body: '/body/2' },
+      { Id: 'attachment-1', Name: 'one.json', Body: '/body/1', BodyLength: 3_000_000 },
+      { Id: 'attachment-2', Name: 'two.json', Body: '/body/2', BodyLength: 3_000_000 },
     ]);
     stubAttachmentBody(Buffer.from('x'.repeat(3_000_000), 'utf8'));
     createStub.callsFake((_connection: Connection, objectName: string, records: any[]) =>
@@ -410,6 +411,7 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
         Id: `attachment-${index}`,
         Name: `${index}.json`,
         Body: `/body/${index}`,
+        BodyLength: 4,
       }))
     );
     stubAttachmentBody(Buffer.from('body', 'utf8'));
@@ -440,7 +442,9 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
   it('correlates attachment failures across byte batches to different parent sessions', async () => {
     sandbox.stub(tool as any, 'queryOmniscriptInstance').resolves([instance(1), instance(2)]);
     (tool as any).queryAttachments.callsFake((parentId: string) =>
-      Promise.resolve([{ Id: `attachment-${parentId}`, Name: `${parentId}.json`, Body: `/body/${parentId}` }])
+      Promise.resolve([
+        { Id: `attachment-${parentId}`, Name: `${parentId}.json`, Body: `/body/${parentId}`, BodyLength: 3_000_000 },
+      ])
     );
     stubAttachmentBody(Buffer.from('x'.repeat(3_000_000), 'utf8'));
     createStub.callsFake((_connection: Connection, objectName: string, records: any[]) => {
@@ -493,7 +497,7 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
   it('uploads an oversized attachment with createOne', async () => {
     sandbox.stub(tool as any, 'queryOmniscriptInstance').resolves([instance(1)]);
     (tool as any).queryAttachments.resolves([
-      { Id: 'oversized-attachment', Name: 'oversized.json', Body: '/body/oversized' },
+      { Id: 'oversized-attachment', Name: 'oversized.json', Body: '/body/oversized', BodyLength: 5 * 1024 * 1024 },
     ]);
     stubAttachmentBody(Buffer.from('x'.repeat(5 * 1024 * 1024), 'utf8'));
     createStub.callsFake((_connection: Connection, objectName: string) => {
@@ -543,7 +547,16 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
     sandbox.stub(tool as any, 'queryOmniscriptInstance').resolves([instance(1), instance(2)]);
     (tool as any).queryAttachments.callsFake((parentId: string) =>
       Promise.resolve(
-        parentId === 'legacy-2' ? [{ Id: 'oversized-attachment', Name: 'oversized.json', Body: '/body/oversized' }] : []
+        parentId === 'legacy-2'
+          ? [
+              {
+                Id: 'oversized-attachment',
+                Name: 'oversized.json',
+                Body: '/body/oversized',
+                BodyLength: 5 * 1024 * 1024,
+              },
+            ]
+          : []
       )
     );
     stubAttachmentBody(Buffer.from('x'.repeat(5 * 1024 * 1024), 'utf8'));
@@ -743,18 +756,32 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
       expect(missing.errors[0]).to.include('ossAttachmentUnexpectedResponse');
     });
 
-    it('uploads an attachment with no ContentType or BodyLength without inventing either', async () => {
+    it('uploads an attachment with no ContentType without inventing one', async () => {
       const upload = Buffer.from('scanned driver licence');
-      givenAttachments([
-        { id: '069000000000001', name: '069000000000001', bytes: upload, contentType: null, bodyLength: null },
-      ]);
+      givenAttachments([{ id: '069000000000001', name: '069000000000001', bytes: upload, contentType: null }]);
 
       const [migration] = await tool.migrate();
 
       expect(migration.results.get('legacy-1')?.errors).to.deep.equal([]);
       expect(uploadedBytes('069000000000001').equals(upload)).to.be.true;
       expect(uploadedAttachments()[0]).to.not.have.property('ContentType');
-      expect((Logger.warn as sinon.SinonStub).calledWith('ossAttachmentSizeUnverified')).to.be.true;
+    });
+
+    it('holds back an attachment whose source size is unknown, since its download cannot be checked', async () => {
+      const upload = Buffer.from('scanned driver licence');
+      givenAttachments([
+        { id: '069000000000001', name: 'licence.pdf', bytes: upload, contentType: null, bodyLength: null },
+        { id: '069000000000002', name: 'empty.txt', bytes: Buffer.alloc(0), contentType: null, bodyLength: null },
+      ]);
+      (tool as any).connection.request.onSecondCall().resolves(undefined);
+
+      const [migration] = await tool.migrate();
+
+      expect(uploadedAttachments()).to.be.empty;
+      expect(migration.results.get('legacy-1')?.errors).to.deep.equal([
+        'ossAttachmentSizeUnverified',
+        'ossAttachmentSizeUnverified',
+      ]);
     });
 
     it('keeps bytes that are not valid UTF-8 intact', async () => {
@@ -782,7 +809,7 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
     });
 
     it('reports an error instead of uploading an empty body when the response is not base64 text', async () => {
-      // As if jsforce ignored the encoding option and parsed the JSON, with no BodyLength to catch it
+      // As if jsforce ignored the encoding option and parsed the JSON
       const dataJson = Buffer.from(JSON.stringify({ Step1: { Text1: 'saved answer' } }));
       givenAttachments([
         {
@@ -790,7 +817,6 @@ describe('OmniScriptInstanceMigrationTool - Migration', () => {
           name: 'OmniScriptDataJSON.json',
           bytes: dataJson,
           contentType: 'application/json',
-          bodyLength: null,
         },
       ]);
       (tool as any).connection.request.resolves(JSON.parse(dataJson.toString('utf8')));
@@ -964,6 +990,33 @@ describe('OmniScriptInstanceMigrationTool - attachment download through jsforce'
 
     expect(download.errors).to.deep.equal([]);
     expect(download.body).to.equal('');
+  });
+
+  it('reports the Salesforce error for any error status', async () => {
+    const errorBody = (errorCode: string, message: string): Buffer =>
+      Buffer.from(JSON.stringify([{ errorCode, message }]));
+    const failing = [
+      { id: '00P000000000005', status: 400, errorCode: 'MALFORMED_ID', message: 'Bad id 00P' },
+      { id: '00P000000000006', status: 401, errorCode: 'INVALID_SESSION_ID', message: 'Session expired or invalid' },
+      { id: '00P000000000007', status: 403, errorCode: 'INSUFFICIENT_ACCESS', message: 'Insufficient access' },
+    ];
+    const attachments = failing.map(({ id, status, errorCode, message }) => {
+      const path = `/services/data/v62.0/sobjects/Attachment/${id}/Body`;
+      served.set(path, { bytes: errorBody(errorCode, message), contentType: 'application/json', status });
+      return { Id: id, Name: `${id}.json`, Body: path, BodyLength: 10, ContentType: 'application/json' };
+    });
+
+    const downloads = await (tool as any).downloadAttachments(attachments);
+
+    expect(downloads.map((download: any) => download.errors[0])).to.deep.equal(
+      failing.map(
+        ({ errorCode, message }, index) =>
+          `ossAttachmentDownloadFailed ${JSON.stringify([
+            attachments[index].Body,
+            JSON.stringify(`${errorCode}: ${message}`),
+          ])}`
+      )
+    );
   });
 
   it('does not decode a plain-text error message that only uses base64 characters', () => {

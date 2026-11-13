@@ -905,7 +905,12 @@ describe('OmniScriptInstanceMigrationTool - Assessment', () => {
       connectionRequestStub.resolves(source.toString('base64'));
 
       const attachments = [
-        { Id: '00P002', Name: 'file.json', Body: '/services/data/v67.0/sobjects/Attachment/00P002/Body' },
+        {
+          Id: '00P002',
+          Name: 'file.json',
+          Body: '/services/data/v67.0/sobjects/Attachment/00P002/Body',
+          BodyLength: source.length,
+        },
       ];
 
       const result = await (migrationTool as any).downloadAttachments(attachments);
@@ -961,8 +966,18 @@ describe('OmniScriptInstanceMigrationTool - Assessment', () => {
         .resolves(Buffer.from('content2', 'utf8').toString('base64'));
 
       const attachments = [
-        { Id: '00P004', Name: 'file1.json', Body: '/services/data/v67.0/sobjects/Attachment/00P004/Body' },
-        { Id: '00P005', Name: 'file2.json', Body: '/services/data/v67.0/sobjects/Attachment/00P005/Body' },
+        {
+          Id: '00P004',
+          Name: 'file1.json',
+          Body: '/services/data/v67.0/sobjects/Attachment/00P004/Body',
+          BodyLength: 8,
+        },
+        {
+          Id: '00P005',
+          Name: 'file2.json',
+          Body: '/services/data/v67.0/sobjects/Attachment/00P005/Body',
+          BodyLength: 8,
+        },
       ];
 
       const result = await (migrationTool as any).downloadAttachments(attachments);

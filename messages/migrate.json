@@ -370,6 +370,9 @@
   "ossAttachmentUploadEnd": "Uploaded %s/%s attachments for %s",
   "ossAttachmentDownloadSuccess": "Successfully downloaded attachment %s, size: %s bytes",
   "ossAttachmentDownloadFailed": "Failed to download attachment from path %s : %s",
+  "ossAttachmentSizeMismatch": "Attachment %s (%s) wasn't migrated with the saved session because the download doesn't match its source size. Expected %s bytes but got %s bytes.",
+  "ossAttachmentSizeUnverified": "Attachment %s (%s) wasn't migrated with the saved session because its source size isn't available to check the download against.",
+  "ossAttachmentUnexpectedResponse": "Attachment %s (%s) wasn't migrated with the saved session because the download isn't raw data. Expected base64 text but got %s.",
   "flexipageOsWrapperSummary": "OmniScript component will migrate from vlocityLWCOmniWrapper to runtime_omnistudio:omniscript",
   "flexipageFcWrapperSummary": "FlexCard component will migrate from vlocityLWCOmniWrapper to runtime_omnistudio:flexcard",
   "corruptedParentChildLevel": "%s has elements with corrupted parent-child hierarchy. The following elements have their parent and child persisted at the same level, which will cause data loss after migration: %s. Create a new version of this %s to fix the issue before migrating."

@@ -7,9 +7,9 @@
 /* eslint-disable camelcase */
 import * as http from 'http';
 import { AddressInfo } from 'net';
+import { dirname } from 'path';
 import { expect } from 'chai';
 import { Connection as JsforceConnection } from '@jsforce/jsforce-node';
-import { setDefaults as setJsforceRequestDefaults } from '@jsforce/jsforce-node/lib/request';
 import { Connection, Messages } from '@salesforce/core';
 import { Ux } from '@salesforce/sf-plugins-core';
 import sinon = require('sinon');
@@ -879,19 +879,7 @@ describe('OmniScriptInstanceMigrationTool - attachment download through jsforce'
     JSON.stringify([{ errorCode: 'NOT_FOUND', message: 'The requested resource does not exist' }])
   );
 
-  // jsforce sends every request through the proxy from the environment, which would not reach this local server.
-  // jsforce keeps its request defaults private, so they can't be captured. after() restores them with the same
-  // expression jsforce runs when it loads (lib/transport.js). Only one jsforce is installed, and it is the one
-  // @salesforce/core uses, so these tests run the production code path.
-  const jsforceRequestDefaults = (httpProxy?: string): void =>
-    setJsforceRequestDefaults({
-      httpProxy,
-      timeout: process.env.HTTP_TIMEOUT ? parseInt(process.env.HTTP_TIMEOUT, 10) : undefined,
-      followRedirect: true,
-    });
-
   before(async () => {
-    jsforceRequestDefaults(undefined);
     server = http.createServer((request, response) => {
       const body = served.get(request.url ?? '') ?? { bytes: notFound, contentType: 'application/json', status: 404 };
       if (body.status === 204) {
@@ -904,9 +892,6 @@ describe('OmniScriptInstanceMigrationTool - attachment download through jsforce'
   });
 
   after(async () => {
-    jsforceRequestDefaults(
-      process.env.https_proxy ?? process.env.http_proxy ?? process.env.HTTPS_PROXY ?? process.env.HTTP_PROXY
-    );
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
@@ -926,6 +911,12 @@ describe('OmniScriptInstanceMigrationTool - attachment download through jsforce'
       accessToken: 'test-token',
       version: '62.0',
     });
+    // jsforce sends every request through the proxy from the environment, which would not reach this local server.
+    // Its request options override its global defaults, so turn the proxy off for this connection only.
+    // eslint-disable-next-line no-underscore-dangle
+    const transport = connection._transport;
+    const httpRequest = transport.httpRequest.bind(transport);
+    transport.httpRequest = (request, options) => httpRequest(request, { ...options, httpProxy: undefined });
     const messages = {
       getMessage: (key: string, tokens: unknown[] = []) => `${key} ${JSON.stringify(tokens)}`,
     } as unknown as Messages<string>;
@@ -1039,5 +1030,13 @@ describe('OmniScriptInstanceMigrationTool - attachment download through jsforce'
         JSON.stringify('NOT_FOUND: The requested resource does not exist'),
       ])}`,
     ]);
+  });
+
+  it('runs the same jsforce copy that @salesforce/core uses', () => {
+    const fromCore = require.resolve('@jsforce/jsforce-node', {
+      paths: [dirname(require.resolve('@salesforce/core'))],
+    });
+
+    expect(require.resolve('@jsforce/jsforce-node')).to.equal(fromCore);
   });
 });

@@ -958,6 +958,10 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
       const contentType = String(attachment['ContentType'] ?? '');
       const path = String(attachment['Body'] ?? '');
       let body = '';
+      const fail = (msg: string): void => {
+        Logger.error(msg);
+        errors.push(msg);
+      };
 
       try {
         // Read the raw bytes as base64. Otherwise jsforce parses JSON bodies into objects and decodes everything
@@ -968,44 +972,18 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
         );
         // Keep the body only when the download is complete, so a failed attachment can never be uploaded empty
         // or truncated, whatever the caller does with the errors.
-        const expectedSize: unknown = attachment['BodyLength'];
-        if (typeof expectedSize !== 'number') {
-          // Without the source size a truncated download can't be told apart from a complete one
-          const msg = this.messages.getMessage('ossAttachmentSizeUnverified', [attachmentName, attachmentId]);
-          Logger.error(msg);
-          errors.push(msg);
-        } else if (raw == null && expectedSize === 0) {
-          // An empty body can come back as no content at all (jsforce returns undefined for a 204)
-          Logger.logVerbose(this.messages.getMessage('ossAttachmentDownloadSuccess', [attachmentId, 0]));
-        } else if (typeof raw !== 'string') {
-          const msg = this.messages.getMessage('ossAttachmentUnexpectedResponse', [
-            attachmentName,
-            attachmentId,
-            typeof raw,
-          ]);
-          Logger.error(msg);
-          errors.push(msg);
+        const checked = this.checkDownload(raw, attachment['BodyLength'], attachmentName, attachmentId);
+        if ('error' in checked) {
+          fail(checked.error);
         } else {
-          const size = Buffer.byteLength(raw, 'base64');
-          if (size !== expectedSize) {
-            const msg = this.messages.getMessage('ossAttachmentSizeMismatch', [
-              attachmentName,
-              attachmentId,
-              expectedSize,
-              size,
-            ]);
-            Logger.error(msg);
-            errors.push(msg);
-          } else {
-            body = raw;
-            Logger.logVerbose(this.messages.getMessage('ossAttachmentDownloadSuccess', [attachmentId, size]));
-          }
+          body = checked.body;
+          Logger.logVerbose(
+            this.messages.getMessage('ossAttachmentDownloadSuccess', [attachmentId, Buffer.byteLength(body, 'base64')])
+          );
         }
       } catch (error) {
         const errorMsg = this.getDownloadErrorMessage(error);
-        const msg = this.messages.getMessage('ossAttachmentDownloadFailed', [path, JSON.stringify(errorMsg)]);
-        Logger.error(msg);
-        errors.push(msg);
+        fail(this.messages.getMessage('ossAttachmentDownloadFailed', [path, JSON.stringify(errorMsg)]));
       }
 
       results.push({
@@ -1019,6 +997,44 @@ export class OmniScriptInstanceMigrationTool extends BaseMigrationTool implement
     }
 
     return results;
+  }
+
+  /**
+   * Checks a downloaded attachment body against the size of its source.
+   *
+   * @returns the base64 body when the download is complete, otherwise the error that holds the attachment back
+   */
+  private checkDownload(
+    raw: unknown,
+    expectedSize: unknown,
+    attachmentName: string,
+    attachmentId: string
+  ): { body: string } | { error: string } {
+    if (typeof expectedSize !== 'number') {
+      // Without the source size a truncated download can't be told apart from a complete one
+      return { error: this.messages.getMessage('ossAttachmentSizeUnverified', [attachmentName, attachmentId]) };
+    }
+    if (raw == null && expectedSize === 0) {
+      // An empty body can come back as no content at all (jsforce returns undefined for a 204)
+      return { body: '' };
+    }
+    if (typeof raw !== 'string') {
+      return {
+        error: this.messages.getMessage('ossAttachmentUnexpectedResponse', [attachmentName, attachmentId, typeof raw]),
+      };
+    }
+    const size = Buffer.byteLength(raw, 'base64');
+    if (size !== expectedSize) {
+      return {
+        error: this.messages.getMessage('ossAttachmentSizeMismatch', [
+          attachmentName,
+          attachmentId,
+          expectedSize,
+          size,
+        ]),
+      };
+    }
+    return { body: raw };
   }
 
   /**
